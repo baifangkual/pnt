@@ -1,5 +1,5 @@
 # pnt
-TUI Password note
+tui password note
 
 ## 暂记
 
