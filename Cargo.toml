@@ -2,6 +2,7 @@
 name = "pnt"
 version = "0.0.1"
 edition = "2024"
-description = "TUI Password note"
+license = "Apache-2.0"
+description = "a simple tui password note application"
 
 [dependencies]

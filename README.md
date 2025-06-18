@@ -1,5 +1,5 @@
 # pnt
-tui password note
+a simple tui password note application
 
 ## 暂记
 
