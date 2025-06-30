@@ -1,8 +1,15 @@
 [package]
-name = "pnt"
-version = "0.0.1"
+name = "pnt" # 用以clap提取
+version = "0.1.0" # 用以clap提取
+authors = ["baifangkual"] # 用以clap提取
 edition = "2024"
 license = "Apache-2.0"
-description = "a simple tui password note application"
+description = "A simple TUI password note application" # 用以clap提取
 
 [dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.40", features = ["cargo"] }
+confy = "1.0.0"
+env_logger = "0.11.8"
+ratatui = "0.29.0"
+serde_json = "1.0.140"
