@@ -1,5 +1,5 @@
 # pnt
-a simple tui password note application
+A simple TUI password note application
 
 ## 暂记
 
@@ -26,3 +26,13 @@ a simple tui password note application
 * 后续应扩展：pnt tui 程序运行时，若使用运行时需要密码，则每次查看密文时都验证界面是否运行了很久，
 若超过一定阈值，则要求输入主密码
 * kv表无需添加向量，因为kv表其是针对pnt的，pnt无任何秘密可言
+
+
+## License
+
+Copyright (c) baifangkual
+
+MIT OR Apache-2.0
+
+[MIT]: ./LICENSE-MIT
+[Apache-2.0]: ./LICENSE-APACHE

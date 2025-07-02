@@ -3,12 +3,12 @@ name = "pnt" # 用以clap提取
 version = "0.1.0" # 用以clap提取
 authors = ["baifangkual"] # 用以clap提取
 edition = "2024"
-license = "Apache-2.0"
+license = "MIT OR Apache-2.0"
 description = "A simple TUI password note application" # 用以clap提取
 # 不指定readme时自动指向README.md readme = "README.md"
 homepage = "https://github.com/baifangkual/pnt"
 repository = "https://github.com/baifangkual/pnt"
-keywords = ["TUI", "password-note-app"]
+keywords = ["TUI", "password-note"]
 categories = ["command-line-utilities"]
 
 [dependencies]
