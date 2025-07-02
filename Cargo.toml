@@ -8,7 +8,7 @@ description = "A simple TUI password note application" # 用以clap提取
 # 不指定readme时自动指向README.md readme = "README.md"
 homepage = "https://github.com/baifangkual/pnt"
 repository = "https://github.com/baifangkual/pnt"
-keywords = ["TUI", "password-note"]
+keywords = ["tui-app", "password-manager", "notes-app"]
 categories = ["command-line-utilities"]
 
 [dependencies]

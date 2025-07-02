@@ -32,7 +32,7 @@ A simple TUI password note application
 
 Copyright (c) baifangkual
 
-MIT OR Apache-2.0
+[MIT] OR [Apache-2.0]
 
 [MIT]: ./LICENSE-MIT
 [Apache-2.0]: ./LICENSE-APACHE
