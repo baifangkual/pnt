@@ -143,12 +143,13 @@ impl SqliteConn {
     }
     /// 通过name模糊查询
     pub fn select_entry_by_name_like(&self, name_like: &str) -> Vec<Entry> {
+        let nl = format!("%{}%", name_like); // 左右
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM entry WHERE name LIKE ?")
             .expect("Failed to prepare query");
         let rows = stmt
-            .query_map(&[name_like], row_map_entry)
+            .query_map([nl], row_map_entry)
             .expect("Failed to select entry");
         rows.filter_map(|r| sql_result_map_to_option(r)).collect()
     }
@@ -185,7 +186,7 @@ impl SqliteConn {
             .expect("Failed to delete cfg");
     }
     /// 通过key查询配置
-    pub  fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
+    pub fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
         let r = self
             .conn
             .query_row("SELECT v FROM cfg WHERE k =?", params![key], |row| {

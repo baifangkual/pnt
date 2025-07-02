@@ -7,7 +7,7 @@ use clap::Parser;
 about = format!("{}\n  Press F1 in the TUI interface to view the key mappings", clap::crate_description!()),
 long_about = None)]
 pub struct CliArgs {
-    /// (Cli Mode) find entry by name
+    /// (Cli Mode) find entry by name like
     #[arg(short, long)]
     pub find: Option<String>,
 }

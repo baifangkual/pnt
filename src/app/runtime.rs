@@ -1,9 +1,9 @@
-use anyhow::Context;
-use crate::app::{config::Cfg};
-use crate::app::entry::{Entry, UserInputEntry};
-use crate::app::encrypt::{MainPwdEncrypter, MainPwdVerifier};
-use crate::app::storage::sqlite::SqliteConn;
 use crate::app::cli::args::CliArgs;
+use crate::app::config::Cfg;
+use crate::app::encrypt::{MainPwdEncrypter, MainPwdVerifier};
+use crate::app::entry::{Entry, UserInputEntry};
+use crate::app::storage::sqlite::SqliteConn;
+use anyhow::Context;
 
 pub struct PntRuntimeContext {
     pub(crate) cfg: Cfg,
@@ -16,7 +16,13 @@ pub struct PntRuntimeContext {
 }
 
 impl PntRuntimeContext {
-    pub fn new(cfg: Cfg, cli_args: CliArgs, storage: SqliteConn, run_mode: RunMode, mpv: Option<MainPwdVerifier>) -> Self {
+    pub fn new(
+        cfg: Cfg,
+        cli_args: CliArgs,
+        storage: SqliteConn,
+        run_mode: RunMode,
+        mpv: Option<MainPwdVerifier>,
+    ) -> Self {
         Self {
             cfg,
             cli_args,

@@ -1,5 +1,5 @@
-use chrono::{DateTime, Local};
 use crate::app::encrypt::{Decrypter, Encrypter};
+use chrono::{DateTime, Local};
 
 /// 完全映射用户的输入
 /// 其中 identity and password 尚未加密

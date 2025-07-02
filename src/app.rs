@@ -202,24 +202,13 @@ pub fn pnt_run() -> Result<()> {
 fn run_with_context(pnt: PntRuntimeContext) -> Result<()> {
     // 库已初始化，验证是否使用 Cli 模式
     if pnt.run_mode == RunMode::Cli {
-        cli_run(pnt)
+        cli::cli_run(pnt)
     } else {
-        tui_run(pnt)
+        tui::tui_run(pnt)
     }
 }
 
-fn cli_run(pnt: PntRuntimeContext) -> Result<()> {
-    if let Some(f) = pnt.cli_args.find {
-        // todo find Impl
-        println!("find: {:?}", f);
-    }
-    Ok(())
-}
-fn tui_run(pnt: PntRuntimeContext) -> Result<()> {
-    debug!("start run TUI mode");
-    // json_edit_exp::run()?;
-    Ok(())
-}
+
 
 #[cfg(test)]
 mod tests {}
