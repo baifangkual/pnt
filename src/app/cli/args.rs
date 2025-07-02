@@ -13,8 +13,8 @@ pub struct CliArgs {
 }
 
 impl CliArgs {
-    pub fn run_mode(&self) -> RunMode {
-        // 计算是否使用Cli模式, 一般情况下，若无任意给定的运行时参数，则使用tui，否则cli
+    /// 判定运行模式，一般情况下，若无任意给定的运行时参数，则使用tui，否则cli
+    pub fn check_run_mode(&self) -> RunMode {
         if self.find.is_some() {
             RunMode::Cli
         } else {

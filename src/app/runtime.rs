@@ -11,7 +11,6 @@ pub struct PntRuntimeContext {
     pub(crate) storage: SqliteConn,
     /// 主密码验证器，只有输入了主密码的情况该字段才不为None
     pub(crate) mpv: Option<MainPwdVerifier>,
-    pub(crate) run_mode: RunMode,
     pub(crate) entries: Vec<Entry>,
 }
 
@@ -20,7 +19,6 @@ impl PntRuntimeContext {
         cfg: Cfg,
         cli_args: CliArgs,
         storage: SqliteConn,
-        run_mode: RunMode,
         mpv: Option<MainPwdVerifier>,
     ) -> Self {
         Self {
@@ -28,7 +26,6 @@ impl PntRuntimeContext {
             cli_args,
             storage,
             mpv,
-            run_mode,
             entries: Vec::with_capacity(100),
         }
     }

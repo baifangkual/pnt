@@ -191,17 +191,17 @@ pub fn pnt_run() -> Result<()> {
         (None, storage)
     };
 
-    let run_mode = cli_line.run_mode();
+    let run_mode = cli_line.check_run_mode();
     debug!("run_mode: {:?}", run_mode);
     // to do app init
-    let pnt = PntRuntimeContext::new(cfg, cli_line, conn, run_mode, mpv_or);
+    let pnt = PntRuntimeContext::new(cfg, cli_line, conn, mpv_or);
     // to do app run
-    run_with_context(pnt)
+    run_with_context(pnt, run_mode)
 }
 
-fn run_with_context(pnt: PntRuntimeContext) -> Result<()> {
+fn run_with_context(pnt: PntRuntimeContext, run_mode: RunMode) -> Result<()> {
     // 库已初始化，验证是否使用 Cli 模式
-    if pnt.run_mode == RunMode::Cli {
+    if run_mode == RunMode::Cli {
         cli::cli_run(pnt)
     } else {
         tui::tui_run(pnt)
