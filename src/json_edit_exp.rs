@@ -38,7 +38,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
     if let Ok(do_print) = res {
         if do_print {
-            app.print_json()?;
+            app.print();
         }
     } else if let Err(err) = res {
         println!("{err:?}");

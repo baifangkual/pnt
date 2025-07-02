@@ -56,9 +56,7 @@ impl App {
         }
     }
 
-    pub fn print_json(&self) -> serde_json::Result<()> {
-        let output = serde_json::to_string(&self.pairs)?;
-        println!("{}", output);
-        Ok(())
+    pub fn print(&self) {
+        println!("{:?}", self.pairs);
     }
 }

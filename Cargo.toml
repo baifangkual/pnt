@@ -5,11 +5,28 @@ authors = ["baifangkual"] # 用以clap提取
 edition = "2024"
 license = "Apache-2.0"
 description = "A simple TUI password note application" # 用以clap提取
+# 不指定readme时自动指向README.md readme = "README.md"
+homepage = "https://github.com/baifangkual/pnt"
+repository = "https://github.com/baifangkual/pnt"
+keywords = ["TUI", "password-note-app"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.98"
-clap = { version = "4.5.40", features = ["cargo"] }
-confy = "1.0.0"
+clap = { version = "4.5.40", features = ["cargo", "derive"] }
 env_logger = "0.11.8"
+log = "0.4.27"
 ratatui = "0.29.0"
-serde_json = "1.0.140"
+serde = { version = "1.0.219", features = ["serde_derive"] }
+rusqlite = { version = "0.36.0", features = ["bundled", "chrono"] }
+chrono = { version = "0.4.41", features = ["serde"] }
+argon2 = { version = "0.5.3", features = ["alloc"] }
+aes-gcm = "0.10.3"
+rand = "0.9.1"
+thiserror = "2.0.12"
+base64ct = { version = "1.8.0", features = ["alloc"] }
+rpassword = "7.4.0"
+dirs = "6.0.0"
+toml = "0.8.23"
+
+
