@@ -1,20 +1,20 @@
-use crate::app::cli::args::CliArgs;
+use crate::app::cli::CliArgs;
 use crate::app::config::Cfg;
-use crate::app::encrypt::{MainPwdEncrypter, MainPwdVerifier};
-use crate::app::entry::{Entry, UserInputEntry};
+use crate::app::encrypt::{Decrypter, Encrypter, MainPwdVerifier};
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::Context;
+use crate::app::consts::MAIN_PASS_KEY;
+use crate::app::entry::{UserInputEntry, ValidInsertEntry};
 
-pub struct PntRuntimeContext {
+pub struct PntContext {
     pub(crate) cfg: Cfg,
     pub(crate) cli_args: CliArgs,
     pub(crate) storage: SqliteConn,
     /// 主密码验证器，只有输入了主密码的情况该字段才不为None
     pub(crate) mpv: Option<MainPwdVerifier>,
-    pub(crate) entries: Vec<Entry>,
 }
 
-impl PntRuntimeContext {
+impl PntContext {
     pub fn new(
         cfg: Cfg,
         cli_args: CliArgs,
@@ -26,12 +26,9 @@ impl PntRuntimeContext {
             cli_args,
             storage,
             mpv,
-            entries: Vec::with_capacity(100),
         }
     }
 }
-
-pub const MAIN_PASS_KEY: &str = "mp";
 
 /// 笔记db状态，用于判断是否需要初始化
 /// - NoStorage: db文件不存在，需要初始化

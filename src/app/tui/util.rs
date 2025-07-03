@@ -3,6 +3,8 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 //noinspection ALL
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
 /// 该方法将在给定的Rect上计算弹出窗口的Rect，x和y参数指定相对于给定的Rect的大小
+/// 
+/// 返回的弹出窗口一定位于中心，percent_x percent_y 用来说明需要占用的父窗口的大小
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     // Cut the given rectangle into three vertical pieces
     let popup_layout = Layout::default()

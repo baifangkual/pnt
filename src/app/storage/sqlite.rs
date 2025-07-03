@@ -82,7 +82,7 @@ impl SqliteConn {
         Ok(s)
     }
     /// 使用内存
-    fn open_in_memory() -> SqlResult<Self> {
+    pub fn open_in_memory() -> SqlResult<Self> {
         let conn = Connection::open_in_memory()?;
         let mut s = Self { conn };
         s.init_tables_if_not_exists()?;
@@ -97,7 +97,7 @@ impl SqliteConn {
     }
 
     /// 插入一条密码记录
-    pub fn insert_entry(&mut self, insert_entry: ValidInsertEntry) {
+    pub fn insert_entry(&mut self, insert_entry: &ValidInsertEntry) {
         self.conn
             .execute(
                 INSERT_ENTRY_SQL,
@@ -111,16 +111,16 @@ impl SqliteConn {
             .expect("Failed to insert entry");
     }
     /// 更新一条密码记录
-    pub fn update_entry(&mut self, entry: &Entry) {
+    pub fn update_entry(&mut self, update_entry: &ValidInsertEntry, id: u32) {
         self.conn
             .execute(
                 UPDATE_ENTRY_SQL,
                 params![
-                    entry.name,
-                    entry.description,
-                    entry.encrypted_identity,
-                    entry.encrypted_password,
-                    entry.id // where
+                    update_entry.name,
+                    update_entry.description,
+                    update_entry.encrypted_identity,
+                    update_entry.encrypted_password,
+                    id // where
                 ],
             )
             .expect("Failed to update entry");
@@ -151,7 +151,7 @@ impl SqliteConn {
         let rows = stmt
             .query_map([nl], row_map_entry)
             .expect("Failed to select entry");
-        rows.filter_map(|r| sql_result_map_to_option(r)).collect()
+        rows.filter_map(sql_result_map_to_option).collect()
     }
     /// 查询所有entry
     pub fn select_all_entry(&self) -> Vec<Entry> {
@@ -162,7 +162,7 @@ impl SqliteConn {
         let rows = stmt
             .query_map([], row_map_entry)
             .expect("Failed to select entry");
-        rows.filter_map(|r| sql_result_map_to_option(r)).collect()
+        rows.filter_map(sql_result_map_to_option).collect()
     }
 
     /// 插入配置
@@ -212,7 +212,7 @@ mod tests {
         // 精确到秒可能无意义
         let now: DateTime<Local> = DateTime::from(Local::now());
         // select
-        db.insert_entry(insert_e.clone()); // append ct, ut
+        db.insert_entry(&insert_e); // append ct, ut
         let mut vec = db.select_all_entry();
         assert_eq!(vec.len(), 1);
         let entry = vec[0].clone();
@@ -227,7 +227,14 @@ mod tests {
         // assert update
         let mut other_entry = entry.clone();
         other_entry.description = Some(String::from("test"));
-        db.update_entry(&other_entry);
+        let upd_entry = other_entry.clone();
+        let v_e = ValidInsertEntry {
+            name: upd_entry.name,
+            description: upd_entry.description,
+            encrypted_identity: upd_entry.encrypted_identity,
+            encrypted_password: upd_entry.encrypted_password,
+        };
+        db.update_entry(&v_e, other_entry.id);
         let after_update_query_by_id_one = db.select_entry_by_id(entry.id);
         assert!(after_update_query_by_id_one.is_some());
         let after_update = after_update_query_by_id_one.unwrap();
@@ -245,7 +252,7 @@ mod tests {
         assert!(after_update.updated_at >= now);
         assert_ne!(after_update.description, entry.description);
         // assert delete
-        db.insert_entry(insert_e.clone());
+        db.insert_entry(&insert_e);
         let vec2 = db.select_all_entry();
         assert_eq!(vec2.len(), 2);
         assert_ne!(vec2.get(0).unwrap().id, vec2.get(1).unwrap().id);

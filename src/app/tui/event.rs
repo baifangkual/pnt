@@ -1,22 +1,23 @@
-use ratatui::crossterm::event::{self, Event as CrosstermEvent};
+pub mod key_ext;
+
+use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyCode};
 use std::{
     sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
 use anyhow::{Context, Result};
+use crate::app::entry::{UserInputEntry, ValidInsertEntry};
+use super::screen::{Editing, Screen};
 
 /// The frequency at which tick events are emitted.
-const TICK_FPS: f64 = 30.0;
+/// 每秒一次
+const TICK_FPS: f64 = 1.0;
 
 /// Representation of all possible events.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum Event {
-    /// An event that is emitted on a regular schedule.
-    ///
-    /// Use this event to run any code which has to run outside of being a direct response to a user
-    /// event. e.g. polling exernal systems, updating animations, or rendering the UI based on a
-    /// fixed frame rate.
+    /// 由子线程发送的固定频率的事件，[`TICK_FPS`]
     Tick,
     /// Crossterm events.
     ///
@@ -31,13 +32,17 @@ pub enum Event {
 /// Application events.
 ///
 /// You can extend this enum with your own custom events.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum AppEvent {
-    /// Increment the counter.
-    Increment,
-    /// Decrement the counter.
-    Decrement,
-    /// Quit the application.
+    
+    EnterScreen(Screen),
+    CursorUp,
+    CursorDown,
+    DoEditing(KeyCode),
+    EntryInsert(ValidInsertEntry), // 插入必要全局刷新 vec，因为插入到库前还不知道id
+    EntryUpdate(ValidInsertEntry, u32), // u32 为 id
+    EntryRemove(u32), // u32 为 id
+    FlashVec, // 在 删除 和 update 时 仅需 部分更新...
     Quit,
 }
 
@@ -48,6 +53,12 @@ pub struct EventHandler {
     sender: mpsc::Sender<Event>,
     /// Event receiver channel.
     receiver: mpsc::Receiver<Event>,
+}
+
+impl Default for EventHandler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EventHandler {
@@ -68,6 +79,8 @@ impl EventHandler {
     /// This function returns an error if the sender channel is disconnected. This can happen if an
     /// error occurs in the event thread. In practice, this should not happen unless there is a
     /// problem with the underlying terminal.
+    ///
+    /// 读取一个事件，该方法阻塞直到事件可用
     pub fn next(&self) -> Result<Event> {
         Ok(self.receiver.recv()?)
     }
@@ -77,8 +90,8 @@ impl EventHandler {
     /// This is useful for sending events to the event handler which will be processed by the next
     /// iteration of the application's event loop.
     pub fn send(&mut self, app_event: AppEvent) {
-        // Ignore the result as the reciever cannot be dropped while this struct still has a
-        // reference to it
+        // 忽略发送错误，程序关闭时线程drop接收者，这会返回Err，正常情况
+        // 不使用 let _ 会有烦人提示
         let _ = self.sender.send(Event::App(app_event));
     }
 }
@@ -104,12 +117,14 @@ impl EventThread {
         loop {
             // emit tick events at a fixed rate
             let timeout = tick_interval.saturating_sub(last_tick.elapsed());
+            // 固频发送 TICK
             if timeout == Duration::ZERO {
                 last_tick = Instant::now();
                 self.send(Event::Tick);
             }
             // poll for crossterm events, ensuring that we don't block the tick interval
             if event::poll(timeout).context("failed to poll for crossterm events")? {
+                // 该子线程消费 终端键盘事件并向 tui 更新线程发送键盘事件
                 let event = event::read().context("failed to read crossterm event")?;
                 self.send(Event::Crossterm(event));
             }
@@ -120,6 +135,8 @@ impl EventThread {
     fn send(&self, event: Event) {
         // Ignores the result because shutting down the app drops the receiver, which causes the send
         // operation to fail. This is expected behavior and should not panic.
+        // 忽略发送错误，程序关闭时线程drop接收者，这会返回Err，正常情况
+        // 不使用 let _ 会有烦人提示
         let _ = self.sender.send(event);
     }
 }

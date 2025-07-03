@@ -1,7 +1,7 @@
 [package]
 name = "pnt" # 用以clap提取
 version = "0.1.0" # 用以clap提取
-authors = ["baifangkual"] # 用以clap提取
+authors = ["baifangkual <baifangkuai@live.com>"] # 用以clap提取
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "A simple TUI password note application" # 用以clap提取

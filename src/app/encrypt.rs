@@ -1,4 +1,4 @@
-use argon2::password_hash::Encoding::B64;
+use crate::app::entry::{Entry, UserInputEntry, ValidInsertEntry};
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64ct::{Base64, Encoding};
@@ -15,6 +15,36 @@ pub trait Decrypter<C, P> {
     type DecrypterError: std::error::Error;
     /// 解密方法 - 将密文(ciphertext)转为明文(plaintext)
     fn decrypt(&self, ciphertext: C) -> Result<P, Self::DecrypterError>;
+}
+
+pub struct NoEncrypter;
+impl Encrypter<UserInputEntry, ValidInsertEntry> for NoEncrypter {
+    type EncrypterError = Infallible;
+    fn encrypt(&self, plaintext: UserInputEntry) -> Result<ValidInsertEntry, Self::EncrypterError> {
+        Ok(ValidInsertEntry {
+            name: plaintext.name,
+            description: if plaintext.description.is_empty() {
+                None
+            } else {
+                Some(plaintext.description)
+            },
+            encrypted_identity: plaintext.identity,
+            encrypted_password: plaintext.password,
+        })
+    }
+}
+impl Decrypter<Entry, UserInputEntry> for NoEncrypter {
+    type DecrypterError = Infallible;
+    fn decrypt(&self, ciphertext: Entry) -> Result<UserInputEntry, Self::DecrypterError> {
+        Ok(
+            UserInputEntry {
+                name: ciphertext.name,
+                description: ciphertext.description.unwrap_or_default(),
+                identity: ciphertext.encrypted_identity,
+                password: ciphertext.encrypted_password
+            }
+        )
+    }
 }
 
 /// 主密码加密器，使用Argon2id算法加密主密码明文
@@ -86,7 +116,6 @@ impl MainPwdVerifier {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::hint::assert_unchecked;
     #[test]
     fn test_main_pwd() {
         let plaintext = "Hello, world!".to_owned();

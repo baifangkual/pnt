@@ -1,9 +1,9 @@
-use crate::app::runtime::PntRuntimeContext;
-
-pub mod args;
+use crate::app::context::PntContext;
+use crate::app::context::RunMode;
+use clap::Parser;
 
 /// cli 运行 模式
-pub fn cli_run(pnt: PntRuntimeContext) -> anyhow::Result<()> {
+pub fn cli_run(pnt: PntContext) -> anyhow::Result<()> {
     if let Some(f) = pnt.cli_args.find {
         // to do find Impl
         let vec = pnt.storage.select_entry_by_name_like(&f);
@@ -12,4 +12,26 @@ pub fn cli_run(pnt: PntRuntimeContext) -> anyhow::Result<()> {
             .for_each(|(i, entry)| println!("{:3}: {}", i + 1, entry.name));
     }
     Ok(())
+}
+
+
+
+/// lib 运行时给的命令行参数
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct CliArgs {
+    /// (Cli Mode) find entry by name like
+    #[arg(short, long)]
+    pub find: Option<String>,
+}
+
+impl CliArgs {
+    /// 判定运行模式，一般情况下，若无任意给定的运行时参数，则使用tui，否则cli
+    pub fn check_run_mode(&self) -> RunMode {
+        if self.find.is_some() {
+            RunMode::Cli
+        } else {
+            RunMode::Tui
+        }
+    }
 }

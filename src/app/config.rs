@@ -2,6 +2,7 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
+use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_NAME};
 
 /// 运行时使用的实际 cfg
 #[derive(Debug, Eq, PartialEq)]
@@ -73,11 +74,9 @@ fn default_data_path() -> PathBuf {
 fn default_conf_path() -> PathBuf {
     let env_cp_or = env::var(ENV_CONF_PATH_NAME)
         .into_iter()
-        .map(PathBuf::from)
-        .filter(|p| p.exists()) // 存在才设定为 env 给定的
-        .next();
-    if env_cp_or.is_some() {
-        env_cp_or.unwrap()
+        .map(PathBuf::from).find(|p| p.exists()); // 存在才设定为 env 给定的
+    if let Some(env_cp) = env_cp_or {
+        env_cp
     } else {
         let mut p = dirs::config_dir() // 非 linux win mac 可能None
             .unwrap_or_else(|| panic!("Cannot find config directory"));
@@ -86,11 +85,6 @@ fn default_conf_path() -> PathBuf {
         p // os_c/pnt/pnt.toml
     }
 }
-
-const ENV_CONF_PATH_NAME: &str = "PNT_CONF";
-const APP_NAME: &str = clap::crate_name!();
-const DATA_FILE_NAME: &str = "pnt.data";
-const CONF_FILE_NAME: &str = "pnt.toml";
 
 /// 载入配置文件，尝试从磁盘载入，若磁盘配置文件不存在，
 /// 则使用默认配置文件值
@@ -102,7 +96,7 @@ fn load_fill_cfg() -> anyhow::Result<TomlCfg> {
     if disk_cfg.is_some() {
         // to do 合并配置文件 磁盘None 被 default Some 覆盖
         let mut disk_cfg = disk_cfg.unwrap();
-        let lazy_default = std::cell::LazyCell::new(|| TomlCfg::default());
+        let lazy_default = std::cell::LazyCell::new(TomlCfg::default);
         // fie need batter？ 下因所有权问题，各赋值仅能 clone，应有其他路径赋值之
         if disk_cfg.date.is_none() {
             disk_cfg.date = lazy_default.date.clone();

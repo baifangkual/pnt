@@ -2,20 +2,23 @@ mod cli;
 mod config;
 mod encrypt;
 mod entry;
-mod runtime;
+mod context;
 mod storage;
 mod tui;
+mod consts;
 
-use crate::app::config::{Cfg, load_cfg};
+use crate::app::config::{load_cfg, Cfg};
 use crate::app::encrypt::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
-use crate::app::runtime::{MAIN_PASS_KEY, NoteState, PntRuntimeContext, RunMode};
+use crate::app::context::{NoteState, PntContext, RunMode};
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::{Context, Error, Result};
 use clap::Parser;
-use cli::args::CliArgs;
+use cli::CliArgs;
 use log::debug;
 use ratatui::crossterm::style::Stylize;
 use std::io::ErrorKind;
+use consts::MAIN_PASS_KEY;
+use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
 
 /// 向stdin索要输入的密码，若有utf8字符则提示无效字符
 /// 该方法内会loop阻塞直到输入有效字符
@@ -104,7 +107,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
     loop {
         match state {
             NoteState::NoStorage => {
-                storage = Some(init_storage(&cfg)?);
+                storage = Some(init_storage(cfg)?);
                 // stdout print init 位置
                 println!(
                     "{}{}",
@@ -118,7 +121,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
                 let mp = init_main_pwd_by_stdin()?;
                 let emp = MainPwdEncrypter::from_salt(&cfg.salt).encrypt(mp)?;
                 // 从 st中拿（NoStorage创建的）或自己创建
-                let mut st = if let None = storage {
+                let mut st = if storage.is_none() {
                     SqliteConn::new(&cfg.date)
                         .with_context(|| format!("Failed to conn: {}", &cfg.date.display()))?
                 } else {
@@ -154,15 +157,14 @@ fn await_verifier_main_pwd(
     let mp_hash_b64d = storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap(); // 代码走到当前行该mp一定不为None ...
     let verifier = MainPwdVerifier::from_salt_and_passwd(&cfg.salt, mp_hash_b64d);
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
-    let max_loop = 5_u8;
-    for n in 0..max_loop {
+    for n in 0..MAIN_PASS_MAX_RE_TRY {
         let mp = read_stdin_passwd()?;
         if verifier.verify(mp) {
             // 验证通过，返回主校验器
             return Ok((verifier, storage));
         } else {
             // 校验失败，提示
-            let tip = format!("{} ({}/{})", "Password is incorrect", n + 1, max_loop);
+            let tip = format!("{} ({}/{})", "Password is incorrect", n + 1, MAIN_PASS_MAX_RE_TRY);
             println!("{}", tip.on_dark_red().white())
         }
     }
@@ -170,6 +172,7 @@ fn await_verifier_main_pwd(
     drop(storage); // 释放sqlite 对文件的连接资源
     std::process::exit(3);
 }
+
 
 /// pnt 程序入口
 pub fn pnt_run() -> Result<()> {
@@ -194,12 +197,8 @@ pub fn pnt_run() -> Result<()> {
     let run_mode = cli_line.check_run_mode();
     debug!("run_mode: {:?}", run_mode);
     // to do app init
-    let pnt = PntRuntimeContext::new(cfg, cli_line, conn, mpv_or);
+    let pnt = PntContext::new(cfg, cli_line, conn, mpv_or);
     // to do app run
-    run_with_context(pnt, run_mode)
-}
-
-fn run_with_context(pnt: PntRuntimeContext, run_mode: RunMode) -> Result<()> {
     // 库已初始化，验证是否使用 Cli 模式
     if run_mode == RunMode::Cli {
         cli::cli_run(pnt)
@@ -212,3 +211,4 @@ fn run_with_context(pnt: PntRuntimeContext, run_mode: RunMode) -> Result<()> {
 
 #[cfg(test)]
 mod tests {}
+

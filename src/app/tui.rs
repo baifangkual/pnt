@@ -1,18 +1,19 @@
 mod util;
 mod ui;
 mod event;
-mod running;
+mod runtime;
+mod screen;
 
-use crate::app::runtime::PntRuntimeContext;
+use crate::app::context::PntContext;
 use log::debug;
-use crate::app::tui::running::TUIRunning;
+use crate::app::encrypt::NoEncrypter;
+use crate::app::tui::runtime::TUIRuntime;
 
 /// tui 运行 模式
-pub fn tui_run(pnt: PntRuntimeContext) -> anyhow::Result<()> {
+pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
     debug!("start run TUI mode");
-    // json_edit_exp::run()?;
     let terminal = ratatui::init();
-    let running = TUIRunning::with_pnt(pnt);
+    let running = TUIRuntime::with_pnt(pnt, (NoEncrypter, NoEncrypter));
     let result = running.run(terminal);
     ratatui::restore();
     result
