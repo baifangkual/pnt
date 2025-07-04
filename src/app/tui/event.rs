@@ -44,7 +44,7 @@ pub enum AppEvent {
     EntryUpdate(ValidInsertEntry, u32), // u32 为 id
     EntryRemove(u32), // u32 为 id
     FlashVecItems(Option<String>), // 在dashboard 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
-    MainPwdVerifyFailed, 
+    MainPwdVerifyFailed,
     MainPwdVerifySuccess(MainPwdVerifier),
     Quit,
 }
@@ -92,7 +92,7 @@ impl EventHandler {
     ///
     /// This is useful for sending events to the event handler which will be processed by the next
     /// iteration of the application's event loop.
-    pub fn send(&mut self, app_event: AppEvent) {
+    pub fn send(&self, app_event: AppEvent) {
         // 忽略发送错误，程序关闭时线程drop接收者，这会返回Err，正常情况
         // 不使用 let _ 会有烦人提示
         let _ = self.sender.send(Event::App(app_event));

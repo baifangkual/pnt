@@ -1,10 +1,10 @@
 use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
+use crate::app::encrypt::MainPwdVerifier;
 use crate::app::entry::Entry;
 use crate::app::tui::error::TError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
-use anyhow::{Error, anyhow};
+use anyhow::{Context, Error, anyhow};
 use ratatui::widgets::ListState;
-use crate::app::encrypt::MainPwdVerifier;
 
 /// 表示正在编辑 UserInputEntry的 哪一个
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
@@ -61,18 +61,25 @@ impl DashboardState {
 #[derive(Debug, Clone)] // todo 后续该应载荷 main pwd verifier，避免验证密码时的重新构建
 pub struct NeedMainPwdState {
     pub mp_input: String,
-    pub on_ok_to_screen: Box<Screen>,
+    pub on_ok_to_screen: Option<Box<Screen>>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
 }
 impl NeedMainPwdState {
     pub fn new(on_ok_to_screen: Screen) -> Self {
         Self {
             mp_input: String::new(),
-            on_ok_to_screen: Box::new(on_ok_to_screen), // 因为和screen的自引用嵌套问题，遂使用box指针
+            on_ok_to_screen: Some(Box::new(on_ok_to_screen)), // 因为和screen的自引用嵌套问题，遂使用box指针
             retry_count: 0,
         }
     }
-    
+
+    pub fn take_target_screen(&mut self) -> anyhow::Result<Screen> {
+        self.on_ok_to_screen
+            .take()
+            .map(|sb| *sb)
+            .context("'NeedMainPwdState' not found target screen")
+    }
+
     pub fn mp_input(&self) -> &str {
         &self.mp_input
     }

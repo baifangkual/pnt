@@ -53,7 +53,7 @@ impl TUIRuntime {
         self.back_screen.push(old_scr);
     }
 
-    fn send_app_event(&mut self, event: AppEvent) {
+    fn send_app_event(&self, event: AppEvent) {
         self.events.send(event);
     }
 }
@@ -126,7 +126,7 @@ impl TUIRuntime {
             AppEvent::MainPwdVerifySuccess(mpv) => {
                 self.hold_mp_verifier_and_enter_target_screen(mpv)?
             }
-            AppEvent::MainPwdVerifyFailed => self.mp_retry_or_err()?,
+            AppEvent::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
         }
         Ok(())
     }
@@ -580,22 +580,22 @@ impl TUIRuntime {
     }
 
     /// 持有 mpv 并 直接进入屏幕
-    /// 因为移动 next screen会导致 当前screen 不可用...
-    /// 遂该方法内应直接进入屏幕
     fn hold_mp_verifier_and_enter_target_screen(&mut self, mpv: MainPwdVerifier) -> Result<()> {
-         if let NeedMainPasswd(state) = &mut self.screen {
+        if let NeedMainPasswd(state) = &mut self.screen {
             self.pnt.mpv = Some(mpv);
-            // let next_screen = *state.on_ok_to_screen;
-            // self.screen = next_screen;
-            std::mem::swap(&mut self.screen, &mut state.on_ok_to_screen);
+            self.screen = state.take_target_screen()?;
+            // 不能使用 EnterScreen事件进入屏幕，因为该事件的处理者会将老屏幕压入栈
+            // 但当前为 NeedMainPasswd屏幕，所以压栈进去无意义，
+            // 遂该方法内应直接进行屏幕替换即可
+            // self.send_app_event(AppEvent::EnterScreen(state.take_target_screen()?));
             Ok(())
         } else {
-            Err(anyhow!("current is not NeedMainPasswd screen"))
+            Err(anyhow!("not NeedMainPasswd screen, no target screen"))
         }
     }
 
     /// 验证失败的事件，自增或err
-    fn mp_retry_or_err(&mut self) -> Result<()> {
+    fn mp_retry_increment_or_err(&mut self) -> Result<()> {
         if let NeedMainPasswd(state) = &mut self.screen {
             state.increment_retry_count()
         } else {
