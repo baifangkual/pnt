@@ -3,6 +3,7 @@ mod ui;
 mod event;
 mod runtime;
 mod screen;
+mod error;
 
 use crate::app::context::PntContext;
 use log::debug;

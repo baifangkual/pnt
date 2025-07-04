@@ -2,12 +2,12 @@ use super::runtime::TUIRuntime;
 use crate::app::tui::screen::Screen;
 use ratatui::layout::Direction;
 use ratatui::prelude::{Constraint, Layout, Line, Span, Style};
-use ratatui::widgets::{List, ListItem};
+use ratatui::widgets::{List, ListItem, ListState};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
     style::{Color, Stylize},
-    widgets::{Block, BorderType, Paragraph, Widget},
+    widgets::{Block, BorderType, Paragraph, StatefulWidget, Widget},
 };
 
 const TITLE: &str = concat!(
@@ -40,8 +40,7 @@ impl Widget for &Screen {
             Screen::Dashboard { cursor, entries } => {
                 // 外壳
                 let block = Block::bordered()
-                    .title(Line::from(TITLE).style(Style::default().fg(Color::Black)
-                        .bg(Color::White)))
+                    .title(Line::from(TITLE))
                     .fg(Color::White)
                     .border_type(BorderType::Plain); // plain 无圆角边框
                 // 渲染之
@@ -50,7 +49,9 @@ impl Widget for &Screen {
                 let layout_1f1 = Layout::default()
                     .direction(Direction::Horizontal) // 水平
                     .constraints([
-                        Constraint::Max(5), Constraint::Percentage(90), Constraint::Max(5),
+                        Constraint::Max(5),
+                        Constraint::Percentage(90),
+                        Constraint::Max(5),
                     ])
                     .split(area);
 
@@ -63,21 +64,23 @@ impl Widget for &Screen {
                     ])
                     .split(layout_1f1[1]);
 
+                // ratatui::widgets::ListState todo 用这个，可以简化一部分流程，（选中项，滚动）
                 // list
-
                 let r_l = if let Some(c_ptr) = cursor {
                     // 有元素
                     let mut list_items = Vec::<ListItem>::new();
                     for (i, ent) in entries.iter().enumerate() {
+                        let desc = ent.description.as_ref().map(|s| s.as_str()).unwrap_or("");
+                        let ent_fmt = format!("{: >3} | {: >10} | {}", i, ent.name, desc);
                         let li = if i == *c_ptr {
                             // 光标所在
-                            ListItem::new(Line::from(Span::styled( // todo 显示 格式化
-                                format!("{: >3} : {}", i, ent.name),
+                            ListItem::new(Line::from(Span::styled(
+                                ent_fmt,
                                 Style::default().fg(Color::Black).bg(Color::White),
                             )))
                         } else {
-                            ListItem::new(Line::from(Span::styled( // todo 显示 格式化
-                                format!("{: >3} : {}", i, ent.name),
+                            ListItem::new(Line::from(Span::styled(
+                                ent_fmt,
                                 Style::default().fg(Color::White),
                             )))
                         };
@@ -89,8 +92,10 @@ impl Widget for &Screen {
                     List::new::<[ListItem; 0]>([])
                 };
 
+                //StatefulWidget::render(r_l, layout_hm1[1], )
+                // r_l.render(layout_hm1[1], buf, ListState::default()); // todo 用这个
                 // 渲染之
-                r_l.render(layout_hm1[1], buf);
+                Widget::render(r_l, layout_hm1[1], buf);
             }
             Screen::Help => {}
             Screen::Details(entry) => {}

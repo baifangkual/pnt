@@ -9,7 +9,7 @@ use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
 };
 use crate::app::tui::screen::{Editing, Screen};
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, Error};
 use crossterm::event::Event as CEvent;
 use log::__private_api::enabled;
 use ratatui::crossterm::event::KeyEventKind;
@@ -17,6 +17,7 @@ use ratatui::{
     DefaultTerminal, crossterm,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
 };
+use crate::app::tui::error::TError;
 
 /// TUI Application.
 pub struct TUIRuntime {
@@ -81,7 +82,14 @@ impl TUIRuntime {
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
             terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
-            self.handle_events()?;
+            match self.handle_events() {
+                Ok(_) => {}
+                Err(e) => {
+                    self.quit_tui_app();
+                    self.pnt.storage.close(); // 有错误关闭数据库连接并退出当前方法
+                    return Err(e);
+                }
+            }
         }
         Ok(())
     }
@@ -289,16 +297,10 @@ impl TUIRuntime {
             }
             // 需要主密码
             NeedMainPasswd(mp, next_enter, re_try) => {
+                // 重试失败到一定次数 则 直接 向方法栈上层传递 Err，
+                // 主事件处理循环处会关闭数据库连接并退出
                 if *re_try >= MAIN_PASS_MAX_RE_TRY {
-                    // todo 需要提前清理吗？ 这里拿不到所有权... 没法直接调用drop...
-                    //  需要清理... 因为 exit的文档说明立即退出进程，不会执行任何析构函数...
-                    //  drop(self.pnt.storage);
-                    // todo 现在使用 std::mem::replace 将其替换出来并 drop，
-                    //  但或许有更好的实现...
-                    let conn =
-                        std::mem::replace(&mut self.pnt.storage, SqliteConn::open_in_memory()?);
-                    drop(conn);
-                    std::process::exit(-1);
+                    return Err(Error::from(TError::ReTryMaxExceed(*re_try)));
                 }
 
                 if key_event._is_enter() {

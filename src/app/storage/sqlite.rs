@@ -39,6 +39,13 @@ pub struct SqliteConn {
     conn: Connection,
 }
 
+impl SqliteConn {
+    /// 关闭连接，不再使用，该方法要求所有权
+    pub fn close(self) {
+        let _ = self.conn.close();
+    }
+}
+
 /// 将 rusqlite::Result<T> 转换为 Option<T>，若查询返回无结果则返回None，若查询返回错误则panic
 fn sql_result_map_to_option<T>(res: SqlResult<T>) -> Option<T> {
     match res {
@@ -77,6 +84,8 @@ impl SqliteConn {
     /// 指定数据库文件路径，建立连接
     pub fn new(path: &Path) -> SqlResult<Self> {
         let conn = Connection::open(path)?;
+        // 库文件加密 需要 bundled-sqlcipher，其需要openssl
+        // conn.pragma_update(None, "key", "secret-keyXXXX")?;
         let mut s = Self { conn };
         s.init_tables_if_not_exists()?;
         Ok(s)
