@@ -9,17 +9,9 @@ use ratatui::{
     style::{Color, Stylize},
     widgets::{Block, BorderType, Paragraph, StatefulWidget, Widget},
 };
-use crate::app::tui::widgets::DashboardWidget;
+use crate::app::tui::widgets::dashboard::DashboardWidget;
 
-const TITLE: &str = concat!(
-    clap::crate_name!(),
-    "-v",
-    clap::crate_version!(),
-    "-",
-    "help:F1"
-);
-
-impl Widget for &TUIRuntime {
+impl Widget for &mut TUIRuntime {
     /// 渲染函数入口
     /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
     /// 遂该方法内始终先渲染 dashboard
@@ -27,87 +19,22 @@ impl Widget for &TUIRuntime {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // 当 back_screen 有值，一定为 dash，渲染之
         // 若无，则证明当前为 dash，则 if 内 不渲染
-        if let Some( Screen::Dashboard(state)) = self.back_screen.get(0) {
+        if let Some( Screen::Dashboard(state)) = self.back_screen.get_mut(0) {
             let dash_widget = DashboardWidget;
-            dash_widget.render(area, buf, &mut state)
+            dash_widget.render(area, buf, state)
         }
         // 渲染当前屏幕
-        self.screen.render(area, buf);
-    }
-}
-
-impl Widget for &Screen {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        match self {
-            Screen::Dashboard (state) => {
-                // 外壳
-                let block = Block::bordered()
-                    .title(Line::from(TITLE))
-                    .fg(Color::White)
-                    .border_type(BorderType::Plain); // plain 无圆角边框
-                // 渲染之
-                block.render(area, buf);
-
-                let layout_1f1 = Layout::default()
-                    .direction(Direction::Horizontal) // 水平
-                    .constraints([
-                        Constraint::Max(5),
-                        Constraint::Percentage(90),
-                        Constraint::Max(5),
-                    ])
-                    .split(area);
-
-                let layout_hm1 = Layout::default()
-                    .direction(Direction::Vertical) // 垂直
-                    .constraints([
-                        Constraint::Min(5),
-                        Constraint::Percentage(93),
-                        Constraint::Min(2),
-                    ])
-                    .split(layout_1f1[1]);
-
-                // ratatui::widgets::ListState todo 用这个，可以简化一部分流程，（选中项，滚动）
-                // list
-                let r_l = if let Some(c_ptr) = state.cursor_selected() {
-                    // 有元素
-                    let mut list_items = Vec::<ListItem>::new();
-                    for (i, ent) in state.entries().iter().enumerate() {
-                        let desc = ent.description.as_ref().map(|s| s.as_str()).unwrap_or("");
-                        let ent_fmt = format!("{: >3} | {: >10} | {}", i, ent.name, desc);
-                        let li = if i == c_ptr {
-                            // 光标所在
-                            ListItem::new(Line::from(Span::styled(
-                                ent_fmt,
-                                Style::default().fg(Color::Black).bg(Color::White),
-                            )))
-                        } else {
-                            ListItem::new(Line::from(Span::styled(
-                                ent_fmt,
-                                Style::default().fg(Color::White),
-                            )))
-                        };
-                        list_items.push(li)
-                    }
-                    List::new(list_items)
-                } else {
-                    // 无元素
-                    List::new::<[ListItem; 0]>([])
-                };
-                //StatefulWidget::render(r_l, layout_hm1[1], )
-                // r_l.render(layout_hm1[1], buf, ListState::default()); // todo 用这个
-                // 渲染之
-                Widget::render(r_l, layout_hm1[1], buf);
+        match &mut self.screen {
+            Screen::Dashboard(state) => {
+                let dash_widget = DashboardWidget;
+                dash_widget.render(area, buf, state)
             }
             Screen::Help => {}
-            Screen::Details(entry) => {}
-            Screen::Creating { editing, u_input } => {}
-            Screen::DeleteTip(_, name, desc) => {}
-            Screen::Updating {
-                editing,
-                u_input,
-                e_id,
-            } => {}
-            Screen::NeedMainPasswd(ip, _, re_try) => {}
+            Screen::Details(_) => {}
+            Screen::Creating { .. } => {}
+            Screen::DeleteTip(_, _, _) => {}
+            Screen::Updating { .. } => {}
+            Screen::NeedMainPasswd(state) => {}
         }
     }
 }

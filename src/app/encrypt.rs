@@ -101,7 +101,7 @@ impl MainPwdVerifier {
 }
 
 impl MainPwdVerifier {
-    pub fn verify(&self, passwd: String) -> bool {
+    pub fn verify(&self, passwd: &str) -> bool {
         // argon2 实例仅是值容器，创建代价小，无需存储实例
         // 其param使用 pub const DEFAULT，编译时确定
         Argon2::default()
@@ -135,7 +135,7 @@ mod test {
         let encrypter = MainPwdEncrypter::from("salt1111");
         let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
         let verifier = MainPwdVerifier::from_salt_and_passwd("salt1111", cs1);
-        assert_eq!(verifier.verify(plaintext.clone()), true);
-        assert_eq!(verifier.verify("pas1".to_owned()), false);
+        assert_eq!(verifier.verify(&plaintext), true);
+        assert_eq!(verifier.verify("pas1"), false);
     }
 }

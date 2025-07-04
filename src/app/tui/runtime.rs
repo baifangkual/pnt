@@ -4,20 +4,19 @@ use crate::app::consts::{MAIN_PASS_KEY, MAIN_PASS_MAX_RE_TRY};
 use crate::app::context::PntContext;
 use crate::app::encrypt::{Encrypter, MainPwdVerifier, NoEncrypter};
 use crate::app::entry::{Entry, UserInputEntry, ValidInsertEntry};
-use crate::app::storage::sqlite::SqliteConn;
+use crate::app::tui::error::TError;
+use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
 };
-use crate::app::tui::screen::{DashboardState, Editing, Screen};
-use anyhow::{Result, anyhow, Error};
+use crate::app::tui::screen::state::{DashboardState, Editing, NeedMainPwdState};
+use anyhow::{Error, Result, anyhow};
 use crossterm::event::Event as CEvent;
-use log::__private_api::enabled;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
     DefaultTerminal, crossterm,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    crossterm::event::{KeyCode, KeyEvent},
 };
-use crate::app::tui::error::TError;
 
 /// TUI Application.
 pub struct TUIRuntime {
@@ -77,7 +76,7 @@ impl TUIRuntime {
     /// TUI程序主循环
     pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
-            terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+            terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             match self.handle_events() {
                 Ok(_) => {}
                 Err(e) => {
@@ -120,8 +119,14 @@ impl TUIRuntime {
             AppEvent::EntryInsert(v_e) => self.do_insert(&v_e),
             AppEvent::EntryUpdate(v_e, e_id) => self.do_update(&v_e, e_id),
             AppEvent::EntryRemove(e_id) => self.do_remove(e_id),
-            AppEvent::FlashVec => self.do_flash_vec()?,
+            AppEvent::FlashVecItems(f) => self.do_flash_vec(f)?,
             AppEvent::Quit => self.quit_tui_app(),
+            AppEvent::TurnOnFindMode => self.turn_on_find_mode()?,
+            AppEvent::TurnOffFindMode => self.turn_off_find_mode()?,
+            AppEvent::MainPwdVerifySuccess(mpv) => {
+                self.hold_mp_verifier_and_enter_target_screen(mpv)?
+            }
+            AppEvent::MainPwdVerifyFailed => self.mp_retry_or_err()?,
         }
         Ok(())
     }
@@ -137,7 +142,7 @@ impl TUIRuntime {
         }
         // 按下 esc 的事件，将当前屏幕返回上一个屏幕，若当前为最后一个屏幕，则发送quit事件
         if key_event._is_esc() {
-            self.back_screen();
+            self.handle_key_esc_event()?;
             return Ok(());
         }
         // f1 按下 进入 帮助页面
@@ -159,56 +164,69 @@ impl TUIRuntime {
             }
             // 仪表盘
             Dashboard(state) => {
-                if key_event._is_q_ignore_case() {
-                    self.back_screen();
-                    return Ok(());
-                }
-                // 可进入 查看，编辑，删除tip，新建 页面
-                // 若当前光标无所指，则只能 创建
-                if let Some(c_ptr) = state.cursor_selected() {
-                    let ptr_entry = &state.entries()[c_ptr];
-                    // open
-                    if key_event._is_o_ignore_case() || key_event._is_enter() {
-                        let ve =
-                            UserInputEntry::decrypt_from_entry(&self.decrypter, ptr_entry.clone());
-                        self.send_app_event(AppEvent::EnterScreen(Details(ve)));
+                // dashboard find
+                if !state.find_mode {
+                    if let KeyCode::Char('f') = key_event.code {
+                        self.send_app_event(AppEvent::TurnOnFindMode);
                         return Ok(());
                     }
-                    // update
-                    if key_event._is_u_ignore_case() {
-                        let ve =
-                            UserInputEntry::decrypt_from_entry(&self.decrypter, ptr_entry.clone());
-                        self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
-                            ve,
-                            ptr_entry.id,
-                        )));
+                    if key_event._is_q_ignore_case() {
+                        self.back_screen();
                         return Ok(());
                     }
-                    // delete 但是dashboard 的光标？
-                    // 任何删除都应确保删除页面上一级为dashboard
-                    // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
-                    if key_event._is_d() {
-                        self.send_app_event(AppEvent::EnterScreen(DeleteTip(
-                            ptr_entry.id,
-                            ptr_entry.name.clone(),
-                            ptr_entry.description.clone(),
-                        )));
-                        return Ok(());
+                    // 可进入 查看，编辑，删除tip，新建 页面
+                    // 若当前光标无所指，则只能 创建
+                    if let Some(c_ptr) = state.cursor_selected() {
+                        let ptr_entry = &state.entries()[c_ptr];
+                        // open
+                        if key_event._is_o_ignore_case() || key_event._is_enter() {
+                            let ve = UserInputEntry::decrypt_from_entry(
+                                &self.decrypter,
+                                ptr_entry.clone(),
+                            );
+                            self.send_app_event(AppEvent::EnterScreen(Details(ve)));
+                            return Ok(());
+                        }
+                        // update
+                        if key_event._is_u_ignore_case() {
+                            let ve = UserInputEntry::decrypt_from_entry(
+                                &self.decrypter,
+                                ptr_entry.clone(),
+                            );
+                            self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
+                                ve,
+                                ptr_entry.id,
+                            )));
+                            return Ok(());
+                        }
+                        // delete 但是dashboard 的光标？
+                        // 任何删除都应确保删除页面上一级为dashboard
+                        // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
+                        if key_event._is_d() {
+                            self.send_app_event(AppEvent::EnterScreen(DeleteTip(
+                                ptr_entry.id,
+                                ptr_entry.name.clone(),
+                                ptr_entry.description.clone(),
+                            )));
+                            return Ok(());
+                        }
+                        // 上移
+                        if key_event._is_k() || key_event._is_up() {
+                            self.send_app_event(AppEvent::CursorUp);
+                            return Ok(());
+                        }
+                        // 下移
+                        if key_event._is_down() || key_event._is_j() {
+                            self.send_app_event(AppEvent::CursorDown);
+                            return Ok(());
+                        }
                     }
-                    // 上移
-                    if key_event._is_k() || key_event._is_up() {
-                        self.send_app_event(AppEvent::CursorUp);
-                        return Ok(());
+                    // 任意光标位置都可以新建
+                    if key_event._is_i_ignore_case() {
+                        self.send_app_event(AppEvent::EnterScreen(Screen::new_creating()))
                     }
-                    // 下移
-                    if key_event._is_down() || key_event._is_j() {
-                        self.send_app_event(AppEvent::CursorDown);
-                        return Ok(());
-                    }
-                }
-                // 任意光标位置都可以新建
-                if key_event._is_i_ignore_case() {
-                    self.send_app_event(AppEvent::EnterScreen(Screen::new_creating()))
+                } else {
+                    self.send_app_event(AppEvent::DoEditing(key_event.code));
                 }
             }
             // 详情页
@@ -292,28 +310,16 @@ impl TUIRuntime {
                 self.send_app_event(AppEvent::DoEditing(key_event.code));
             }
             // 需要主密码
-            NeedMainPasswd(mp, next_enter, re_try) => {
-                // 重试失败到一定次数 则 直接 向方法栈上层传递 Err，
-                // 主事件处理循环处会关闭数据库连接并退出
-                if *re_try >= MAIN_PASS_MAX_RE_TRY {
-                    return Err(Error::from(TError::ReTryMaxExceed(*re_try)));
-                }
-
+            NeedMainPasswd(state) => {
                 if key_event._is_enter() {
                     let mp_hash_b64d = self.pnt.storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap();
                     let verifier =
                         MainPwdVerifier::from_salt_and_passwd(&self.pnt.cfg.salt, mp_hash_b64d);
-                    // todo 换为 非 clone
-                    if verifier.verify(mp.clone()) {
+                    if verifier.verify(state.mp_input()) {
                         // 验证通过，发送 true 事件
-                        self.screen = *next_enter.clone();
-                        return Ok(());
+                        self.send_app_event(AppEvent::MainPwdVerifySuccess(verifier))
                     } else {
-                        self.send_app_event(AppEvent::EnterScreen(NeedMainPasswd(
-                            String::new(),
-                            next_enter.clone(),
-                            re_try + 1,
-                        )))
+                        self.send_app_event(AppEvent::MainPwdVerifyFailed)
                     }
                 }
                 // 密码编辑窗口变化
@@ -333,6 +339,24 @@ impl TUIRuntime {
         Ok(())
     }
 
+    /// 按下 esc 的 处理器
+    /// dashboard find 模式下 退出 find 模式
+    pub fn handle_key_esc_event(&mut self) -> Result<()> {
+        if let Dashboard(state) = &mut self.screen {
+            if state.find_mode {
+                // 解决 退出后 光标不见了，因为  state 没有存显示的实体们，
+                // 但 退出的时候 find_input 里面有值，所以可使用 find_input
+                // 里面的值重新刷一下 vec
+                self.send_app_event(AppEvent::TurnOffFindMode);
+            } else {
+                self.back_screen();
+            }
+        } else {
+            self.back_screen();
+        }
+        Ok(())
+    }
+
     /// 处理进入某屏幕的情况，该方法内进行进入
     /// 若进入的屏幕需要 主密码
     /// 则会要求主密码页面
@@ -340,9 +364,8 @@ impl TUIRuntime {
     fn handle_enter_screen_end_point(&mut self, new_screen: Screen) -> Result<()> {
         // 当前无主密码校验器且打开页面需要主密码，则证明未输入主密码或已过期，则需进入输入密码情况
         if self.pnt.mpv.is_none() && new_screen.is_before_enter_need_main_pwd() {
-            self.enter_screen(NeedMainPasswd(String::new(), Box::new(new_screen), 0));
+            self.enter_screen(NeedMainPasswd(NeedMainPwdState::new(new_screen)));
         } else {
-            // 主密码重试会进入该块，直接进入，并且 re_try + 1
             self.enter_screen(new_screen);
         }
         Ok(())
@@ -360,7 +383,7 @@ impl TUIRuntime {
     /// 要求进入光标指向的当前entry的删除提示页面
     /// 若光标当前指向不为Some或当前screen不是dashboard，返回Err
     fn enter_delete_cursor_pointing_entry_tips_screen(&mut self) -> Result<()> {
-        if let Dashboard (state) = &self.screen {
+        if let Dashboard(state) = &self.screen {
             if let Some(c_ptr) = state.cursor_selected() {
                 let ptr_entry = &state.entries()[c_ptr];
                 self.send_app_event(AppEvent::EnterScreen(DeleteTip(
@@ -379,10 +402,10 @@ impl TUIRuntime {
 
     /// 处理光标向上事件
     fn cursor_up(&mut self) {
-        if let Dashboard (state) = &mut self.screen {
+        if let Dashboard(state) = &mut self.screen {
             if let Some(p) = state.cursor_selected() {
                 if p == 0 {
-                    state.update_cursor(Some(state.entry_count() -1))
+                    state.update_cursor(Some(state.entry_count() - 1))
                 } else {
                     state.cursor.select_previous();
                 }
@@ -396,10 +419,10 @@ impl TUIRuntime {
             }
         }
     }
-    
+
     /// 处理光标向下事件
     fn cursor_down(&mut self) {
-        if let Dashboard (state) = &mut self.screen {
+        if let Dashboard(state) = &mut self.screen {
             if let Some(p) = state.cursor_selected() {
                 if p >= state.entry_count() - 1 {
                     state.update_cursor(Some(0))
@@ -453,46 +476,62 @@ impl TUIRuntime {
                 _ => {}
             }
             Ok(())
-        } else if let NeedMainPasswd(mp, ..) = &mut self.screen {
+        } else if let NeedMainPasswd(state) = &mut self.screen {
             match key_code {
                 KeyCode::Backspace => {
-                    mp.pop();
+                    state.mp_input.pop();
                     ()
                 }
                 // KeyCode::Left => {} // todo 左移光标
                 // KeyCode::Right => {} // todo 右移光标
-                KeyCode::Char(value) => mp.push(value),
+                KeyCode::Char(value) => state.mp_input.push(value),
+                _ => {}
+            }
+            Ok(())
+        } else if let Dashboard(state) = &mut self.screen {
+            match key_code {
+                KeyCode::Backspace => {
+                    state.find_input.pop();
+                    ()
+                }
+                // KeyCode::Left => {} // todo 左移光标
+                // KeyCode::Right => {} // todo 右移光标
+                KeyCode::Char(value) => state.find_input.push(value),
                 _ => {}
             }
             Ok(())
         } else {
-            Err(anyhow!(
-                "current screen is not Creating or Updating or NeedMainPasswd screen"
-            ))
+            Err(anyhow!("current screen is no do_editing event"))
         }
     }
 
     fn do_insert(&mut self, e: &ValidInsertEntry) {
         self.pnt.storage.insert_entry(&e);
         self.back_screen();
-        self.send_app_event(AppEvent::FlashVec);
+        self.send_app_event(AppEvent::FlashVecItems(None));
     }
 
     fn do_update(&mut self, e: &ValidInsertEntry, e_id: u32) {
         self.pnt.storage.update_entry(&e, e_id);
         self.back_screen();
-        self.send_app_event(AppEvent::FlashVec);
+        self.send_app_event(AppEvent::FlashVecItems(None));
     }
 
     /// 当前页面为 dashboard 时 刷新 dashboard 的 vec 从库里重新拿
     /// 当不为 dashboard时 Err
-    fn do_flash_vec(&mut self) -> Result<()> {
-        if let Dashboard (state) = &mut self.screen {
-            state.entries.clear();
-            state.entries.append(&mut self.pnt.storage.select_all_entry());
+    /// 该方法会更新高亮行位置
+    fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
+        if let Dashboard(state) = &mut self.screen {
+            state.entries = if let Some(f) = find {
+                self.pnt.storage.select_entry_by_name_like(&f)
+            } else {
+                self.pnt.storage.select_all_entry()
+            };
             state.entries.sort_by(Entry::sort_by_update_time);
             if !state.entries.is_empty() {
-                state.update_cursor(Some(0))
+                if let None = state.cursor_selected() {
+                    state.update_cursor(Some(0))
+                }
             } else {
                 state.update_cursor(None);
             }
@@ -507,6 +546,60 @@ impl TUIRuntime {
     fn do_remove(&mut self, e_id: u32) {
         self.pnt.storage.delete_entry(e_id);
         self.back_screen();
-        self.send_app_event(AppEvent::FlashVec);
+        self.send_app_event(AppEvent::FlashVecItems(None));
+    }
+
+    /// 开启 find mode
+    fn turn_on_find_mode(&mut self) -> Result<()> {
+        if let Dashboard(state) = &mut self.screen {
+            state.find_mode = true;
+            Ok(())
+        } else {
+            Err(anyhow!("not Dashboard screen, no find mode"))
+        }
+    }
+
+    /// 关闭 find mode
+    fn turn_off_find_mode(&mut self) -> Result<()> {
+        if let Dashboard(state) = &mut self.screen {
+            state.find_mode = false;
+            // 获取 find_input 值，刷新vec
+            if !state.find_input.is_empty() {
+                let f = state.find_input.clone();
+                self.send_app_event(AppEvent::FlashVecItems(Some(f)));
+            } else {
+                // 为空则全查
+                // state.entries =  self.pnt.storage.select_all_entry();
+                self.send_app_event(AppEvent::FlashVecItems(None));
+                // 刷新光标位置
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("not Dashboard screen, no find mode"))
+        }
+    }
+
+    /// 持有 mpv 并 直接进入屏幕
+    /// 因为移动 next screen会导致 当前screen 不可用...
+    /// 遂该方法内应直接进入屏幕
+    fn hold_mp_verifier_and_enter_target_screen(&mut self, mpv: MainPwdVerifier) -> Result<()> {
+         if let NeedMainPasswd(state) = &mut self.screen {
+            self.pnt.mpv = Some(mpv);
+            // let next_screen = *state.on_ok_to_screen;
+            // self.screen = next_screen;
+            std::mem::swap(&mut self.screen, &mut state.on_ok_to_screen);
+            Ok(())
+        } else {
+            Err(anyhow!("current is not NeedMainPasswd screen"))
+        }
+    }
+
+    /// 验证失败的事件，自增或err
+    fn mp_retry_or_err(&mut self) -> Result<()> {
+        if let NeedMainPasswd(state) = &mut self.screen {
+            state.increment_retry_count()
+        } else {
+            Err(anyhow!("current is not NeedMainPasswd screen"))
+        }
     }
 }

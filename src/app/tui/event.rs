@@ -7,15 +7,15 @@ use std::{
     time::{Duration, Instant},
 };
 use anyhow::{Context, Result};
-use crate::app::entry::{UserInputEntry, ValidInsertEntry};
-use super::screen::{Editing, Screen};
+use crate::app::encrypt::MainPwdVerifier;
+use crate::app::entry::ValidInsertEntry;
+use super::screen::Screen;
 
 /// The frequency at which tick events are emitted.
 /// 每秒一次
 const TICK_FPS: f64 = 1.0;
 
 /// Representation of all possible events.
-#[derive(Debug)]
 pub enum Event {
     /// 由子线程发送的固定频率的事件，[`TICK_FPS`]
     Tick,
@@ -32,17 +32,20 @@ pub enum Event {
 /// Application events.
 ///
 /// You can extend this enum with your own custom events.
-#[derive(Debug)]
 pub enum AppEvent {
     
     EnterScreen(Screen),
+    TurnOnFindMode,
+    TurnOffFindMode,
     CursorUp,
     CursorDown,
     DoEditing(KeyCode),
     EntryInsert(ValidInsertEntry), // 插入必要全局刷新 vec，因为插入到库前还不知道id
     EntryUpdate(ValidInsertEntry, u32), // u32 为 id
     EntryRemove(u32), // u32 为 id
-    FlashVec, // 在 删除 和 update 时 仅需 部分更新...
+    FlashVecItems(Option<String>), // 在dashboard 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
+    MainPwdVerifyFailed, 
+    MainPwdVerifySuccess(MainPwdVerifier),
     Quit,
 }
 

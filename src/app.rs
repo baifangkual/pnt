@@ -159,7 +159,7 @@ fn await_verifier_main_pwd(
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
     for n in 0..MAIN_PASS_MAX_RE_TRY {
         let mp = read_stdin_passwd()?;
-        if verifier.verify(mp) {
+        if verifier.verify(&mp) {
             // 验证通过，返回主校验器
             return Ok((verifier, storage));
         } else {
