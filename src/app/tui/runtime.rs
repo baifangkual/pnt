@@ -8,7 +8,7 @@ use crate::app::storage::sqlite::SqliteConn;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
 };
-use crate::app::tui::screen::{Editing, Screen};
+use crate::app::tui::screen::{DashboardState, Editing, Screen};
 use anyhow::{Result, anyhow, Error};
 use crossterm::event::Event as CEvent;
 use log::__private_api::enabled;
@@ -63,15 +63,11 @@ impl TUIRuntime {
     pub fn with_pnt(pnt_context: PntContext, (enc, dec): (NoEncrypter, NoEncrypter)) -> Self {
         let mut ve = pnt_context.storage.select_all_entry();
         ve.sort_by(Entry::sort_by_update_time);
-        let c_ptr = if ve.is_empty() { None } else { Some(0) };
         Self {
             running: true,
             pnt: pnt_context,
             events: EventHandler::new(),
-            screen: Dashboard {
-                cursor: c_ptr,
-                entries: ve,
-            }, // Dashboard
+            screen: Dashboard(DashboardState::new(ve)), // Dashboard
             back_screen: Vec::with_capacity(10),
             encrypter: enc,
             decrypter: dec,
@@ -162,15 +158,15 @@ impl TUIRuntime {
                 }
             }
             // 仪表盘
-            Dashboard { cursor, entries } => {
+            Dashboard(state) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());
                 }
                 // 可进入 查看，编辑，删除tip，新建 页面
                 // 若当前光标无所指，则只能 创建
-                if let Some(c_ptr) = cursor {
-                    let ptr_entry = &entries[*c_ptr];
+                if let Some(c_ptr) = state.cursor_selected() {
+                    let ptr_entry = &state.entries()[c_ptr];
                     // open
                     if key_event._is_o_ignore_case() || key_event._is_enter() {
                         let ve =
@@ -364,9 +360,9 @@ impl TUIRuntime {
     /// 要求进入光标指向的当前entry的删除提示页面
     /// 若光标当前指向不为Some或当前screen不是dashboard，返回Err
     fn enter_delete_cursor_pointing_entry_tips_screen(&mut self) -> Result<()> {
-        if let Dashboard { cursor, entries } = &self.screen {
-            if let Some(c_ptr) = cursor {
-                let ptr_entry = &entries[*c_ptr];
+        if let Dashboard (state) = &self.screen {
+            if let Some(c_ptr) = state.cursor_selected() {
+                let ptr_entry = &state.entries()[c_ptr];
                 self.send_app_event(AppEvent::EnterScreen(DeleteTip(
                     ptr_entry.id,
                     ptr_entry.name.clone(),
@@ -381,13 +377,14 @@ impl TUIRuntime {
         Ok(())
     }
 
+    /// 处理光标向上事件
     fn cursor_up(&mut self) {
-        if let Dashboard { cursor, entries } = &mut self.screen {
-            if let Some(c_ptr) = cursor {
-                if *c_ptr == 0 {
-                    *c_ptr = entries.len() - 1;
+        if let Dashboard (state) = &mut self.screen {
+            if let Some(p) = state.cursor_selected() {
+                if p == 0 {
+                    state.update_cursor(Some(state.entry_count() -1))
                 } else {
-                    *c_ptr -= 1;
+                    state.cursor.select_previous();
                 }
             }
         } else if let Creating { editing, .. } | Updating { editing, .. } = &mut self.screen {
@@ -399,13 +396,15 @@ impl TUIRuntime {
             }
         }
     }
+    
+    /// 处理光标向下事件
     fn cursor_down(&mut self) {
-        if let Dashboard { cursor, entries } = &mut self.screen {
-            if let Some(c_ptr) = cursor {
-                if *c_ptr == entries.len() - 1 {
-                    *c_ptr = 0;
+        if let Dashboard (state) = &mut self.screen {
+            if let Some(p) = state.cursor_selected() {
+                if p >= state.entry_count() - 1 {
+                    state.update_cursor(Some(0))
                 } else {
-                    *c_ptr += 1;
+                    state.cursor.select_next();
                 }
             }
         } else if let Creating { editing, .. } | Updating { editing, .. } = &mut self.screen {
@@ -488,14 +487,14 @@ impl TUIRuntime {
     /// 当前页面为 dashboard 时 刷新 dashboard 的 vec 从库里重新拿
     /// 当不为 dashboard时 Err
     fn do_flash_vec(&mut self) -> Result<()> {
-        if let Dashboard { cursor, entries } = &mut self.screen {
-            entries.clear();
-            entries.append(&mut self.pnt.storage.select_all_entry());
-            entries.sort_by(Entry::sort_by_update_time);
-            if !entries.is_empty() {
-                *cursor = Some(0)
+        if let Dashboard (state) = &mut self.screen {
+            state.entries.clear();
+            state.entries.append(&mut self.pnt.storage.select_all_entry());
+            state.entries.sort_by(Entry::sort_by_update_time);
+            if !state.entries.is_empty() {
+                state.update_cursor(Some(0))
             } else {
-                *cursor = None;
+                state.update_cursor(None);
             }
             Ok(())
         } else {

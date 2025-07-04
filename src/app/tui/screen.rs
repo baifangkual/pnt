@@ -10,7 +10,7 @@ pub struct  HelpEntry{
 #[derive(Debug, Clone)] // todo 后续应移除重的 Clone
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
-    Dashboard{cursor: Option<usize>, entries: Vec<Entry>}, // 全局浏览窗口
+    Dashboard(DashboardState), // 全局浏览窗口
     Help, // f1 help
     Details(UserInputEntry), // 某详情
     Creating{editing: Editing, u_input: UserInputEntry}, // 创建窗口
@@ -51,4 +51,44 @@ pub enum Editing {
     Description,
     Identity,
     Password,
+}
+
+use ratatui::widgets::ListState;
+
+#[derive(Debug, Clone)]
+pub struct DashboardState {
+    pub find_input: String,
+    pub entries: Vec<Entry>,
+    pub cursor: ListState  // 添加ListState来控制滚动
+}
+
+impl DashboardState {
+    pub fn new(entries: Vec<Entry>) -> Self {
+        let mut cursor = ListState::default();
+        cursor.select(if entries.is_empty() { None } else { Some(0) });
+
+        Self {
+            find_input: String::new(),
+            entries,
+            cursor
+        }
+    }
+
+    /// 更新光标坐标
+    pub fn update_cursor(&mut self, index: Option<usize>) {
+        self.cursor.select(index);
+    }
+
+    /// 光标指向的 元素 在 vec 的 index
+    pub fn cursor_selected(&self) -> Option<usize> {
+        self.cursor.selected()
+    }
+
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn entries(&self) -> &Vec<Entry> {
+        &self.entries
+    }
 }

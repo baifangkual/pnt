@@ -9,6 +9,7 @@ use ratatui::{
     style::{Color, Stylize},
     widgets::{Block, BorderType, Paragraph, StatefulWidget, Widget},
 };
+use crate::app::tui::widgets::DashboardWidget;
 
 const TITLE: &str = concat!(
     clap::crate_name!(),
@@ -26,8 +27,9 @@ impl Widget for &TUIRuntime {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // 当 back_screen 有值，一定为 dash，渲染之
         // 若无，则证明当前为 dash，则 if 内 不渲染
-        if let Some(dash) = self.back_screen.get(0) {
-            dash.render(area, buf);
+        if let Some( Screen::Dashboard(state)) = self.back_screen.get(0) {
+            let dash_widget = DashboardWidget;
+            dash_widget.render(area, buf, &mut state)
         }
         // 渲染当前屏幕
         self.screen.render(area, buf);
@@ -37,7 +39,7 @@ impl Widget for &TUIRuntime {
 impl Widget for &Screen {
     fn render(self, area: Rect, buf: &mut Buffer) {
         match self {
-            Screen::Dashboard { cursor, entries } => {
+            Screen::Dashboard (state) => {
                 // 外壳
                 let block = Block::bordered()
                     .title(Line::from(TITLE))
@@ -66,13 +68,13 @@ impl Widget for &Screen {
 
                 // ratatui::widgets::ListState todo 用这个，可以简化一部分流程，（选中项，滚动）
                 // list
-                let r_l = if let Some(c_ptr) = cursor {
+                let r_l = if let Some(c_ptr) = state.cursor_selected() {
                     // 有元素
                     let mut list_items = Vec::<ListItem>::new();
-                    for (i, ent) in entries.iter().enumerate() {
+                    for (i, ent) in state.entries().iter().enumerate() {
                         let desc = ent.description.as_ref().map(|s| s.as_str()).unwrap_or("");
                         let ent_fmt = format!("{: >3} | {: >10} | {}", i, ent.name, desc);
-                        let li = if i == *c_ptr {
+                        let li = if i == c_ptr {
                             // 光标所在
                             ListItem::new(Line::from(Span::styled(
                                 ent_fmt,
@@ -91,7 +93,6 @@ impl Widget for &Screen {
                     // 无元素
                     List::new::<[ListItem; 0]>([])
                 };
-
                 //StatefulWidget::render(r_l, layout_hm1[1], )
                 // r_l.render(layout_hm1[1], buf, ListState::default()); // todo 用这个
                 // 渲染之

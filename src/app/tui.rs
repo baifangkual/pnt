@@ -4,6 +4,7 @@ mod event;
 mod runtime;
 mod screen;
 mod error;
+mod widgets;
 
 use crate::app::context::PntContext;
 use log::debug;
