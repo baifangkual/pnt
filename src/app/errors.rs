@@ -13,12 +13,14 @@ pub enum TError {
 /// 加密解密错误
 #[derive(Debug, Error)]
 pub enum CryptoError {
-    #[error("failed to encrypt main password")]
-    EncryptMainPwd(Option<argon2::password_hash::Error>),
-    #[error("illegal decode salt")]
+    #[error("failed to encrypt main password: {0}")]
+    EncryptMainPwd(argon2::password_hash::Error),
+    #[error("illegal decode salt: {0}")]
     DecodeSalt(argon2::password_hash::Error),
-    #[error("illegal decode main password")]
-    DecodeMP(base64ct::Error)
+    #[error("illegal decode main password: {0}")]
+    DecodeMP(base64ct::Error),
+    #[error("generate key error")]
+    GenerateKey
 }
 
 /// 校验失败

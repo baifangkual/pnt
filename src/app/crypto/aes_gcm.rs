@@ -1,51 +1,116 @@
 //! 使用 aes_gcm 库进行加密和解密
 
-use crate::app::crypto::{Decrypter, Encrypter};
+use crate::app::crypto::{Decrypter, Encrypter, MainPwdVerifier};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::error::{CryptoError};
+use crate::app::errors::CryptoError;
+use aes_gcm::aead::consts::U12;
+use aes_gcm::aead::generic_array::GenericArray;
+use aes_gcm::aes::Aes256;
+use aes_gcm::{aead::{Aead, AeadCore, KeyInit}, Aes256Gcm, AesGcm, Key, Nonce};
+use anyhow::Result;
+use base64ct::Encoding;
 
-struct StrEncrypter {
-    
+// struct StrAes256GcmEncrypter;
+// impl Encrypter<&str, String> for StrAes256GcmEncrypter {
+//     type EncrypterError = CryptoError;
+//     fn encrypt(&self, plaintext: &str) -> Result<String, Self::EncrypterError> {
+//         todo!()
+//     }
+// }
+// impl Decrypter<&str, String> for StrAes256GcmEncrypter {
+//     type DecrypterError = CryptoError;
+//     fn decrypt(&self, ciphertext: &str) -> Result<String, Self::DecrypterError> {
+//         todo!()
+//     }
+// }
+
+pub struct EntryAes256GcmEncrypter {
+    inner_enc : AesGcm<Aes256, U12>,
 }
-impl Encrypter<&str, String> for StrEncrypter {
+impl EntryAes256GcmEncrypter {
+    pub fn new_from_main_pwd_verifier(main_pwd_verifier: &MainPwdVerifier) -> Result<EntryAes256GcmEncrypter> {
+        let gk = main_pwd_verifier.gph()?;
+        let gcm = aes_gcm::Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&gk));
+        Ok(Self {inner_enc : gcm})
+    }
+}
+
+impl Encrypter<&InputEntry, ValidEntry> for EntryAes256GcmEncrypter {
     type EncrypterError = CryptoError;
-    fn encrypt(&self, plaintext: &str) -> Result<String, Self::EncrypterError> {
+    fn encrypt(&self, input_entry: &InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
         todo!()
     }
 }
-impl Decrypter<&str, String> for StrEncrypter {
+impl Decrypter<&EncryptedEntry, InputEntry> for EntryAes256GcmEncrypter {
     type DecrypterError = CryptoError;
-    fn decrypt(&self, ciphertext: &str) -> Result<String, Self::DecrypterError> {
+    fn decrypt(&self, encrypted_entry: &EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
         todo!()
     }
 }
 
-pub struct EntryEncrypter {
-    inner_enc : StrEncrypter, 
-}
-
-impl Encrypter<InputEntry, ValidEntry> for EntryEncrypter {
-    type EncrypterError = CryptoError;
-    fn encrypt(&self, input_entry: InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
-        todo!()
-    }
-}
-impl Decrypter<EncryptedEntry, InputEntry> for EntryEncrypter {
-    type DecrypterError = CryptoError;
-    fn decrypt(&self, encrypted_entry: EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
-        todo!()
-    }
-}
+/// 随机数 可暴露，加密解密使用
+pub type AesNonce = GenericArray<u8, U12>;
 
 
 
 #[cfg(test)]
 mod test {
-    use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, Key};
-    use std::str;
-    use anyhow::{anyhow, Context};
-    use argon2::PasswordHasher;
+    use aes_gcm::aead::consts::U12;
+    use aes_gcm::aead::generic_array::GenericArray;
+    use aes_gcm::aes::Aes256;
+    use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, AesGcm, Key, Nonce};
+    use anyhow::anyhow;
     use base64ct::{Base64, Encoding};
+    use std::str;
+
+    #[test]
+    fn test_nonce_ser_de_ser(){
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let vec = nonce.to_vec();
+        let nb64 = Base64::encode_string(&vec);
+        let vec1 = Base64::decode_vec(&nb64).unwrap();
+        let new_nonce:  GenericArray<u8, U12> = Nonce::clone_from_slice(&vec1);
+        println!("new_nonce: {:?}", new_nonce);
+        println!("nonce: {:?}", new_nonce);
+    }
+
+
+    #[test]
+    fn test_nonce() -> Result<(), Box<dyn std::error::Error>> {
+        // 示例密钥（实际应用中应从安全来源获取）
+        let key = Aes256Gcm::generate_key(&mut OsRng);
+        let cipher: AesGcm<Aes256, U12> = Aes256Gcm::new(&key);
+
+        // ---------------------- 生成 Nonce ----------------------
+        let nonce: GenericArray<u8, U12> = Aes256Gcm::generate_nonce(&mut OsRng);
+        println!("原始 Nonce (十六进制): {:02x?}", nonce.as_slice());
+
+        // ---------------------- 序列化为字符串 ----------------------
+        // 方法1: Base64 编码（推荐，紧凑格式）
+        let nonce_base64 = Base64::encode_string(&nonce);
+        println!("Base64 编码: {}", nonce_base64);
+
+        // ---------------------- 从字符串反序列化 ----------------------
+        // 从 Base64 还原
+        let decoded_base64 = Base64::decode_vec(&nonce_base64)?;
+        let nonce_from_base64: GenericArray<u8, U12> = Nonce::clone_from_slice(&decoded_base64);
+        println!("从 Base64 还原: {:02x?}", nonce_from_base64.as_slice());
+
+        // ---------------------- 验证还原的 Nonce ----------------------
+        let plaintext = "测试数据";
+
+        // 使用原始 Nonce 加密
+        let ciphertext = cipher.encrypt(&nonce, plaintext.as_ref()).unwrap();
+
+        // 使用还原的 Nonce 解密
+        let decrypted = cipher.decrypt(&nonce_from_base64, ciphertext.as_ref()).unwrap();
+        let decrypted_text = str::from_utf8(&decrypted)?;
+
+        println!("\n解密验证: {}", decrypted_text);
+        assert_eq!(plaintext, decrypted_text);
+
+        Ok(())
+    }
 
     #[test]
     fn test_aes_gcm() -> anyhow::Result<()> {

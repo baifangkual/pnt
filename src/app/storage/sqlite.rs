@@ -22,15 +22,16 @@ const CREATE_ENTRY_TABLE_TEMPLATE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS "ent
     "desc" TEXT,
     "k" TEXT NOT NULL,
     "v" TEXT NOT NULL,
+    "n" TEXT NOT NULL,
     "ct" TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),  -- 创建时间(ISO8601格式)
     "ut" TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))   -- 更新时间
 )"#;
 // rusqlite 不会造成 sql 注入，因此无需使用参数化查询
 /// 模板-插入密码的 Sqlite 语句
 const INSERT_ENTRY_SQL: &str =
-    r#"INSERT INTO "entry" ("name", "desc", "k", "v") VALUES (?, ?, ?, ?)"#;
+    r#"INSERT INTO "entry" ("name", "desc", "k", "v", "n") VALUES (?, ?, ?, ?, ?)"#;
 /// 模板-更新实体的 Sqlite 语句
-const UPDATE_ENTRY_SQL: &str = r#"UPDATE "entry" SET "name"=?, "desc"=?, "k"=?, "v"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
+const UPDATE_ENTRY_SQL: &str = r#"UPDATE "entry" SET "name"=?, "desc"=?, "k"=?, "v"=?, "n"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
 /// 模板-删除实体的 Sqlite 语句
 const DELETE_ENTRY_SQL: &str = r#"DELETE FROM "entry" WHERE "id"=?"#;
 
@@ -60,17 +61,19 @@ fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
     let name: String = row.get(1)?;
     let description: Option<String> = row.get(2)?;
     let encrypted_identity: String = row.get(3)?;
-    let encrypted_passwd: String = row.get(4)?;
-    let created_at: DateTime<Local> = row.get(5)?;
-    let updated_at: DateTime<Local> = row.get(6)?;
+    let encrypted_password: String = row.get(4)?;
+    let nonce: String = row.get(5)?;
+    let created_at: DateTime<Local> = row.get(6)?;
+    let updated_at: DateTime<Local> = row.get(7)?;
     Ok(EncryptedEntry {
         id,
         name,
         description,
         encrypted_identity,
-        encrypted_password: encrypted_passwd,
+        encrypted_password,
         created_at,
         updated_at,
+        nonce,
     })
 }
 /// 将 Row 转换为 (k, v)
@@ -114,7 +117,8 @@ impl SqliteConn {
                     insert_entry.name,
                     insert_entry.description,
                     insert_entry.encrypted_identity,
-                    insert_entry.encrypted_password
+                    insert_entry.encrypted_password,
+                    insert_entry.nonce,
                 ],
             )
             .expect("Failed to insert entry");
@@ -129,6 +133,7 @@ impl SqliteConn {
                     update_entry.description,
                     update_entry.encrypted_identity,
                     update_entry.encrypted_password,
+                    update_entry.nonce,
                     id // where
                 ],
             )
@@ -216,6 +221,7 @@ mod tests {
             description: None,
             encrypted_identity: String::from("test"),
             encrypted_password: String::from("test"),
+            nonce: String::from("test"),
         };
 
         // 精确到秒可能无意义
@@ -242,6 +248,7 @@ mod tests {
             description: upd_entry.description,
             encrypted_identity: upd_entry.encrypted_identity,
             encrypted_password: upd_entry.encrypted_password,
+            nonce: upd_entry.nonce,
         };
         db.update_entry(&v_e, other_entry.id);
         let after_update_query_by_id_one = db.select_entry_by_id(entry.id);

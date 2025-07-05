@@ -1,4 +1,5 @@
-use crate::app::crypto::{Decrypter, Encrypter};
+use crate::app::crypto::Decrypter;
+use anyhow::Context;
 use chrono::{DateTime, Local};
 
 /// 完全映射用户的输入
@@ -16,32 +17,8 @@ impl InputEntry {
         // 名称和认证字段不能为空，不应判定trim后是否为空，因为这是刻意输入的
         !self.name.is_empty() && !self.identity.is_empty() && !self.password.is_empty()
     }
-    /// 加密 InputEntry 为 ValidEntry
-    /// # Panics
-    /// 当 InputEntry 不合法时，该方法会 panic
-    pub fn encrypt<Enc>(self, encrypt: &Enc) -> ValidEntry
-    where
-        Enc: Encrypter<InputEntry, ValidEntry>,
-    {
-        encrypt
-            .encrypt(self)
-            .unwrap_or_else(|e| panic!("input error: {e}"))
-    }
 }
 
-impl InputEntry {
-    /// 解密一个已加密条目至InputEntry
-    /// # Panics
-    /// 当 EncryptedEntry 不合法时，该方法会panic
-    pub fn decrypt_from_entry<Dec>(decrypter: &Dec, entry: EncryptedEntry) -> Self
-    where
-        Dec: Decrypter<EncryptedEntry, InputEntry>,
-    {
-        decrypter
-            .decrypt(entry)
-            .unwrap_or_else(|e| panic!("decrypter error: {e}"))
-    }
-}
 
 /// 一个待插入的条目，与数据库中一个条目相关
 /// 一个用户输入的Entry若能够通过验证，则会转换为该类型
@@ -51,17 +28,8 @@ pub struct ValidEntry {
     pub description: Option<String>,
     pub encrypted_identity: String,
     pub encrypted_password: String,
-}
-
-impl Default for ValidEntry {
-    fn default() -> ValidEntry {
-        Self {
-            name: String::default(),
-            description: None,
-            encrypted_identity: String::default(),
-            encrypted_password: String::default(),
-        }
-    }
+    /// 加密后 盐 随机
+    pub nonce: String,
 }
 
 // /// 详情
@@ -91,18 +59,20 @@ pub struct EncryptedEntry {
     /// 创建时间
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
+    /// 加密后 盐 随机
+    pub nonce: String,
 }
 /// 实现排序，按照修改时间排序
 impl EncryptedEntry {
     pub fn sort_by_update_time(left: &EncryptedEntry, right: &EncryptedEntry) -> std::cmp::Ordering {
-        left.created_at.cmp(&right.created_at)
+        right.created_at.cmp(&left.created_at)
     }
     /// 解密 Entry 为 UserInputEntry
-    pub fn decrypt<Dec>(self, decrypt: &Dec) -> InputEntry
+    pub fn decrypt<'a, Dec>(&'a self, decrypt: &Dec) -> anyhow::Result<InputEntry>
     where
-        Dec: Decrypter<EncryptedEntry, InputEntry>,
+        Dec: Decrypter<&'a EncryptedEntry, InputEntry>,
     {
-        // Safety: 一个Entry 一定不会解密失败
-        unsafe { decrypt.decrypt(self).unwrap_unchecked() }
+        decrypt.decrypt(&self)
+            .with_context(|| "decrypt entry failed")
     }
 }

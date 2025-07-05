@@ -3,13 +3,12 @@
 pub mod aes_gcm;
 
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use anyhow::{anyhow, Context, Error};
+use crate::app::errors::CryptoError;
+use anyhow::{anyhow, Context};
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64ct::{Base64, Encoding};
 use std::convert::Infallible;
-use clap::arg;
-use crate::app::error::{CryptoError, VerifyError};
 
 /// 加密器
 pub trait Encrypter<P, C> {
@@ -25,29 +24,30 @@ pub trait Decrypter<C, P> {
 }
 
 pub struct NoEncrypter;
-impl Encrypter<InputEntry, ValidEntry> for NoEncrypter {
+impl Encrypter<&InputEntry, ValidEntry> for NoEncrypter {
     type EncrypterError = Infallible;
-    fn encrypt(&self, plaintext: InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
+    fn encrypt(&self, plaintext: &InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
         Ok(ValidEntry {
-            name: plaintext.name,
+            name: plaintext.name.clone(),
             description: if plaintext.description.is_empty() {
                 None
             } else {
-                Some(plaintext.description)
+                Some(plaintext.description.clone())
             },
-            encrypted_identity: plaintext.identity,
-            encrypted_password: plaintext.password,
+            encrypted_identity: plaintext.identity.clone(),
+            encrypted_password: plaintext.password.clone(),
+            nonce: String::default(),
         })
     }
 }
-impl Decrypter<EncryptedEntry, InputEntry> for NoEncrypter {
+impl Decrypter<&EncryptedEntry, InputEntry> for NoEncrypter {
     type DecrypterError = Infallible;
-    fn decrypt(&self, ciphertext: EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
+    fn decrypt(&self, ciphertext: &EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
         Ok(InputEntry {
-            name: ciphertext.name,
-            description: ciphertext.description.unwrap_or_default(),
-            identity: ciphertext.encrypted_identity,
-            password: ciphertext.encrypted_password,
+            name: ciphertext.name.clone(),
+            description: if let Some(desc) = &ciphertext.description {desc.clone()} else {String::new()},
+            identity: ciphertext.encrypted_identity.clone(),
+            password: ciphertext.encrypted_password.clone(),
         })
     }
 }
@@ -77,7 +77,7 @@ impl Encrypter<String, String> for MainPwdEncrypter {
     fn encrypt(&self, plaintext: String) -> Result<String, CryptoError> {
         let mph = Argon2::default()
             .hash_password(plaintext.as_bytes(), &self.salt)
-            .map_err(|e| CryptoError::EncryptMainPwd(Some(e)))?
+            .map_err(|e| CryptoError::EncryptMainPwd(e))?
             .to_string();
         Ok(Base64::encode_string(mph.as_bytes()))
     }
@@ -93,12 +93,12 @@ impl MainPwdVerifier {
     /// 构建一个主密码校验器
     /// # Arguments
     /// * `salt` - 盐
-    /// * `cipher_pwd` - argon2 hash 加密后的主密码
-    pub fn from_salt_and_passwd(salt: &str, mph_b64: String) -> anyhow::Result<Self> {
-        let ub = Base64::decode_vec(&mph_b64)
-            .map_err(|e| CryptoError::DecodeMP(e))?;
+    /// * `mph_b64` - argon2 hash 加密后的主密码
+    pub fn from_salt_and_passwd_hash_b64(salt: &str, mph_b64: String) -> anyhow::Result<Self> {
+        let ub = Base64::decode_vec(&mph_b64).map_err(|e| CryptoError::DecodeMP(e))?;
         Ok(Self {
-            salt: SaltString::encode_b64(salt.as_bytes()).map_err(|e| CryptoError::DecodeSalt(e))?,
+            salt: SaltString::encode_b64(salt.as_bytes())
+                .map_err(|e| CryptoError::DecodeSalt(e))?,
             mph: String::from_utf8(ub)?,
             gph: None,
         })
@@ -106,23 +106,30 @@ impl MainPwdVerifier {
 }
 
 impl MainPwdVerifier {
-    //noinspection ALL
     pub fn verify(&mut self, passwd: &str) -> anyhow::Result<()> {
         // argon2 实例仅是值容器，创建代价小，无需存储实例
         // 其param使用 pub const DEFAULT，编译时确定
-        Argon2::default()
+        let argon2 = Argon2::default();
+        argon2
             .verify_password(
                 passwd.as_bytes(),
-                &PasswordHash::new(&self.mph).map_err(|e| CryptoError::EncryptMainPwd(Some(e)))?
+                &PasswordHash::new(&self.mph).map_err(|e| CryptoError::EncryptMainPwd(e))?,
             )
-            .map_err(|e| anyhow::Error::from(CryptoError::EncryptMainPwd(Some(e))))
+            .map_err(|e| CryptoError::EncryptMainPwd(e))?;
+        // gph gen
+        let mut gp = [0u8; 32];
+        argon2
+            .hash_password_into(passwd.as_bytes(), self.salt.as_str().as_bytes(), &mut gp)
+            .map_err(|_| CryptoError::GenerateKey)?;
+        self.gph = Some(gp);
+        Ok(())
     }
 
     pub fn mph(&self) -> &str {
         &self.mph
     }
     pub fn gph(&self) -> anyhow::Result<&[u8]> {
-        match &self.gph { 
+        match &self.gph {
             Some(gph) => Ok(gph),
             None => Err(anyhow!("not found, not verify main password")),
         }
@@ -151,22 +158,21 @@ mod test {
         let plaintext = "pass".to_owned();
         let encrypter = MainPwdEncrypter::from_salt("salt1111").unwrap();
         let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
-        let mut verifier = MainPwdVerifier::from_salt_and_passwd("salt1111", cs1).unwrap();
+        let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64("salt1111", cs1).unwrap();
         assert!(verifier.verify(&plaintext).is_ok());
         assert!(verifier.verify("pas1").is_err());
     }
 
     #[test]
     fn test_slat_gen_mut_nonce() {
-
-        let mp ="123456789101112".to_owned();
+        let mp = "123456789101112".to_owned();
         let slat = "salt11111";
         let encrypter = MainPwdEncrypter::from_salt(slat).unwrap();
         let cs1 = encrypter.encrypt(mp.clone()).unwrap();
-        let verifier = MainPwdVerifier::from_salt_and_passwd("salt1111", cs1).unwrap();
-
-
-
-
+        let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64("salt1111", cs1).unwrap();
+        let x = verifier.verify(&mp).is_ok();
+        assert!(x);
+        let x1 = verifier.gph().is_ok();
+        assert!(x1);
     }
 }

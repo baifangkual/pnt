@@ -4,7 +4,7 @@ use crate::app::consts::{MAIN_PASS_KEY, MAIN_PASS_MAX_RE_TRY};
 use crate::app::context::PntContext;
 use crate::app::crypto::{Encrypter, MainPwdVerifier, NoEncrypter};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::error::TError;
+use crate::app::errors::TError;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
@@ -180,21 +180,17 @@ impl TUIRuntime {
                         let ptr_entry = &state.entries()[c_ptr];
                         // open
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
-                            let ve = InputEntry::decrypt_from_entry(
-                                &self.decrypter,
-                                ptr_entry.clone(),
-                            );
-                            self.send_app_event(AppEvent::EnterScreen(Details(ve)));
+                            // 解密
+                            self.send_app_event(AppEvent::EnterScreen(Details(
+                                ptr_entry.decrypt(&self.decrypter)?,
+                            )));
                             return Ok(());
                         }
                         // update
                         if key_event._is_u_ignore_case() {
-                            let ve = InputEntry::decrypt_from_entry(
-                                &self.decrypter,
-                                ptr_entry.clone(),
-                            );
+                            // 解密
                             self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
-                                ve,
+                                ptr_entry.decrypt(&self.decrypter)?,
                                 ptr_entry.id,
                             )));
                             return Ok(());
@@ -236,6 +232,7 @@ impl TUIRuntime {
                     return Ok(());
                 }
                 if key_event._is_d() {
+                    // todo perf: details 页面应当有当前光标的id，不应该返回到dashboard再进行delete提示
                     self.back_screen(); // 回到 dashboard
                     self.enter_delete_cursor_pointing_entry_tips_screen()?;
                 }
@@ -290,8 +287,10 @@ impl TUIRuntime {
             NeedMainPasswd(state) => {
                 if key_event._is_enter() {
                     let mp_hash_b64d = self.pnt.storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap();
-                    let mut verifier =
-                        MainPwdVerifier::from_salt_and_passwd(&self.pnt.cfg.salt, mp_hash_b64d)?;
+                    let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64(
+                        &self.pnt.cfg.salt,
+                        mp_hash_b64d,
+                    )?;
                     if verifier.verify(state.mp_input()).is_ok() {
                         // 验证通过，发送 true 事件
                         self.send_app_event(AppEvent::MainPwdVerifySuccess(verifier))
@@ -377,7 +376,7 @@ impl TUIRuntime {
                     state.cursor.select_previous();
                 }
             }
-        } else if let Creating(state) | Updating (state) = &mut self.screen {
+        } else if let Creating(state) | Updating(state) = &mut self.screen {
             state.cursor_up();
         }
     }
@@ -392,7 +391,7 @@ impl TUIRuntime {
                     state.cursor.select_next();
                 }
             }
-        }  else if let Creating(state) | Updating (state) = &mut self.screen {
+        } else if let Creating(state) | Updating(state) = &mut self.screen {
             state.cursor_down();
         }
     }
@@ -402,8 +401,7 @@ impl TUIRuntime {
     }
 
     fn do_editing(&mut self, key_code: KeyCode) -> Result<()> {
-        if let Creating(state) | Updating (state) = &mut self.screen
-        {
+        if let Creating(state) | Updating(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
             if Editing::Description != *state.current_editing_type() {
                 if let KeyCode::Enter = key_code {
@@ -476,6 +474,7 @@ impl TUIRuntime {
             } else {
                 self.pnt.storage.select_all_entry()
             };
+            // 按最后更新时间倒叙
             state.entries.sort_by(EncryptedEntry::sort_by_update_time);
             if !state.entries.is_empty() {
                 if let None = state.cursor_selected() {

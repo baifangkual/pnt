@@ -6,7 +6,7 @@ mod context;
 mod storage;
 mod tui;
 mod consts;
-mod error;
+mod errors;
 
 use crate::app::config::{load_cfg, Cfg};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
@@ -156,7 +156,7 @@ fn await_verifier_main_pwd(
     storage: SqliteConn,
 ) -> Result<(MainPwdVerifier, SqliteConn)> {
     let mp_hash_b64d = storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap(); // 代码走到当前行该mp一定不为None ...
-    let mut verifier = MainPwdVerifier::from_salt_and_passwd(&cfg.salt, mp_hash_b64d)?;
+    let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64(&cfg.salt, mp_hash_b64d)?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
     for n in 0..MAIN_PASS_MAX_RE_TRY {
         let mp = read_stdin_passwd()?;
