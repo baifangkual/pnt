@@ -6,13 +6,13 @@ use std::convert::Infallible;
 
 /// 加密器
 pub trait Encrypter<P, C> {
-    type EncrypterError: std::error::Error;
+    type EncrypterError: std::error::Error + Sync + Send + 'static;
     /// 加密方法 - 将明文(plaintext)转为密文(ciphertext)
     fn encrypt(&self, plaintext: P) -> Result<C, Self::EncrypterError>;
 }
 /// 解密器
 pub trait Decrypter<C, P> {
-    type DecrypterError: std::error::Error;
+    type DecrypterError: std::error::Error + Sync+ Send  + 'static;
     /// 解密方法 - 将密文(ciphertext)转为明文(plaintext)
     fn decrypt(&self, ciphertext: C) -> Result<P, Self::DecrypterError>;
 }
@@ -110,6 +110,10 @@ impl MainPwdVerifier {
                 &PasswordHash::new(&self._pass_hash).expect("invalid hash"),
             )
             .is_ok()
+    }
+    
+    pub fn pass_hash(&self) -> &str {
+        &self._pass_hash
     }
 }
 

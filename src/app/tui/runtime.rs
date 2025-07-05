@@ -240,33 +240,6 @@ impl TUIRuntime {
                     self.enter_delete_cursor_pointing_entry_tips_screen()?;
                 }
             }
-            Creating {
-                editing: _,
-                u_input,
-            } => {
-                // 上移
-                if key_event._is_up() {
-                    self.send_app_event(AppEvent::CursorUp);
-                    return Ok(());
-                }
-                // 下移
-                if key_event._is_down() || key_event._is_tab() {
-                    self.send_app_event(AppEvent::CursorDown);
-                    return Ok(());
-                }
-                // 保存
-                if key_event._is_ctrl_s() {
-                    // 验证 todo 未通过验证应给予提示
-                    if u_input.validate() {
-                        // clone ... todo 或可优化非 clone
-                        let entry = u_input.clone().encrypt(&self.encrypter);
-                        // todo 应有 save tip 页面
-                        self.send_app_event(AppEvent::EntryInsert(entry));
-                    }
-                }
-                // 编辑窗口变化
-                self.send_app_event(AppEvent::DoEditing(key_event.code));
-            }
             DeleteTip(e_id, ..) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
@@ -281,11 +254,7 @@ impl TUIRuntime {
                     return Ok(());
                 }
             }
-            Updating {
-                editing: _,
-                u_input,
-                e_id,
-            } => {
+            Creating(state) | Updating(state) => {
                 // 上移
                 if key_event._is_up() {
                     self.send_app_event(AppEvent::CursorUp);
@@ -297,13 +266,21 @@ impl TUIRuntime {
                     return Ok(());
                 }
                 // 保存
-                if key_event._is_ctrl_s() {
+                if key_event._is_ctrl_s() && state.current_input_validate() {
                     // 验证 todo 未通过验证应给予提示
-                    if u_input.validate() {
-                        // clone ... todo 或可优化非 clone
-                        let entry = u_input.clone().encrypt(&self.encrypter);
-                        // todo 应有 save tip 页面
-                        self.send_app_event(AppEvent::EntryUpdate(entry, *e_id));
+                    // todo 应有 save tip 页面
+                    match &self.screen {
+                        Creating(state) => {
+                            let (valid_e, _) = state.try_encrypt(&self.encrypter)?;
+                            self.send_app_event(AppEvent::EntryInsert(valid_e));
+                        }
+                        Updating(state) => {
+                            let (valid_e, Some(e_id)) = state.try_encrypt(&self.encrypter)? else {
+                                return Err(anyhow!("updating entry must have an e_id"));
+                            };
+                            self.send_app_event(AppEvent::EntryUpdate(valid_e, e_id));
+                        }
+                        _ => {}
                     }
                 }
                 // 编辑窗口变化
@@ -326,16 +303,6 @@ impl TUIRuntime {
                 self.send_app_event(AppEvent::DoEditing(key_event.code));
             }
         }
-
-        // match key_event.code {
-        //     // esc or q - to event quit
-        //     KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-        //     // ctrl + c - to event quit
-        //     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
-        //         self.events.send(AppEvent::Quit)
-        //     }
-        //     _ => {}
-        // }
         Ok(())
     }
 
@@ -410,13 +377,8 @@ impl TUIRuntime {
                     state.cursor.select_previous();
                 }
             }
-        } else if let Creating { editing, .. } | Updating { editing, .. } = &mut self.screen {
-            match editing {
-                Editing::Name => *editing = Editing::Password,
-                Editing::Description => *editing = Editing::Name,
-                Editing::Identity => *editing = Editing::Description,
-                Editing::Password => *editing = Editing::Identity,
-            }
+        } else if let Creating(state) | Updating (state) = &mut self.screen {
+            state.cursor_up();
         }
     }
 
@@ -430,13 +392,8 @@ impl TUIRuntime {
                     state.cursor.select_next();
                 }
             }
-        } else if let Creating { editing, .. } | Updating { editing, .. } = &mut self.screen {
-            match editing {
-                Editing::Name => *editing = Editing::Description,
-                Editing::Description => *editing = Editing::Identity,
-                Editing::Identity => *editing = Editing::Password,
-                Editing::Password => *editing = Editing::Name,
-            }
+        }  else if let Creating(state) | Updating (state) = &mut self.screen {
+            state.cursor_down();
         }
     }
 
@@ -445,25 +402,17 @@ impl TUIRuntime {
     }
 
     fn do_editing(&mut self, key_code: KeyCode) -> Result<()> {
-        if let Creating { editing, u_input }
-        | Updating {
-            editing, u_input, ..
-        } = &mut self.screen
+        if let Creating(state) | Updating (state) = &mut self.screen
         {
             // 不为 desc 的 响应 enter 到下一行
-            if Editing::Description != *editing {
+            if Editing::Description != *state.current_editing_type() {
                 if let KeyCode::Enter = key_code {
                     self.send_app_event(AppEvent::CursorDown);
                     return Ok(());
                 }
             }
             // do editing...
-            let input = match &editing {
-                Editing::Name => &mut u_input.name,
-                Editing::Description => &mut u_input.description,
-                Editing::Identity => &mut u_input.identity,
-                Editing::Password => &mut u_input.password,
-            };
+            let input = state.current_editing_string_mut();
             match key_code {
                 KeyCode::Backspace => {
                     input.pop();

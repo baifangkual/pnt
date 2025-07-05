@@ -11,16 +11,9 @@ pub enum Screen {
     Dashboard(DashboardState), // 全局浏览窗口
     Help,                    // f1 help
     Details(UserInputEntry), // 某详情
-    Creating {
-        editing: Editing,
-        u_input: UserInputEntry,
-    }, // 创建窗口
+    Creating (EditingState), // 创建窗口
+    Updating (EditingState), // 已有条目编辑窗口
     DeleteTip(u32, String, Option<String>), // 删除时的弹窗, 显示名称和描述（可能有）
-    Updating {
-        editing: Editing,
-        u_input: UserInputEntry,
-        e_id: u32,
-    }, // 已有条目编辑窗口
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
     NeedMainPasswd(NeedMainPwdState), // 要求键入主密码的窗口, u8 为重试次数
 }
@@ -39,20 +32,13 @@ impl Screen {
     }
     /// 新建编辑页面
     pub fn new_updating(u_input: UserInputEntry, e_id: u32) -> Self {
-        Screen::Updating {
-            editing: Editing::default(),
-            u_input,
-            e_id,
-        }
+        Screen::Updating(EditingState::new_updating(u_input, e_id))
     }
     /// 新建新建页面
     pub fn new_creating() -> Self {
-        Screen::Creating {
-            editing: Editing::default(),
-            u_input: UserInputEntry::default(),
-        }
+        Screen::Creating(Default::default())
     }
 }
 
 use state::{DashboardState, Editing};
-use crate::app::tui::screen::state::NeedMainPwdState;
+use crate::app::tui::screen::state::{EditingState, NeedMainPwdState};

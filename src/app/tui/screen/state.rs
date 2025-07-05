@@ -1,10 +1,100 @@
 use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
-use crate::app::encrypt::MainPwdVerifier;
-use crate::app::entry::Entry;
+use crate::app::encrypt::{Encrypter, MainPwdVerifier};
+use crate::app::entry::{Entry, UserInputEntry, ValidInsertEntry};
 use crate::app::tui::error::TError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
 use anyhow::{Context, Error, anyhow};
 use ratatui::widgets::ListState;
+
+
+#[derive(Debug, Clone)]
+pub struct EditingState {
+    editing: Editing,
+    u_input: UserInputEntry,
+    /// 正在编辑的条目id，若为None，则表示正在编辑的条目为新建条目
+    e_id: Option<u32>
+}
+
+impl Default for EditingState {
+    fn default() -> Self {
+        EditingState::new_creating()
+    }
+}
+
+impl EditingState {
+    
+    /// 返回当前正在编辑的字段是哪一个
+    pub fn current_editing_type(&self) -> &Editing {
+        &self.editing
+    }
+    
+    /// 返回当前正在编辑的字段的可变引用
+    pub fn current_editing_string_mut(&mut self) -> &mut String {
+        match self.editing {
+            Editing::Name => &mut self.u_input.name,
+            Editing::Description => &mut self.u_input.description,
+            Editing::Identity => &mut self.u_input.identity,
+            Editing::Password => &mut self.u_input.password,
+        }
+    }
+    
+    pub fn new_updating(u_input: UserInputEntry, e_id: u32) -> Self {
+        Self {
+            editing: Editing::Name,
+            u_input,
+            e_id: Some(e_id),
+        }
+    }
+
+    pub fn new_creating() -> Self {
+        Self {
+            editing: Editing::Name,
+            u_input: UserInputEntry::default(),
+            e_id: None,
+        }
+    }
+
+    pub fn current_e_id(&self) -> anyhow::Result<u32> {
+        self.e_id.context("'EditingState' not found entry id")
+    }
+
+    /// 光标向上移动，若当前光标为Name，则移动到Password
+    pub fn cursor_up(&mut self){
+        self.editing = match self.editing {
+            Editing::Name => Editing::Password,
+            Editing::Description => Editing::Name,
+            Editing::Identity => Editing::Description,
+            Editing::Password => Editing::Identity,
+        }
+    }
+
+    pub fn current_input_validate(&self) -> bool {
+        self.u_input.validate()
+    }
+
+    /// 尝试加密 UserInputEntry 为 ValidInsertEntry
+    /// 当 UserInputEntry 不合法时，该方法会返回错误
+    /// 当 UserInputEntry 合法时, 该方法会返回 ValidInsertEntry 和 可能的 条目id
+    /// 当条目id为None时，表示该条目为新建条目, 反之则为更新条目
+    pub fn try_encrypt<Enc>(&self, encrypter: &Enc) -> anyhow::Result<(ValidInsertEntry, Option<u32>)>
+    where Enc : Encrypter<UserInputEntry, ValidInsertEntry> {
+        if !self.current_input_validate() {
+            return Err(anyhow!("'UserInputEntry' not validate"));
+        } // todo 优化为 非 clone 的 encrypt
+        Ok((encrypter.encrypt(self.u_input.clone())?, self.e_id))
+    }
+
+    /// 光标向下移动，若当前光标为Password，则移动到Name
+    pub fn cursor_down(&mut self){
+        self.editing = match self.editing {
+            Editing::Name => Editing::Description,
+            Editing::Description => Editing::Identity,
+            Editing::Identity => Editing::Password,
+            Editing::Password => Editing::Name,
+        }
+    }
+}
+
 
 /// 表示正在编辑 UserInputEntry的 哪一个
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
