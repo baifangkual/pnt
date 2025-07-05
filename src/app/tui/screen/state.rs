@@ -1,7 +1,7 @@
 use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
 use crate::app::crypto::{Encrypter, MainPwdVerifier};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::errors::TError::ReTryMaxExceed;
+use crate::app::errors::AppError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
 use anyhow::{Context, Error, anyhow};
 use ratatui::widgets::ListState;
@@ -182,7 +182,7 @@ impl NeedMainPwdState {
     /// 则返回 Err
     pub fn increment_retry_count(&mut self) -> anyhow::Result<()> {
         if self.retry_count >= MAIN_PASS_MAX_RE_TRY {
-            Err(Error::from(ReTryMaxExceed(self.retry_count)))
+            Err(ReTryMaxExceed)?
         } else {
             self.retry_count += 1;
             self.mp_input.clear();

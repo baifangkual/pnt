@@ -1,21 +1,19 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{AppEvent, Event, EventHandler};
-use crate::app::consts::{MAIN_PASS_KEY, MAIN_PASS_MAX_RE_TRY};
-use crate::app::context::PntContext;
-use crate::app::crypto::{Encrypter, MainPwdVerifier, NoEncrypter};
-use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::errors::TError;
+use crate::app::context::{PntContext, SecurityContext};
+use crate::app::crypto::NoEncrypter;
+use crate::app::entry::{EncryptedEntry, ValidEntry};
+use crate::app::tui::screen::state::{DashboardState, Editing, NeedMainPwdState};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
 };
-use crate::app::tui::screen::state::{DashboardState, Editing, NeedMainPwdState};
-use anyhow::{Error, Result, anyhow};
+use anyhow::{anyhow, Result};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    DefaultTerminal, crossterm,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm, crossterm::event::{KeyCode, KeyEvent},
+    DefaultTerminal,
 };
 
 /// TUI Application.
@@ -30,8 +28,6 @@ pub struct TUIRuntime {
     pub pnt: PntContext,
     /// Event handler.
     pub events: EventHandler,
-    pub encrypter: NoEncrypter,
-    pub decrypter: NoEncrypter,
 }
 
 impl TUIRuntime {
@@ -68,8 +64,6 @@ impl TUIRuntime {
             events: EventHandler::new(),
             screen: Dashboard(DashboardState::new(ve)), // Dashboard
             back_screen: Vec::with_capacity(10),
-            encrypter: enc,
-            decrypter: dec,
         }
     }
 
@@ -123,8 +117,8 @@ impl TUIRuntime {
             AppEvent::Quit => self.quit_tui_app(),
             AppEvent::TurnOnFindMode => self.turn_on_find_mode()?,
             AppEvent::TurnOffFindMode => self.turn_off_find_mode()?,
-            AppEvent::MainPwdVerifySuccess(mpv) => {
-                self.hold_mp_verifier_and_enter_target_screen(mpv)?
+            AppEvent::MainPwdVerifySuccess(sec_context) => {
+                self.hold_security_context_and_switch_to_target_screen(sec_context)?
             }
             AppEvent::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
         }
@@ -182,7 +176,7 @@ impl TUIRuntime {
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
                             // 解密
                             self.send_app_event(AppEvent::EnterScreen(Details(
-                                ptr_entry.decrypt(&self.decrypter)?,
+                                ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
                             )));
                             return Ok(());
                         }
@@ -190,7 +184,7 @@ impl TUIRuntime {
                         if key_event._is_u_ignore_case() {
                             // 解密
                             self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
-                                ptr_entry.decrypt(&self.decrypter)?,
+                                ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
                                 ptr_entry.id,
                             )));
                             return Ok(());
@@ -268,11 +262,13 @@ impl TUIRuntime {
                     // todo 应有 save tip 页面
                     match &self.screen {
                         Creating(state) => {
-                            let (valid_e, _) = state.try_encrypt(&self.encrypter)?;
+                            let (valid_e, _) = state.try_encrypt(self.pnt.try_encrypter()?)?;
                             self.send_app_event(AppEvent::EntryInsert(valid_e));
                         }
                         Updating(state) => {
-                            let (valid_e, Some(e_id)) = state.try_encrypt(&self.encrypter)? else {
+                            let (valid_e, Some(e_id)) =
+                                state.try_encrypt(self.pnt.try_encrypter()?)?
+                            else {
                                 return Err(anyhow!("updating entry must have an e_id"));
                             };
                             self.send_app_event(AppEvent::EntryUpdate(valid_e, e_id));
@@ -286,14 +282,11 @@ impl TUIRuntime {
             // 需要主密码
             NeedMainPasswd(state) => {
                 if key_event._is_enter() {
-                    let mp_hash_b64d = self.pnt.storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap();
-                    let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64(
-                        &self.pnt.cfg.salt,
-                        mp_hash_b64d,
-                    )?;
-                    if verifier.verify(state.mp_input()).is_ok() {
+                    let verifier = self.pnt.build_mpv()?;
+                    if verifier.verify(state.mp_input())? {
                         // 验证通过，发送 true 事件
-                        self.send_app_event(AppEvent::MainPwdVerifySuccess(verifier))
+                        let security_context = verifier.load_security_context(state.mp_input())?;
+                        self.send_app_event(AppEvent::MainPwdVerifySuccess(security_context))
                     } else {
                         self.send_app_event(AppEvent::MainPwdVerifyFailed)
                     }
@@ -329,7 +322,7 @@ impl TUIRuntime {
     /// 该方法是处理 AppEvent::EnterScreen 的端点，遂不应在进行信号发送
     fn handle_enter_screen_end_point(&mut self, new_screen: Screen) -> Result<()> {
         // 当前无主密码校验器且打开页面需要主密码，则证明未输入主密码或已过期，则需进入输入密码情况
-        if self.pnt.mpv.is_none() && new_screen.is_before_enter_need_main_pwd() {
+        if self.pnt.security_context.is_none() && new_screen.is_before_enter_need_main_pwd() {
             self.enter_screen(NeedMainPasswd(NeedMainPwdState::new(new_screen)));
         } else {
             self.enter_screen(new_screen);
@@ -527,10 +520,15 @@ impl TUIRuntime {
         }
     }
 
-    /// 持有 mpv 并 直接进入屏幕
-    fn hold_mp_verifier_and_enter_target_screen(&mut self, mpv: MainPwdVerifier) -> Result<()> {
+    /// 这是验证通过的事件处理终端方法
+    /// 该方法内将使当前pnt上下文持有给定的SecurityContext,
+    /// 并将当前屏幕切换为目标屏幕
+    fn hold_security_context_and_switch_to_target_screen(
+        &mut self,
+        security_context: SecurityContext,
+    ) -> Result<()> {
         if let NeedMainPasswd(state) = &mut self.screen {
-            self.pnt.mpv = Some(mpv);
+            self.pnt.security_context = Some(security_context);
             self.screen = state.take_target_screen()?;
             // 不能使用 EnterScreen事件进入屏幕，因为该事件的处理者会将老屏幕压入栈
             // 但当前为 NeedMainPasswd屏幕，所以压栈进去无意义，

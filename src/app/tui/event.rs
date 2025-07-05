@@ -1,15 +1,15 @@
 pub mod key_ext;
 
+use super::screen::Screen;
+use crate::app::context::SecurityContext;
+use crate::app::entry::ValidEntry;
+use anyhow::{Context, Result};
 use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyCode};
 use std::{
     sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
-use anyhow::{Context, Result};
-use crate::app::crypto::MainPwdVerifier;
-use crate::app::entry::ValidEntry;
-use super::screen::Screen;
 
 /// The frequency at which tick events are emitted.
 /// 每秒一次
@@ -45,7 +45,7 @@ pub enum AppEvent {
     EntryRemove(u32), // u32 为 id
     FlashVecItems(Option<String>), // 在dashboard 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
     MainPwdVerifyFailed,
-    MainPwdVerifySuccess(MainPwdVerifier),
+    MainPwdVerifySuccess(SecurityContext),
     Quit,
 }
 

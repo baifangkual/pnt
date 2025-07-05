@@ -1,25 +1,26 @@
 mod cli;
 mod config;
+mod consts;
+mod context;
 mod crypto;
 mod entry;
-mod context;
+mod errors;
 mod storage;
 mod tui;
-mod consts;
-mod errors;
 
-use crate::app::config::{load_cfg, Cfg};
-use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
+use crate::app::config::{Cfg, load_cfg};
+use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
 use crate::app::context::{NoteState, PntContext, RunMode};
+use crate::app::crypto::{Encrypter, MainPwdEncrypter};
 use crate::app::storage::sqlite::SqliteConn;
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Result};
 use clap::Parser;
 use cli::CliArgs;
+use consts::MAIN_PASS_KEY;
 use log::debug;
 use ratatui::crossterm::style::Stylize;
 use std::io::ErrorKind;
-use consts::MAIN_PASS_KEY;
-use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
+use crate::app::errors::AppError;
 
 /// 向stdin索要输入的密码，若有utf8字符则提示无效字符
 /// 该方法内会loop阻塞直到输入有效字符
@@ -43,7 +44,7 @@ fn read_stdin_passwd() -> Result<String> {
                         "> Password contains invalid characters, please re-enter".red()
                     )
                 }
-                _ => return Err(Error::from(io_e)),
+                _ => Err(io_e)?,
             },
         }
     }
@@ -149,31 +150,32 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
 
 /// 等待 stdin输入并校验主密码，当失败到一定次数时
 /// 释放sqlite 对文件的连接资源并退出进程
-/// 该方法要求SqliteConn所有权，因为内部可能执行 drop
-/// 该方法要么返回 （校验器，SqliteConn），要么因stdin错误返回Err，要么退出进程（重试次数到顶）
-fn await_verifier_main_pwd(
-    cfg: &Cfg,
-    storage: SqliteConn,
-) -> Result<(MainPwdVerifier, SqliteConn)> {
-    let mp_hash_b64d = storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap(); // 代码走到当前行该mp一定不为None ...
-    let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64(&cfg.salt, mp_hash_b64d)?;
+/// 该方法要求所有权，因为内部可能执行 drop
+/// 该方法要么返回，要么因stdin错误返回Err，要么退出进程（重试次数到顶）
+fn await_verifier_main_pwd(mut context: PntContext) -> Result<PntContext> {
+    let verifier = context.build_mpv()?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
-    for n in 0..MAIN_PASS_MAX_RE_TRY {
+    for n in 0..=MAIN_PASS_MAX_RE_TRY { // fixed 0 .. =MAX_RE_TRY
         let mp = read_stdin_passwd()?;
-        if verifier.verify(&mp).is_ok() {
-            // 验证通过，返回主校验器
-            return Ok((verifier, storage));
+        if verifier.verify(&mp)? {
+            // 验证通过，返回SecurityContext
+            context.security_context = Some(verifier.load_security_context(&mp)?);
+            return Ok(context);
         } else {
             // 校验失败，提示
-            let tip = format!("{} ({}/{})", "Password is incorrect", n + 1, MAIN_PASS_MAX_RE_TRY);
+            let tip = format!(
+                "{} ({}/{})",
+                "Valid Password",
+                n + 1,
+                MAIN_PASS_MAX_RE_TRY + 1
+            );
             println!("{}", tip.on_dark_red().white())
         }
     }
     // 至此，证明for走完仍为校验通过，进程结束
-    drop(storage); // 释放sqlite 对文件的连接资源
-    std::process::exit(3);
+    drop(context.storage); // 释放sqlite 对文件的连接资源
+    Err(AppError::ReTryMaxExceed)?
 }
-
 
 /// pnt 程序入口
 pub fn pnt_run() -> Result<()> {
@@ -186,30 +188,29 @@ pub fn pnt_run() -> Result<()> {
 
     // to do impl cli tui select run
     let storage = pre_note_state_init_check(&cfg)?;
-    // 校验配置，是否在运行时需要密码，当前还未要求终端进入 原始模式，遂可以读stdin
 
-    let (mpv_or, conn) = if cfg.need_main_passwd_on_run {
-        let (mpv, conn) = await_verifier_main_pwd(&cfg, storage)?;
-        (Some(mpv), conn)
-    } else {
-        (None, storage)
-    };
-
+    // pre read
+    let need_mp_on_run = cfg.need_main_passwd_on_run;
     let run_mode = cli_line.check_run_mode();
     debug!("run_mode: {:?}", run_mode);
-    // to do app init
-    let pnt = PntContext::new(cfg, cli_line, conn, mpv_or);
-    // to do app run
-    // 库已初始化，验证是否使用 Cli 模式
+
+    // context
+    let context = PntContext::new_with_un_verified(cfg, cli_line, storage);
+
+    // 校验配置，是否在运行时需要密码，当前还未要求终端进入 原始模式，遂可以读stdin
+
+    // 若配置立即要求输入密码则直接校验
+    let context = if need_mp_on_run {
+        await_verifier_main_pwd(context)?
+    } else { context };
+
+    // 验证是否使用 Cli 模式
     if run_mode == RunMode::Cli {
-        cli::cli_run(pnt)
+        cli::cli_run(context)
     } else {
-        tui::tui_run(pnt)
+        tui::tui_run(context)
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {}
-

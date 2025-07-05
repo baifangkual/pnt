@@ -17,9 +17,8 @@ use base64ct::{Base64, Encoding};
 struct StrAes256GcmEncrypter(AesGcm<Aes256, U12>);
 
 impl StrAes256GcmEncrypter {
-    fn from_verifier(main_pwd_verifier: &MainPwdVerifier) -> Result<Self> {
-        let gk = main_pwd_verifier.gph()?;
-        let gcm = aes_gcm::Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&gk));
+    fn from_key(key: [u8; 32]) -> Result<Self> {
+        let gcm = aes_gcm::Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
         Ok(Self(gcm))
     }
     fn from_random_key() -> StrAes256GcmEncrypter {
@@ -59,11 +58,11 @@ pub struct EntryAes256GcmSecretEncrypter {
     inner_enc: StrAes256GcmEncrypter,
 }
 impl EntryAes256GcmSecretEncrypter {
-    pub fn new_from_main_pwd_verifier(main_pwd_verifier: &MainPwdVerifier) -> Result<EntryAes256GcmSecretEncrypter> {
-        Ok(Self { inner_enc: StrAes256GcmEncrypter::from_verifier(main_pwd_verifier)? })
+    pub fn from_key(key: [u8; 32]) -> Result<EntryAes256GcmSecretEncrypter> {
+        Ok(Self { inner_enc: StrAes256GcmEncrypter::from_key(key)? })
     }
 
-    fn new_from_random_key() -> EntryAes256GcmSecretEncrypter {
+    fn from_random_key() -> EntryAes256GcmSecretEncrypter {
         Self { inner_enc: StrAes256GcmEncrypter::from_random_key() }
     }
 }
@@ -119,7 +118,7 @@ mod test {
 
     #[test]
     fn test_encrypt_decrypt_entry() {
-        let encrypter = EntryAes256GcmSecretEncrypter::new_from_random_key();
+        let encrypter = EntryAes256GcmSecretEncrypter::from_random_key();
         let u_input = InputEntry {
             name: "name".to_owned(),
             description: String::new(),
