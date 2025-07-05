@@ -4,7 +4,7 @@ use ratatui::prelude::{Buffer, Color, Line, Span, StatefulWidget, Style, Stylize
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use crate::app::entry::Entry;
+use crate::app::entry::EncryptedEntry;
 
 /// 处理文本使其适应指定宽度，考虑中文字符
 fn truncate_text(text: &str, max_width: usize) -> String {

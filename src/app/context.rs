@@ -1,10 +1,10 @@
 use crate::app::cli::CliArgs;
 use crate::app::config::Cfg;
-use crate::app::encrypt::{Decrypter, Encrypter, MainPwdVerifier};
+use crate::app::crypto::{Decrypter, Encrypter, MainPwdVerifier};
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::Context;
 use crate::app::consts::MAIN_PASS_KEY;
-use crate::app::entry::{UserInputEntry, ValidInsertEntry};
+use crate::app::entry::{InputEntry, ValidEntry};
 
 pub struct PntContext {
     pub(crate) cfg: Cfg,

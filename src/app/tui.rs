@@ -3,12 +3,11 @@ mod ui;
 mod event;
 mod runtime;
 mod screen;
-mod error;
 mod widgets;
 
 use crate::app::context::PntContext;
 use log::debug;
-use crate::app::encrypt::NoEncrypter;
+use crate::app::crypto::NoEncrypter;
 use crate::app::tui::runtime::TUIRuntime;
 
 /// tui 运行 模式

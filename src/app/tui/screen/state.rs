@@ -1,7 +1,7 @@
 use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
-use crate::app::encrypt::{Encrypter, MainPwdVerifier};
-use crate::app::entry::{Entry, UserInputEntry, ValidInsertEntry};
-use crate::app::tui::error::TError::ReTryMaxExceed;
+use crate::app::crypto::{Encrypter, MainPwdVerifier};
+use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::error::TError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
 use anyhow::{Context, Error, anyhow};
 use ratatui::widgets::ListState;
@@ -10,7 +10,7 @@ use ratatui::widgets::ListState;
 #[derive(Debug, Clone)]
 pub struct EditingState {
     editing: Editing,
-    u_input: UserInputEntry,
+    u_input: InputEntry,
     /// 正在编辑的条目id，若为None，则表示正在编辑的条目为新建条目
     e_id: Option<u32>
 }
@@ -38,7 +38,7 @@ impl EditingState {
         }
     }
     
-    pub fn new_updating(u_input: UserInputEntry, e_id: u32) -> Self {
+    pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
         Self {
             editing: Editing::Name,
             u_input,
@@ -49,7 +49,7 @@ impl EditingState {
     pub fn new_creating() -> Self {
         Self {
             editing: Editing::Name,
-            u_input: UserInputEntry::default(),
+            u_input: InputEntry::default(),
             e_id: None,
         }
     }
@@ -76,11 +76,11 @@ impl EditingState {
     /// 当 UserInputEntry 不合法时，该方法会返回错误
     /// 当 UserInputEntry 合法时, 该方法会返回 ValidInsertEntry 和 可能的 条目id
     /// 当条目id为None时，表示该条目为新建条目, 反之则为更新条目
-    pub fn try_encrypt<Enc>(&self, encrypter: &Enc) -> anyhow::Result<(ValidInsertEntry, Option<u32>)>
-    where Enc : Encrypter<UserInputEntry, ValidInsertEntry> {
+    pub fn try_encrypt<Enc>(&self, encrypter: &Enc) -> anyhow::Result<(ValidEntry, Option<u32>)>
+    where Enc : Encrypter<InputEntry, ValidEntry> {
         if !self.current_input_validate() {
             return Err(anyhow!("'UserInputEntry' not validate"));
-        } // todo 优化为 非 clone 的 encrypt
+        } // todo 优化为 非 clone 的 crypto
         Ok((encrypter.encrypt(self.u_input.clone())?, self.e_id))
     }
 
@@ -112,12 +112,12 @@ pub struct DashboardState {
     // 控制 find_input 的 标志位
     pub find_mode: bool,
     pub find_input: String,
-    pub entries: Vec<Entry>,
+    pub entries: Vec<EncryptedEntry>,
     pub cursor: ListState, // 添加ListState来控制滚动
 }
 
 impl DashboardState {
-    pub fn new(entries: Vec<Entry>) -> Self {
+    pub fn new(entries: Vec<EncryptedEntry>) -> Self {
         let mut cursor = ListState::default();
         cursor.select(if entries.is_empty() { None } else { Some(0) });
         Self {
@@ -142,7 +142,7 @@ impl DashboardState {
         self.entries.len()
     }
 
-    pub fn entries(&self) -> &Vec<Entry> {
+    pub fn entries(&self) -> &Vec<EncryptedEntry> {
         &self.entries
     }
 }

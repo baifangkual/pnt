@@ -1,4 +1,4 @@
-use crate::app::entry::{Entry, ValidInsertEntry};
+use crate::app::entry::{EncryptedEntry, ValidEntry};
 use chrono::{DateTime, Local};
 use rusqlite::{Connection, Result as SqlResult, Row, params};
 use std::path::Path;
@@ -55,7 +55,7 @@ fn sql_result_map_to_option<T>(res: SqlResult<T>) -> Option<T> {
     }
 }
 /// 将 Row 转换为 Entry
-fn row_map_entry(row: &Row) -> SqlResult<Entry> {
+fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
     let id: u32 = row.get(0)?;
     let name: String = row.get(1)?;
     let description: Option<String> = row.get(2)?;
@@ -63,7 +63,7 @@ fn row_map_entry(row: &Row) -> SqlResult<Entry> {
     let encrypted_passwd: String = row.get(4)?;
     let created_at: DateTime<Local> = row.get(5)?;
     let updated_at: DateTime<Local> = row.get(6)?;
-    Ok(Entry {
+    Ok(EncryptedEntry {
         id,
         name,
         description,
@@ -106,7 +106,7 @@ impl SqliteConn {
     }
 
     /// 插入一条密码记录
-    pub fn insert_entry(&mut self, insert_entry: &ValidInsertEntry) {
+    pub fn insert_entry(&mut self, insert_entry: &ValidEntry) {
         self.conn
             .execute(
                 INSERT_ENTRY_SQL,
@@ -120,7 +120,7 @@ impl SqliteConn {
             .expect("Failed to insert entry");
     }
     /// 更新一条密码记录
-    pub fn update_entry(&mut self, update_entry: &ValidInsertEntry, id: u32) {
+    pub fn update_entry(&mut self, update_entry: &ValidEntry, id: u32) {
         self.conn
             .execute(
                 UPDATE_ENTRY_SQL,
@@ -142,7 +142,7 @@ impl SqliteConn {
             .expect("Failed to delete entry");
     }
     /// 通过id查询一条密码记录
-    pub fn select_entry_by_id(&self, id: u32) -> Option<Entry> {
+    pub fn select_entry_by_id(&self, id: u32) -> Option<EncryptedEntry> {
         let r = self.conn.query_one(
             "SELECT * FROM entry WHERE id = ?",
             params![id],
@@ -151,7 +151,7 @@ impl SqliteConn {
         sql_result_map_to_option(r)
     }
     /// 通过name模糊查询
-    pub fn select_entry_by_name_like(&self, name_like: &str) -> Vec<Entry> {
+    pub fn select_entry_by_name_like(&self, name_like: &str) -> Vec<EncryptedEntry> {
         let nl = format!("%{}%", name_like); // 左右
         let mut stmt = self
             .conn
@@ -163,7 +163,7 @@ impl SqliteConn {
         rows.filter_map(sql_result_map_to_option).collect()
     }
     /// 查询所有entry
-    pub fn select_all_entry(&self) -> Vec<Entry> {
+    pub fn select_all_entry(&self) -> Vec<EncryptedEntry> {
         let mut stmt = self
             .conn
             .prepare("SELECT * FROM entry")
@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_db() {
         let mut db = SqliteConn::open_in_memory().unwrap();
-        let insert_e = ValidInsertEntry {
+        let insert_e = ValidEntry {
             name: String::from("test"),
             description: None,
             encrypted_identity: String::from("test"),
@@ -237,7 +237,7 @@ mod tests {
         let mut other_entry = entry.clone();
         other_entry.description = Some(String::from("test"));
         let upd_entry = other_entry.clone();
-        let v_e = ValidInsertEntry {
+        let v_e = ValidEntry {
             name: upd_entry.name,
             description: upd_entry.description,
             encrypted_identity: upd_entry.encrypted_identity,

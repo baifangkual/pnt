@@ -7,8 +7,8 @@ use std::{
     time::{Duration, Instant},
 };
 use anyhow::{Context, Result};
-use crate::app::encrypt::MainPwdVerifier;
-use crate::app::entry::ValidInsertEntry;
+use crate::app::crypto::MainPwdVerifier;
+use crate::app::entry::ValidEntry;
 use super::screen::Screen;
 
 /// The frequency at which tick events are emitted.
@@ -40,8 +40,8 @@ pub enum AppEvent {
     CursorUp,
     CursorDown,
     DoEditing(KeyCode),
-    EntryInsert(ValidInsertEntry), // 插入必要全局刷新 vec，因为插入到库前还不知道id
-    EntryUpdate(ValidInsertEntry, u32), // u32 为 id
+    EntryInsert(ValidEntry), // 插入必要全局刷新 vec，因为插入到库前还不知道id
+    EntryUpdate(ValidEntry, u32), // u32 为 id
     EntryRemove(u32), // u32 为 id
     FlashVecItems(Option<String>), // 在dashboard 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
     MainPwdVerifyFailed,

@@ -1,14 +1,15 @@
 mod cli;
 mod config;
-mod encrypt;
+mod crypto;
 mod entry;
 mod context;
 mod storage;
 mod tui;
 mod consts;
+mod error;
 
 use crate::app::config::{load_cfg, Cfg};
-use crate::app::encrypt::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
+use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
 use crate::app::context::{NoteState, PntContext, RunMode};
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::{Context, Error, Result};
@@ -119,7 +120,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
             NoteState::NoMainPwd => {
                 // init main pwd
                 let mp = init_main_pwd_by_stdin()?;
-                let emp = MainPwdEncrypter::from_salt(&cfg.salt).encrypt(mp)?;
+                let emp = MainPwdEncrypter::from_salt(&cfg.salt)?.encrypt(mp)?;
                 // 从 st中拿（NoStorage创建的）或自己创建
                 let mut st = if storage.is_none() {
                     SqliteConn::new(&cfg.date)
@@ -155,11 +156,11 @@ fn await_verifier_main_pwd(
     storage: SqliteConn,
 ) -> Result<(MainPwdVerifier, SqliteConn)> {
     let mp_hash_b64d = storage.select_cfg_v_by_key(MAIN_PASS_KEY).unwrap(); // 代码走到当前行该mp一定不为None ...
-    let verifier = MainPwdVerifier::from_salt_and_passwd(&cfg.salt, mp_hash_b64d);
+    let mut verifier = MainPwdVerifier::from_salt_and_passwd(&cfg.salt, mp_hash_b64d)?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
     for n in 0..MAIN_PASS_MAX_RE_TRY {
         let mp = read_stdin_passwd()?;
-        if verifier.verify(&mp) {
+        if verifier.verify(&mp).is_ok() {
             // 验证通过，返回主校验器
             return Ok((verifier, storage));
         } else {
