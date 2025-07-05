@@ -15,12 +15,23 @@ pub enum TError {
 pub enum CryptoError {
     #[error("failed to encrypt main password: {0}")]
     EncryptMainPwd(argon2::password_hash::Error),
-    #[error("illegal decode salt: {0}")]
+    #[error("failed to decode salt: {0}")]
     DecodeSalt(argon2::password_hash::Error),
-    #[error("illegal decode main password: {0}")]
+    #[error("failed to decode main password: {0}")]
     DecodeMP(base64ct::Error),
     #[error("generate key error")]
-    GenerateKey
+    GenerateKey,
+    #[error("encrypt error: {0}")]
+    Encrypt(aes_gcm::aead::Error),
+    #[error("decrypt error: {0}")]
+    Decrypt(aes_gcm::aead::Error),
+    #[error("split ciphertext error")]
+    CiphertextSplit,
+    #[error("decode nonce error")]
+    DecodeNonce,
+    #[error("decode ciphertext error")]
+    DecodeCiphertext,
+
 }
 
 /// 校验失败

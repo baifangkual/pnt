@@ -28,8 +28,6 @@ pub struct ValidEntry {
     pub description: Option<String>,
     pub encrypted_identity: String,
     pub encrypted_password: String,
-    /// 加密后 盐 随机
-    pub nonce: String,
 }
 
 // /// 详情
@@ -59,8 +57,6 @@ pub struct EncryptedEntry {
     /// 创建时间
     pub created_at: DateTime<Local>,
     pub updated_at: DateTime<Local>,
-    /// 加密后 盐 随机
-    pub nonce: String,
 }
 /// 实现排序，按照修改时间排序
 impl EncryptedEntry {

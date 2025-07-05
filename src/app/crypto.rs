@@ -36,7 +36,6 @@ impl Encrypter<&InputEntry, ValidEntry> for NoEncrypter {
             },
             encrypted_identity: plaintext.identity.clone(),
             encrypted_password: plaintext.password.clone(),
-            nonce: String::default(),
         })
     }
 }
