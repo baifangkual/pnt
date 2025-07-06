@@ -1,19 +1,20 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
-use crate::app::crypto::NoEncrypter;
-use crate::app::entry::{EncryptedEntry, ValidEntry};
-use crate::app::tui::screen::state::{DashboardState, Editing, NeedMainPwdState};
+use crate::app::crypto::{Decrypter, NoEncrypter};
+use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
 };
-use anyhow::{anyhow, Result};
+use crate::app::tui::screen::options::OptionYN;
+use crate::app::tui::screen::states::{DashboardState, Editing, NeedMainPwdState};
+use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    crossterm, crossterm::event::{KeyCode, KeyEvent},
-    DefaultTerminal,
+    DefaultTerminal, crossterm,
+    crossterm::event::{KeyCode, KeyEvent},
 };
 
 /// TUI Application.
@@ -176,6 +177,8 @@ impl TUIRuntime {
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
                             // 解密
                             self.send_app_event(AppEvent::EnterScreen(Details(
+                                // fixme 这里应修复进入需要密码页面前尝试解密的问题
+                                //  因为当前 securityContext可能还不存在
                                 ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
                             )));
                             return Ok(());
@@ -183,6 +186,8 @@ impl TUIRuntime {
                         // update
                         if key_event._is_u_ignore_case() {
                             // 解密
+                            // fixme 这里应修复进入需要密码页面前尝试解密的问题
+                            //  因为当前 securityContext可能还不存在
                             self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
                                 ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
                                 ptr_entry.id,
@@ -194,9 +199,7 @@ impl TUIRuntime {
                         // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
                             self.send_app_event(AppEvent::EnterScreen(DeleteTip(
-                                ptr_entry.id,
-                                ptr_entry.name.clone(),
-                                ptr_entry.description.clone(),
+                                OptionYN::new_delete_tip(&ptr_entry),
                             )));
                             return Ok(());
                         }
@@ -213,7 +216,8 @@ impl TUIRuntime {
                     }
                     // 任意光标位置都可以新建
                     if key_event._is_i_ignore_case() {
-                        self.send_app_event(AppEvent::EnterScreen(Screen::new_creating()))
+                        self.send_app_event(AppEvent::EnterScreen(Screen::new_creating()));
+                        return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                     }
                 } else {
                     self.send_app_event(AppEvent::DoEditing(key_event.code));
@@ -231,13 +235,13 @@ impl TUIRuntime {
                     self.enter_delete_cursor_pointing_entry_tips_screen()?;
                 }
             }
-            DeleteTip(e_id, ..) => {
+            DeleteTip(option_yn) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());
                 }
                 if let KeyCode::Char('y' | 'Y') | KeyCode::Enter = key_event.code {
-                    self.send_app_event(AppEvent::EntryRemove(*e_id));
+                    self.send_app_event(AppEvent::EntryRemove(option_yn.content()?.id));
                     return Ok(());
                 }
                 if let KeyCode::Char('n' | 'N') = key_event.code {
@@ -275,6 +279,7 @@ impl TUIRuntime {
                         }
                         _ => {}
                     }
+                    return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
                 self.send_app_event(AppEvent::DoEditing(key_event.code));
@@ -290,6 +295,7 @@ impl TUIRuntime {
                     } else {
                         self.send_app_event(AppEvent::MainPwdVerifyFailed)
                     }
+                    return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 密码编辑窗口变化
                 self.send_app_event(AppEvent::DoEditing(key_event.code));
@@ -345,11 +351,9 @@ impl TUIRuntime {
         if let Dashboard(state) = &self.screen {
             if let Some(c_ptr) = state.cursor_selected() {
                 let ptr_entry = &state.entries()[c_ptr];
-                self.send_app_event(AppEvent::EnterScreen(DeleteTip(
-                    ptr_entry.id,
-                    ptr_entry.name.clone(),
-                    ptr_entry.description.clone(),
-                )));
+                self.send_app_event(AppEvent::EnterScreen(DeleteTip(OptionYN::new_delete_tip(
+                    &ptr_entry,
+                ))));
             } else {
                 return Err(anyhow!("current cursor is pointing none"));
             }
@@ -413,6 +417,7 @@ impl TUIRuntime {
                 // KeyCode::Right => {} // todo 右移光标
                 // KeyCode::BackTab => {} // todo up
                 KeyCode::Char(value) => input.push(value),
+                KeyCode::Enter => input.push('\n'),
                 _ => {}
             }
             Ok(())

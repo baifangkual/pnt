@@ -1,5 +1,94 @@
+use std::cell::LazyCell;
+use std::sync::LazyLock;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::prelude::{Color, Layout, Line, Stylize, Widget};
+use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
+
 /// 帮助页面实体
 pub struct HelpShowItem {
     pub key_map: String,
     pub note: String,
+}
+
+/// 帮助页面
+pub struct HelpPage {
+    pub tips: Vec<HelpShowItem>,
+}
+
+/// 帮助页面单例, 即使没有多线程访问，rust也要求 static 为 Sync 的，所以使用 LazyLock
+pub static HELP_PAGE_DASHBOARD: LazyLock<HelpPage> = LazyLock::new(|| {HelpPage::dashboard()});
+
+// todo 后续应修改为 不同页面不同 help 项
+
+impl Widget for &HelpPage {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let rect = super::super::util::centered_rect(90, 90, area);
+
+        let block = Block::bordered()
+            .title("help")
+            .fg(Color::White)
+            .border_type(BorderType::Plain);
+        let inner_area = block.inner(rect);
+        block.render(rect, buf);
+        Clear.render(inner_area, buf);
+
+        let li = self.tips.iter()
+            .map(|tip| {
+                format!("{:>10}          {:<20}", tip.key_map, tip.note)
+            })
+            .map(|tl| {
+                ListItem::new(tl)
+                    .fg(Color::White)
+            })
+            .collect::<Vec<ListItem>>();
+        let rect = super::super::util::centered_rect(90, 90, inner_area);
+        List::new(li).render(rect, buf);
+    }
+}
+
+
+impl HelpPage {
+    fn dashboard() -> Self {
+        Self {
+            tips: vec![
+                HelpShowItem {
+                    key_map: "F1".to_string(),
+                    note: "help".to_string(),
+                },
+                HelpShowItem {
+                  key_map: "j | down".to_string(),
+                    note: "down".to_string(),
+                },
+                HelpShowItem {
+                  key_map: "k | up".to_string(),
+                    note: "up".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "ctrl+c".to_string(),
+                    note: "quit-app".to_string(),
+                },
+                HelpShowItem {
+                  key_map: "ESC | q".to_string(),
+                    note: "back screen | quit-edit | quit-app".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "o".to_string(),
+                    note: "detail".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "i".to_string(),
+                    note: "creating".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "u".to_string(),
+                    note: "updating current".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "d".to_string(),
+                    note: "delete".to_string(),
+                }
+            ]
+        }
+    }
 }

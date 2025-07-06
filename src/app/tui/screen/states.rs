@@ -1,9 +1,9 @@
 use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
-use crate::app::crypto::{Encrypter, MainPwdVerifier};
+use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
-use anyhow::{Context, Error, anyhow};
+use anyhow::{anyhow, Context};
 use ratatui::widgets::ListState;
 
 
@@ -22,6 +22,10 @@ impl Default for EditingState {
 }
 
 impl EditingState {
+    
+    pub fn current_input_entry(&self) -> &InputEntry {
+        &self.u_input
+    }
     
     /// 返回当前正在编辑的字段是哪一个
     pub fn current_editing_type(&self) -> &Editing {
@@ -61,10 +65,10 @@ impl EditingState {
     /// 光标向上移动，若当前光标为Name，则移动到Password
     pub fn cursor_up(&mut self){
         self.editing = match self.editing {
-            Editing::Name => Editing::Password,
-            Editing::Description => Editing::Name,
-            Editing::Identity => Editing::Description,
+            Editing::Name => Editing::Description,
+            Editing::Identity => Editing::Name,
             Editing::Password => Editing::Identity,
+            Editing::Description => Editing::Password,
         }
     }
 
@@ -87,10 +91,10 @@ impl EditingState {
     /// 光标向下移动，若当前光标为Password，则移动到Name
     pub fn cursor_down(&mut self){
         self.editing = match self.editing {
-            Editing::Name => Editing::Description,
-            Editing::Description => Editing::Identity,
+            Editing::Name => Editing::Identity,
             Editing::Identity => Editing::Password,
-            Editing::Password => Editing::Name,
+            Editing::Password => Editing::Description,
+            Editing::Description => Editing::Name,
         }
     }
 }
@@ -101,9 +105,9 @@ impl EditingState {
 pub enum Editing {
     #[default]
     Name,
-    Description,
     Identity,
     Password,
+    Description,
 }
 
 /// 主页/仪表盘 的状态信息

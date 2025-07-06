@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use super::runtime::TUIRuntime;
 use crate::app::tui::screen::Screen;
 use ratatui::layout::Direction;
@@ -10,6 +11,9 @@ use ratatui::{
     widgets::{Block, BorderType, Paragraph, StatefulWidget, Widget},
 };
 use crate::app::tui::widgets::dashboard::DashboardWidget;
+use crate::app::tui::widgets::help;
+use crate::app::tui::widgets::help::HelpPage;
+use crate::app::tui::util;
 
 impl Widget for &mut TUIRuntime {
     /// 渲染函数入口
@@ -29,11 +33,25 @@ impl Widget for &mut TUIRuntime {
                 let dash_widget = DashboardWidget;
                 dash_widget.render(area, buf, state)
             }
-            Screen::Help => {}
-            Screen::Details(_) => {}
-            Screen::Creating { .. } => {}
-            Screen::DeleteTip(_, _, _) => {}
-            Screen::Updating { .. } => {}
+            Screen::Help => {
+                help::HELP_PAGE_DASHBOARD.render(area, buf)
+            }
+            Screen::Details(entry) => {
+                let rect = util::centered_rect(90, 90, area);
+                entry.render(rect, buf);
+            }
+            Screen::Creating(state) => {
+                let rect = util::centered_rect(90, 90, area);
+                state.render(rect, buf);
+            }
+            Screen::DeleteTip(option_yn) => {
+                let rect = util::centered_rect(80, 70, area);
+                option_yn.render(rect, buf);
+            }
+            Screen::Updating(state) => {
+                let rect = util::centered_rect(90, 90, area);
+                state.render(rect, buf);
+            }
             Screen::NeedMainPasswd(state) => {}
         }
     }

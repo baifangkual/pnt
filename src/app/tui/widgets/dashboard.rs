@@ -1,4 +1,4 @@
-use crate::app::tui::screen::state::DashboardState;
+use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Buffer, Color, Line, Span, StatefulWidget, Style, Stylize, Text, Widget};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
@@ -137,12 +137,17 @@ impl StatefulWidget for DashboardWidget {
             })
             .collect();
 
+        
+        // let e_id = format!("{:?}", state.entries[state.cursor.selected().unwrap()].id);
+        
+
         // 创建列表并设置样式
         let list = List::new(items).block(inner_block).highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::from_u32(0xD9D9D9)),
         );
+        // .highlight_symbol(&e_id);
 
         // 使用 StatefulWidget 渲染
         StatefulWidget::render(list, layout_hm1[1], buf, &mut state.cursor);

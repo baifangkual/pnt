@@ -1,6 +1,7 @@
-pub(crate) mod state;
+pub(crate) mod states;
+pub(crate) mod options;
 
-use crate::app::entry::InputEntry;
+use crate::app::entry::{EncryptedEntry, InputEntry};
 
 
 
@@ -13,7 +14,7 @@ pub enum Screen {
     Details(InputEntry), // 某详情
     Creating (EditingState), // 创建窗口
     Updating (EditingState), // 已有条目编辑窗口
-    DeleteTip(u32, String, Option<String>), // 删除时的弹窗, 显示名称和描述（可能有）
+    DeleteTip(OptionYN<EncryptedEntry>), // 删除时的弹窗, 显示名称和描述（可能有）
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
     NeedMainPasswd(NeedMainPwdState), // 要求键入主密码的窗口, u8 为重试次数
 }
@@ -40,5 +41,6 @@ impl Screen {
     }
 }
 
-use state::{DashboardState, Editing};
-use crate::app::tui::screen::state::{EditingState, NeedMainPwdState};
+use states::{DashboardState, Editing};
+use crate::app::tui::screen::options::OptionYN;
+use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};

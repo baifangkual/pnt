@@ -33,7 +33,6 @@ pub enum Event {
 ///
 /// You can extend this enum with your own custom events.
 pub enum AppEvent {
-    
     EnterScreen(Screen),
     TurnOnFindMode,
     TurnOffFindMode,
