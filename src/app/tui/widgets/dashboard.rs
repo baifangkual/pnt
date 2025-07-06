@@ -34,26 +34,13 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 
 pub struct DashboardWidget;
 
-const TITLE: &str = concat!(
-    clap::crate_name!(),
-    "-v",
-    clap::crate_version!(),
-    "-",
-    "help:F1"
-);
+
 
 impl StatefulWidget for DashboardWidget {
     type State = DashboardState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let block = Block::bordered()
-            .title(Line::from(TITLE))
-            .fg(Color::White)
-            .border_type(BorderType::Plain);
-
-        // 创建内容区域
-        let inner_area = block.inner(area);
-        block.render(area, buf);
+        
         // 布局 1| f | 1
         let layout_1f1 = Layout::default()
             .direction(Direction::Horizontal) // 水平
@@ -62,7 +49,7 @@ impl StatefulWidget for DashboardWidget {
                 Constraint::Percentage(90),
                 Constraint::Max(5),
             ])
-            .split(inner_area);
+            .split(area);
 
         // 布局 上下 5 | 93 | 2
         let layout_hm1 = Layout::default()
@@ -118,7 +105,7 @@ impl StatefulWidget for DashboardWidget {
             .fg(Color::White);
 
         // 计算每列的宽度比例（去除边框和padding后的可用宽度）
-        let available_width = inner_area.width as usize - 4; // 减去左右边距
+        let available_width = area.width as usize - 4; // 减去左右边距
         let index_width = (available_width * 5) / 100; // 10% 用于索引
         let name_width = (available_width * 30) / 100; // 30% 用于名称
         let desc_width = available_width - index_width - name_width; // 剩余用于描述

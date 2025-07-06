@@ -56,14 +56,24 @@ impl TUIRuntime {
 }
 
 impl TUIRuntime {
-    pub fn with_pnt(pnt_context: PntContext, (enc, dec): (NoEncrypter, NoEncrypter)) -> Self {
+    pub fn with_pnt(pnt_context: PntContext) -> Self {
         let mut ve = pnt_context.storage.select_all_entry();
         ve.sort_by(EncryptedEntry::sort_by_update_time);
+
+        let dash_screen = Dashboard(DashboardState::new(ve));
+        
+        // tui 情况下 处理 要求立即密码的情况
+        let screen = if pnt_context.cfg.need_main_passwd_on_run {
+            NeedMainPasswd(NeedMainPwdState::new(dash_screen))
+        } else {
+            dash_screen
+        };
+        
         Self {
             running: true,
             pnt: pnt_context,
             events: EventHandler::new(),
-            screen: Dashboard(DashboardState::new(ve)), // Dashboard
+            screen,
             back_screen: Vec::with_capacity(10),
         }
     }

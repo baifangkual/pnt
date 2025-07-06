@@ -189,22 +189,13 @@ pub fn pnt_run() -> Result<()> {
     // to do impl cli tui select run
     let storage = pre_note_state_init_check(&cfg)?;
 
-    // pre read
-    let need_mp_on_run = cfg.need_main_passwd_on_run;
     let run_mode = cli_line.check_run_mode();
     debug!("run_mode: {:?}", run_mode);
 
     // context
     let context = PntContext::new_with_un_verified(cfg, cli_line, storage);
 
-    // 校验配置，是否在运行时需要密码，当前还未要求终端进入 原始模式，遂可以读stdin
-
-    // 若配置立即要求输入密码则直接校验
-    let context = if need_mp_on_run {
-        await_verifier_main_pwd(context)?
-    } else { context };
-
-    // 验证是否使用 Cli 模式
+    // 运行模式选择... 不同模式内部开始时都会对 need_main_pwd_on_run 进行检查并处理
     if run_mode == RunMode::Cli {
         cli::cli_run(context)
     } else {
@@ -212,5 +203,3 @@ pub fn pnt_run() -> Result<()> {
     }
 }
 
-#[cfg(test)]
-mod tests {}

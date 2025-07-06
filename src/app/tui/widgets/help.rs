@@ -23,14 +23,12 @@ pub static HELP_PAGE_DASHBOARD: LazyLock<HelpPage> = LazyLock::new(|| {HelpPage:
 
 impl Widget for &HelpPage {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let rect = super::super::util::centered_rect(90, 90, area);
-
         let block = Block::bordered()
             .title("help")
             .fg(Color::White)
             .border_type(BorderType::Plain);
-        let inner_area = block.inner(rect);
-        block.render(rect, buf);
+        let inner_area = block.inner(area);
+        block.render(area, buf);
         Clear.render(inner_area, buf);
 
         let li = self.tips.iter()
@@ -42,7 +40,7 @@ impl Widget for &HelpPage {
                     .fg(Color::White)
             })
             .collect::<Vec<ListItem>>();
-        let rect = super::super::util::centered_rect(90, 90, inner_area);
+        let rect = super::super::layout::centered_rect(90, 90, inner_area);
         List::new(li).render(rect, buf);
     }
 }

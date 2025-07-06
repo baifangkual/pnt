@@ -29,15 +29,15 @@ impl Widget for &EditingState {
             .split(area);
 
         let mut b_name = Block::bordered().title("name").fg(Color::White);
-        let mut b_ident = Block::bordered().title("identity").fg(Color::Red);
-        let mut b_password = Block::bordered().title("password").fg(Color::Red);
+        let mut b_ident = Block::bordered().title("identity").fg(Color::White);
+        let mut b_password = Block::bordered().title("password").fg(Color::White);
         let mut b_description = Block::bordered().title("description").fg(Color::White);
 
         match curr_editing {
-            Editing::Name => {b_name = b_name.bg(Color::Gray)}
-            Editing::Identity => {b_ident = b_ident.bg(Color::Gray)}
-            Editing::Password => {b_password = b_password.bg(Color::Gray)}
-            Editing::Description => {b_description = b_description.bg(Color::Gray)}
+            Editing::Name => {b_name = b_name.fg(Color::Yellow)}
+            Editing::Identity => {b_ident = b_ident.fg(Color::Yellow)}
+            Editing::Password => {b_password = b_password.fg(Color::Yellow)}
+            Editing::Description => {b_description = b_description.fg(Color::Yellow)}
         }
         Paragraph::new(name).block(b_name).render(rc[0], buf);
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);

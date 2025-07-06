@@ -15,6 +15,8 @@ pub enum Screen {
     Creating (EditingState), // 创建窗口
     Updating (EditingState), // 已有条目编辑窗口
     DeleteTip(OptionYN<EncryptedEntry>), // 删除时的弹窗, 显示名称和描述（可能有）
+    // SaveTip(OptionYN<EditingState>), // 保存前提示窗口
+    // 修改主密码窗口
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
     NeedMainPasswd(NeedMainPwdState), // 要求键入主密码的窗口, u8 为重试次数
 }

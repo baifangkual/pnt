@@ -1,4 +1,4 @@
-mod util;
+mod layout;
 mod ui;
 mod event;
 mod runtime;
@@ -12,9 +12,8 @@ use crate::app::tui::runtime::TUIRuntime;
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
-    debug!("start run TUI mode");
     let terminal = ratatui::init();
-    let running = TUIRuntime::with_pnt(pnt, (NoEncrypter, NoEncrypter));
+    let running = TUIRuntime::with_pnt(pnt);
     let result = running.run(terminal);
     ratatui::restore();
     result

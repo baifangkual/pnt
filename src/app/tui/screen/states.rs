@@ -3,16 +3,16 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ReTryMaxExceed;
 use crate::app::tui::screen::Screen;
-use anyhow::{anyhow, Context};
+use crate::app::tui::widgets::InputField;
+use anyhow::{Context, anyhow};
 use ratatui::widgets::ListState;
-
 
 #[derive(Debug, Clone)]
 pub struct EditingState {
     editing: Editing,
     u_input: InputEntry,
     /// 正在编辑的条目id，若为None，则表示正在编辑的条目为新建条目
-    e_id: Option<u32>
+    e_id: Option<u32>,
 }
 
 impl Default for EditingState {
@@ -22,16 +22,15 @@ impl Default for EditingState {
 }
 
 impl EditingState {
-    
     pub fn current_input_entry(&self) -> &InputEntry {
         &self.u_input
     }
-    
+
     /// 返回当前正在编辑的字段是哪一个
     pub fn current_editing_type(&self) -> &Editing {
         &self.editing
     }
-    
+
     /// 返回当前正在编辑的字段的可变引用
     pub fn current_editing_string_mut(&mut self) -> &mut String {
         match self.editing {
@@ -41,7 +40,7 @@ impl EditingState {
             Editing::Password => &mut self.u_input.password,
         }
     }
-    
+
     pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
         Self {
             editing: Editing::Name,
@@ -63,7 +62,7 @@ impl EditingState {
     }
 
     /// 光标向上移动，若当前光标为Name，则移动到Password
-    pub fn cursor_up(&mut self){
+    pub fn cursor_up(&mut self) {
         self.editing = match self.editing {
             Editing::Name => Editing::Description,
             Editing::Identity => Editing::Name,
@@ -80,8 +79,13 @@ impl EditingState {
     /// 当 UserInputEntry 不合法时，该方法会返回错误
     /// 当 UserInputEntry 合法时, 该方法会返回 ValidInsertEntry 和 可能的 条目id
     /// 当条目id为None时，表示该条目为新建条目, 反之则为更新条目
-    pub fn try_encrypt<'a ,Enc>(&'a self, encrypter: &Enc) -> anyhow::Result<(ValidEntry, Option<u32>)>
-    where Enc : Encrypter<&'a InputEntry, ValidEntry> {
+    pub fn try_encrypt<'a, Enc>(
+        &'a self,
+        encrypter: &Enc,
+    ) -> anyhow::Result<(ValidEntry, Option<u32>)>
+    where
+        Enc: Encrypter<&'a InputEntry, ValidEntry>,
+    {
         if !self.current_input_validate() {
             return Err(anyhow!("input not validate"));
         }
@@ -89,7 +93,7 @@ impl EditingState {
     }
 
     /// 光标向下移动，若当前光标为Password，则移动到Name
-    pub fn cursor_down(&mut self){
+    pub fn cursor_down(&mut self) {
         self.editing = match self.editing {
             Editing::Name => Editing::Identity,
             Editing::Identity => Editing::Password,
@@ -98,7 +102,6 @@ impl EditingState {
         }
     }
 }
-
 
 /// 表示正在编辑 UserInputEntry的 哪一个
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
