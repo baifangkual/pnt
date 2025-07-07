@@ -70,7 +70,7 @@ impl Widget for &mut TUIApp {
                 state.render(rect, buf);
             }
             Screen::YNTip(option_yn) => {
-                let rect = layout::centered_rect(70, 60, inner_area);
+                let rect = layout::centered_rect(70, 50, inner_area);
                 option_yn.render(rect, buf);
             }
             Screen::NeedMainPasswd(state) => {

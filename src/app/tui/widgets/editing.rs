@@ -28,10 +28,15 @@ impl Widget for &EditingState {
             ])
             .split(area);
 
-        let mut b_name = Block::bordered().title("name").fg(Color::White);
-        let mut b_ident = Block::bordered().title("identity").fg(Color::White);
-        let mut b_password = Block::bordered().title("password").fg(Color::White);
-        let mut b_description = Block::bordered().title("description").fg(Color::White);
+        // 未填写情况下 添加 * 前缀
+        let title_name = if name.is_empty() {" (*) name "} else {" name "};
+        let title_ident = if identity.is_empty() {" (*) identity "} else {" identity "};
+        let title_password = if password.is_empty() {" (*) password "} else {" password "};
+
+        let mut b_name = Block::bordered().title(title_name).fg(Color::White);
+        let mut b_ident = Block::bordered().title(title_ident).fg(Color::White);
+        let mut b_password = Block::bordered().title(title_password).fg(Color::White);
+        let mut b_description = Block::bordered().title(" description ").fg(Color::White);
 
         match curr_editing {
             Editing::Name => {b_name = b_name.fg(Color::Yellow)}

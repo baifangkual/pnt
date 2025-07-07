@@ -3,7 +3,7 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp};
+use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp, ToSaveTip};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, YNTip, Details, Edit, Help, NeedMainPasswd};
 use crate::app::tui::screen::options::{YNState, YN};
@@ -245,7 +245,7 @@ impl TUIApp {
                     return if let Some(n_call) = option_yn.take_n_call() {
                         n_call(self)
                     } else {
-                        Err(anyhow!("not found y-call"))
+                        Err(anyhow!("not found n-call"))
                     };
                 }
             }
@@ -263,12 +263,9 @@ impl TUIApp {
                 // 保存
                 if key_event._is_ctrl_s() && state.current_input_validate() {
                     // 验证 todo 未通过验证应给予提示
-                    // todo 应有 save tip 页面
+                    let e_id = state.current_e_id();
                     let valid_e = state.try_encrypt(self.pnt.try_encrypter()?)?;
-                    match &state.current_e_id() {
-                        None => self.send_app_event(AppEvent::EntryInsert(valid_e)),
-                        Some(e_id) => self.send_app_event(AppEvent::EntryUpdate(valid_e, *e_id)),
-                    }
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveTip(valid_e,e_id)));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
@@ -413,13 +410,11 @@ impl TUIApp {
 
     fn do_insert(&mut self, e: &ValidEntry) {
         self.pnt.storage.insert_entry(&e);
-        self.back_screen();
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
 
     fn do_update(&mut self, e: &ValidEntry, e_id: u32) {
         self.pnt.storage.update_entry(&e, e_id);
-        self.back_screen();
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
 

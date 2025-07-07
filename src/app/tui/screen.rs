@@ -1,8 +1,7 @@
 pub(crate) mod states;
 pub(crate) mod options;
 
-use crate::app::entry::{EncryptedEntry, InputEntry};
-
+use crate::app::entry::InputEntry;
 
 
 /// 当前屏幕
@@ -13,7 +12,7 @@ pub enum Screen {
     Details(InputEntry, u32), // 某详情, u32 为 id
     Edit(EditingState), // 创建窗口
     // Updating (EditingState), // 已有条目编辑窗口
-    YNTip(YNState<EncryptedEntry>), // y/n 弹窗
+    YNTip(YNState), // y/n 弹窗
     // SaveTip(OptionYN<EditingState>), // 保存前提示窗口
     // 修改主密码窗口
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
@@ -21,7 +20,7 @@ pub enum Screen {
 }
 
 impl Screen {
-    
+
     /// 表达该屏幕是否为最上级的dashboard
     ///
     /// > 该方法给多个可能实现的 dashboard 做准备
@@ -42,6 +41,6 @@ impl Screen {
     }
 }
 
-use states::DashboardState;
 use crate::app::tui::screen::options::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use states::DashboardState;

@@ -5,6 +5,7 @@ use crate::app::tui::screen::Screen::{YNTip, Details, Edit, Help, NeedMainPasswd
 use crate::app::tui::screen::options::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use anyhow::Context;
+use crate::app::entry::ValidEntry;
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码
@@ -17,6 +18,7 @@ pub enum EnterScreenIntent {
     ToDetail(u32),
     ToEditing(Option<u32>), // 有id为更新，无id为编辑
     ToDeleteTip(u32),
+    ToSaveTip(ValidEntry, Option<u32>), // 保存提示页面
 }
 
 impl EnterScreenIntent {
@@ -64,7 +66,10 @@ impl EnterScreenIntent {
                         .select_entry_by_id(*e_id)
                         .context("not found entry")?;
                     Ok(YNTip(YNState::new_delete_tip(encrypted_entry)))
-                }
+                },
+                EnterScreenIntent::ToSaveTip(ve, e_id) => {
+                  Ok(YNTip(YNState::new_save_tip(ve.clone(), *e_id)))  
+                },
                 EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
                 EnterScreenIntent::ToHelp => Ok(Help),
             }
