@@ -4,10 +4,9 @@ use crate::app::tui::screen::states::NeedMainPwdState;
 use crate::app::tui::widgets::Blink::Show;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
-use ratatui::prelude::{Color, Layout, Line, Stylize, Text, Widget};
+use ratatui::prelude::{Color, Layout, Line, Stylize, Widget};
 use ratatui::widgets::{Block, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
-use std::time::Duration;
 
 pub mod dashboard;
 mod editing;
@@ -24,12 +23,12 @@ impl Widget for &InputEntry {
         let identity = self.identity.as_str();
         let password = self.password.as_str();
         let rc = Layout::default()
-            .direction(ratatui::layout::Direction::Vertical)
+            .direction(Direction::Vertical)
             .constraints([
-                ratatui::layout::Constraint::Length(3),
-                ratatui::layout::Constraint::Length(3),
-                ratatui::layout::Constraint::Length(3),
-                ratatui::layout::Constraint::Fill(0),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Fill(0),
             ])
             .split(area);
 
@@ -99,7 +98,7 @@ impl Widget for &NeedMainPwdState {
     }
 }
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 impl InputField {
     pub fn current_weight_paragraph(&self) -> Paragraph {
         // 渲染带光标的文本
@@ -121,7 +120,7 @@ impl InputField {
 
 /// 光标闪烁状态
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub enum Blink {
     None,
     Show,
@@ -134,13 +133,13 @@ pub enum Blink {
 /// 有光标的输入框
 /// 该实现尚未加入项目结构中，因为还找不到适合的结构去使用...
 #[derive(Debug, Clone)]
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub struct InputField {
     content: String,        // 内容
     cursor_position: usize, // 光标位置
     blink: Blink,           // 光标闪烁状态
 }
-#[warn(dead_code)]
+#[allow(dead_code)]
 impl InputField {
     pub fn new_no_blink() -> InputField {
         InputField {

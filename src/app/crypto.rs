@@ -4,13 +4,10 @@ pub mod aes_gcm;
 
 use crate::app::context::SecurityContext;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
-use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::CryptoError;
-use anyhow::{Context, anyhow};
 use argon2::password_hash::{Error, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64ct::{Base64, Encoding};
-use std::convert::Infallible;
 
 /// 加密器
 pub trait Encrypter<P, C> {
@@ -23,38 +20,6 @@ pub trait Decrypter<C, P> {
     type DecrypterError: std::error::Error + Sync + Send + 'static;
     /// 解密方法 - 将密文(ciphertext)转为明文(plaintext)
     fn decrypt(&self, ciphertext: C) -> Result<P, Self::DecrypterError>;
-}
-
-pub struct NoEncrypter;
-impl Encrypter<&InputEntry, ValidEntry> for NoEncrypter {
-    type EncrypterError = Infallible;
-    fn encrypt(&self, plaintext: &InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
-        Ok(ValidEntry {
-            name: plaintext.name.clone(),
-            description: if plaintext.description.is_empty() {
-                None
-            } else {
-                Some(plaintext.description.clone())
-            },
-            encrypted_identity: plaintext.identity.clone(),
-            encrypted_password: plaintext.password.clone(),
-        })
-    }
-}
-impl Decrypter<&EncryptedEntry, InputEntry> for NoEncrypter {
-    type DecrypterError = Infallible;
-    fn decrypt(&self, ciphertext: &EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
-        Ok(InputEntry {
-            name: ciphertext.name.clone(),
-            description: if let Some(desc) = &ciphertext.description {
-                desc.clone()
-            } else {
-                String::new()
-            },
-            identity: ciphertext.encrypted_identity.clone(),
-            password: ciphertext.encrypted_password.clone(),
-        })
-    }
 }
 
 /// 主密码加密器，使用Argon2id算法加密主密码明文
@@ -171,7 +136,7 @@ mod test {
         let plaintext = "pass".to_owned();
         let encrypter = MainPwdEncrypter::from_salt("salt1111").unwrap();
         let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
-        let mut verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64("salt1111", &cs1).unwrap();
+        let verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64("salt1111", &cs1).unwrap();
         assert_eq!(verifier.verify(&plaintext).unwrap(), true);
         assert_eq!(verifier.verify("pas1").unwrap(), false);
     }

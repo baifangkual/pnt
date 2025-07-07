@@ -1,18 +1,14 @@
-use std::ops::Deref;
-use super::runtime::TUIRuntime;
+use super::rt::TUIApp;
 use crate::app::tui::screen::Screen;
-use ratatui::layout::Direction;
-use ratatui::prelude::{Constraint, Layout, Line, Span, Style};
-use ratatui::widgets::{List, ListItem, ListState};
+use ratatui::prelude::Line;
 use ratatui::{
     buffer::Buffer,
-    layout::{Alignment, Rect},
+    layout::Rect,
     style::{Color, Stylize},
-    widgets::{Block, BorderType, Paragraph, StatefulWidget, Widget},
+    widgets::{Block, BorderType, StatefulWidget, Widget},
 };
 use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;
-use crate::app::tui::widgets::help::HelpPage;
 use crate::app::tui::layout;
 
 
@@ -30,7 +26,7 @@ const TUI_BG_COLOR: Color = Color::from_u32(0x252624);
 const TUI_TITLE_COLOR: Color = Color::from_u32(0x4D4F4B);
 
 
-impl Widget for &mut TUIRuntime {
+impl Widget for &mut TUIApp {
     /// 渲染函数入口
     /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
     /// 遂该方法内始终先渲染 dashboard

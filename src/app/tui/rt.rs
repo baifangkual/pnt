@@ -1,25 +1,22 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
-use crate::app::crypto::{Decrypter, NoEncrypter};
-use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDashBoard, ToDeleteTip, ToDetail, ToEditing};
-use crate::app::tui::new_dashboard_screen;
+use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing};
+use crate::app::tui::screen::states::Editing;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, DeleteTip, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::options::OptionYN;
-use crate::app::tui::screen::states::{DashboardState, Editing, NeedMainPwdState};
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    DefaultTerminal, crossterm,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm, crossterm::event::{KeyCode, KeyEvent},
+    DefaultTerminal,
 };
 
 /// TUI Application.
-pub struct TUIRuntime {
+pub struct TUIApp {
     /// Is the application running?
     pub running: bool,
     /// 当前屏幕
@@ -32,7 +29,7 @@ pub struct TUIRuntime {
     pub events: EventHandler,
 }
 
-impl TUIRuntime {
+impl TUIApp {
     /// 返回上一个屏幕，
     /// 当上一个屏幕不存在时，发送 **退出** 事件
     fn back_screen(&mut self) {
@@ -83,7 +80,7 @@ impl TUIRuntime {
     }
 }
 
-impl TUIRuntime {
+impl TUIApp {
     /// TUI程序主循环
     pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
@@ -143,7 +140,7 @@ impl TUIRuntime {
         Ok(())
     }
 
-    /// Handles the key events and updates the state of [`TUIRuntime`].
+    /// Handles the key events and updates the state of [`TUIApp`].
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
     fn invoke_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {

@@ -43,6 +43,6 @@ impl Screen {
     }
 }
 
-use states::{DashboardState, Editing};
+use states::DashboardState;
 use crate::app::tui::screen::options::OptionYN;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};

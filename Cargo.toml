@@ -1,11 +1,11 @@
 [package]
-name = "pnt" # 用以clap提取
-version = "0.1.0" # 用以clap提取
-authors = ["baifangkual <baifangkuai@live.com>"] # 用以clap提取
+name = "pnt"
+version = "0.1.1"
+authors = ["baifangkual <baifangkuai@live.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-description = "A simple TUI password note application" # 用以clap提取
-# 不指定readme时自动指向README.md readme = "README.md"
+description = "A simple TUI password note application"
+readme = "README.md"
 homepage = "https://github.com/baifangkual/pnt"
 repository = "https://github.com/baifangkual/pnt"
 keywords = ["tui-app", "password-manager", "notes-app"]
@@ -22,7 +22,6 @@ rusqlite = { version = "0.36.0", features = ["bundled", "chrono"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 argon2 = { version = "0.5.3", features = ["alloc"] }
 aes-gcm = "0.10.3"
-rand = "0.9.1"
 thiserror = "2.0.12"
 base64ct = { version = "1.8.0", features = ["alloc"] }
 rpassword = "7.4.0"

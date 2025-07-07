@@ -2,8 +2,6 @@ use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ReTryMaxExceed;
-use crate::app::tui::screen::Screen;
-use crate::app::tui::widgets::InputField;
 use anyhow::{Context, anyhow};
 use ratatui::widgets::ListState;
 use crate::app::tui::intents::EnterScreenIntent;

@@ -1,6 +1,6 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
-use ratatui::prelude::{Color, Stylize, Text, Widget};
+use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use crate::app::tui::screen::states::{Editing, EditingState};
 

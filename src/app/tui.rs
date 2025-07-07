@@ -1,7 +1,7 @@
 mod layout;
 mod ui;
 mod event;
-mod runtime;
+mod rt;
 mod screen;
 mod widgets;
 mod intents;
@@ -10,7 +10,7 @@ use crate::app::context::PntContext;
 use crate::app::entry::EncryptedEntry;
 use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToDashBoard;
-use crate::app::tui::runtime::TUIRuntime;
+use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, NeedMainPasswd};
@@ -26,14 +26,14 @@ pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
 
 
 /// 新建 tui
-fn new_runtime(pnt_context: PntContext) -> TUIRuntime {
+fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
     let screen = if pnt_context.cfg.need_main_passwd_on_run {
         NeedMainPasswd(NeedMainPwdState::new(ToDashBoard))
     } else {
         new_dashboard_screen(&pnt_context)
     };
-    TUIRuntime {
+    TUIApp {
         running: true,
         pnt: pnt_context,
         events: EventHandler::new(),

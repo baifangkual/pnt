@@ -1,13 +1,10 @@
-use std::cell::LazyCell;
-use anyhow::Context;
-use crate::app::context::PntContext;
-use crate::app::tui::event::AppEvent;
 use crate::app::tui::new_dashboard_screen;
-use crate::app::tui::runtime::TUIRuntime;
+use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::options::OptionYN;
+use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DeleteTip, Details, Edit, NeedMainPasswd};
-use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use anyhow::Context;
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码
@@ -22,7 +19,7 @@ pub enum EnterScreenIntent {
 }
 
 impl EnterScreenIntent {
-    pub fn handle_intent(&self, tui: &TUIRuntime) -> anyhow::Result<Screen> {
+    pub fn handle_intent(&self, tui: &TUIApp) -> anyhow::Result<Screen> {
         if tui.pnt.is_verified() {
             // 已有securityContext，直接发送进入事件
             match &self {

@@ -1,8 +1,7 @@
-use std::cell::LazyCell;
 use std::sync::LazyLock;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Layout, Line, Stylize, Widget};
+use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
 
 /// 帮助页面实体
