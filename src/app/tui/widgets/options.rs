@@ -1,7 +1,7 @@
 use crate::app::entry::EncryptedEntry;
 use crate::app::tui::layout;
 use crate::app::tui::layout::RectExt;
-use crate::app::tui::screen::options::OptionYN;
+use crate::app::tui::screen::options::YNState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::prelude::{Alignment, Color, Constraint, Direction, Line, Stylize, Widget};
@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 
 /// 删除前提示
-impl Widget for &OptionYN<EncryptedEntry> {
+impl Widget for &YNState<EncryptedEntry> {
     fn render(self, area: Rect, buf: &mut Buffer) {
 
         Clear.render(area, buf);

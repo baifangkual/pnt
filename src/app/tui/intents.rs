@@ -1,8 +1,8 @@
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{DeleteTip, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::options::OptionYN;
+use crate::app::tui::screen::Screen::{YNTip, Details, Edit, Help, NeedMainPasswd};
+use crate::app::tui::screen::options::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use anyhow::Context;
 
@@ -63,7 +63,7 @@ impl EnterScreenIntent {
                         .storage
                         .select_entry_by_id(*e_id)
                         .context("not found entry")?;
-                    Ok(DeleteTip(OptionYN::new_delete_tip(encrypted_entry)))
+                    Ok(YNTip(YNState::new_delete_tip(encrypted_entry)))
                 }
                 EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
                 EnterScreenIntent::ToHelp => Ok(Help),

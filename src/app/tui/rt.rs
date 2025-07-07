@@ -5,8 +5,8 @@ use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp};
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Dashboard, DeleteTip, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::options::{OptionYN, YN};
+use crate::app::tui::screen::Screen::{Dashboard, YNTip, Details, Edit, Help, NeedMainPasswd};
+use crate::app::tui::screen::options::{YNState, YN};
 use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
@@ -228,7 +228,8 @@ impl TUIApp {
                     return Ok(());
                 }
             }
-            DeleteTip(option_yn) => {
+            // 弹窗页面
+            YNTip(option_yn) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());

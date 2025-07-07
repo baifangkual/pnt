@@ -14,7 +14,7 @@ pub enum YN {
 type FnCallYN = Box<dyn Fn(&mut TUIApp) -> anyhow::Result<()> + Send>;
 
 /// 带 YN 选项的实体，可载荷 Item
-pub struct OptionYN<C> {
+pub struct YNState<C> {
     pub title: String,
     pub desc: String,
     pub content: Option<C>,
@@ -26,7 +26,7 @@ pub struct OptionYN<C> {
     pub yn: Option<YN>,
 }
 
-impl<C> OptionYN<C> {
+impl<C> YNState<C> {
     pub fn content(&self) -> Result<&C, anyhow::Error> {
         match self.content {
             Some(ref c) => Ok(c),
@@ -35,7 +35,7 @@ impl<C> OptionYN<C> {
     }
 
     pub fn new_just_title_desc(title: &str, desc: &str) -> Self {
-        OptionYN {
+        YNState {
             title: title.into(),
             desc: desc.into(),
             content: None,
@@ -96,7 +96,7 @@ impl<C> OptionYN<C> {
     }
 }
 
-impl OptionYN<EncryptedEntry> {
+impl YNState<EncryptedEntry> {
     /// 删除页面用的
     pub fn new_delete_tip(encrypted_entry: EncryptedEntry) -> Self {
         let d_name = format!("DELETE '{}' ?", &encrypted_entry.name);

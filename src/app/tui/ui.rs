@@ -69,7 +69,7 @@ impl Widget for &mut TUIApp {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 state.render(rect, buf);
             }
-            Screen::DeleteTip(option_yn) => {
+            Screen::YNTip(option_yn) => {
                 let rect = layout::centered_rect(70, 60, inner_area);
                 option_yn.render(rect, buf);
             }
