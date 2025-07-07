@@ -14,9 +14,9 @@ impl Widget for &EditingState {
             .border_type(ratatui::widgets::BorderType::Plain);
         block.render(area, buf);
         Clear.render(area, buf);
-        let name = input_entry.name.as_str();
-        let desc = input_entry.description.as_str();
-        let identity = input_entry.identity.as_str();
+        let name = input_entry.about.as_str();
+        let desc = input_entry.notes.as_str();
+        let identity = input_entry.username.as_str();
         let password = input_entry.password.as_str();
         let rc = Layout::default()
             .direction(ratatui::layout::Direction::Vertical)
@@ -29,20 +29,20 @@ impl Widget for &EditingState {
             .split(area);
 
         // 未填写情况下 添加 * 前缀
-        let title_name = if name.is_empty() {" (*) name "} else {" name "};
-        let title_ident = if identity.is_empty() {" (*) identity "} else {" identity "};
+        let title_name = if name.is_empty() {" (*) about "} else {" about "};
+        let title_ident = if identity.is_empty() {" (*) username "} else {" username "};
         let title_password = if password.is_empty() {" (*) password "} else {" password "};
 
         let mut b_name = Block::bordered().title(title_name).fg(Color::White);
         let mut b_ident = Block::bordered().title(title_ident).fg(Color::White);
         let mut b_password = Block::bordered().title(title_password).fg(Color::White);
-        let mut b_description = Block::bordered().title(" description ").fg(Color::White);
+        let mut b_description = Block::bordered().title(" notes ").fg(Color::White);
 
         match curr_editing {
-            Editing::Name => {b_name = b_name.fg(Color::Yellow)}
-            Editing::Identity => {b_ident = b_ident.fg(Color::Yellow)}
+            Editing::About => {b_name = b_name.fg(Color::Yellow)}
+            Editing::Username => {b_ident = b_ident.fg(Color::Yellow)}
             Editing::Password => {b_password = b_password.fg(Color::Yellow)}
-            Editing::Description => {b_description = b_description.fg(Color::Yellow)}
+            Editing::Notes => {b_description = b_description.fg(Color::Yellow)}
         }
         Paragraph::new(name).block(b_name).render(rc[0], buf);
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);

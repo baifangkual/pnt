@@ -1,13 +1,12 @@
 use std::fmt::Display;
 use thiserror::Error;
-use crate::{app::consts::MAIN_PASS_MAX_RE_TRY};
 
 /// tui运行过程的错误
 #[derive(Debug, Error)]
 pub enum AppError {
     /// 主密码重试到最大次数仍未正确
-    #[error("re-try max exceed: {max}", max = MAIN_PASS_MAX_RE_TRY)]
-    ReTryMaxExceed,
+    #[error("Valid Password")]
+    ValidPassword,
     /// 找不到主密码
     #[error("main password not found")]
     MainPwdNotFound,

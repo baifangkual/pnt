@@ -1,5 +1,5 @@
 pub(crate) mod states;
-pub(crate) mod options;
+pub(crate) mod yn;
 
 use crate::app::entry::InputEntry;
 
@@ -41,6 +41,6 @@ impl Screen {
     }
 }
 
-use crate::app::tui::screen::options::YNState;
+use crate::app::tui::screen::yn::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use states::DashboardState;

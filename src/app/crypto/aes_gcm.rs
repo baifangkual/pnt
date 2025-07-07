@@ -72,18 +72,18 @@ impl Encrypter<&InputEntry, ValidEntry> for EntryAes256GcmSecretEncrypter {
     type EncrypterError = CryptoError;
     fn encrypt(&self, input_entry: &InputEntry) -> Result<ValidEntry, Self::EncrypterError> {
         // 加密敏感字段
-        let cipher_identity = self.inner_enc
-            .encrypt(&input_entry.identity)?;
+        let cipher_username = self.inner_enc
+            .encrypt(&input_entry.username)?;
         let cipher_passwd = self.inner_enc
             .encrypt(&input_entry.password)?;
         Ok(ValidEntry {
-            name: input_entry.name.clone(),
-            description: if input_entry.description.is_empty() {
+            about: input_entry.about.clone(),
+            notes: if input_entry.notes.is_empty() {
                 None
             } else {
-                Some(input_entry.description.clone())
+                Some(input_entry.notes.clone())
             },
-            encrypted_identity: cipher_identity,
+            encrypted_username: cipher_username,
             encrypted_password: cipher_passwd,
         })
     }
@@ -91,13 +91,13 @@ impl Encrypter<&InputEntry, ValidEntry> for EntryAes256GcmSecretEncrypter {
 impl Decrypter<&EncryptedEntry, InputEntry> for EntryAes256GcmSecretEncrypter {
     type DecrypterError = CryptoError;
     fn decrypt(&self, encrypted_entry: &EncryptedEntry) -> Result<InputEntry, Self::DecrypterError> {
-        let identity = self.inner_enc
-            .decrypt(&encrypted_entry.encrypted_identity)?;
+        let username = self.inner_enc
+            .decrypt(&encrypted_entry.encrypted_username)?;
         let password = self.inner_enc.decrypt(&encrypted_entry.encrypted_password)?;
         Ok(InputEntry {
-            name: encrypted_entry.name.clone(),
-            description: if let Some(desc) = &encrypted_entry.description {desc.clone()} else {String::new()},
-            identity,
+            about: encrypted_entry.about.clone(),
+            notes: if let Some(desc) = &encrypted_entry.notes {desc.clone()} else {String::new()},
+            username,
             password,
         })
     }
@@ -114,26 +114,26 @@ mod test {
     fn test_encrypt_decrypt_entry() {
         let encrypter = EntryAes256GcmSecretEncrypter::from_random_key();
         let u_input = InputEntry {
-            name: "name".to_owned(),
-            description: String::new(),
-            identity: "def".to_owned(),
+            about: "name".to_owned(),
+            notes: String::new(),
+            username: "def".to_owned(),
             password: "abc".to_owned(),
         };
         let v_e = encrypter.encrypt(&u_input).unwrap();
         let enc_entry = EncryptedEntry {
             id: 123,
-            name: v_e.name,
-            description: v_e.description,
-            encrypted_identity: v_e.encrypted_identity,
+            about: v_e.about,
+            notes: v_e.notes,
+            encrypted_username: v_e.encrypted_username,
             encrypted_password: v_e.encrypted_password,
-            created_at: DateTime::default(),
-            updated_at: DateTime::default(),
+            created_time: DateTime::default(),
+            updated_time: DateTime::default(),
         };
         let entry = encrypter.decrypt(&enc_entry).unwrap();
-        assert_eq!(u_input.name, entry.name);
-        assert_eq!(u_input.description, entry.description);
+        assert_eq!(u_input.about, entry.about);
+        assert_eq!(u_input.notes, entry.notes);
         assert_eq!(u_input.password, entry.password);
-        assert_eq!(u_input.identity, entry.identity);
+        assert_eq!(u_input.username, entry.username);
     }
 
 

@@ -6,7 +6,7 @@ use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp, ToSaveTip};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, YNTip, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::options::{YNState, YN};
+use crate::app::tui::screen::yn::{YNState, YN};
 use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
@@ -358,7 +358,7 @@ impl TUIApp {
     fn do_editing(&mut self, key_code: KeyCode) -> Result<()> {
         if let Edit(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
-            if Editing::Description != *state.current_editing_type() {
+            if Editing::Notes != *state.current_editing_type() {
                 if let KeyCode::Enter = key_code {
                     self.send_app_event(AppEvent::CursorDown);
                     return Ok(());
@@ -424,7 +424,7 @@ impl TUIApp {
     fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
         if let Dashboard(state) = &mut self.screen {
             state.entries = if let Some(f) = find {
-                self.pnt.storage.select_entry_by_name_like(&f)
+                self.pnt.storage.select_entry_by_about_like(&f)
             } else {
                 self.pnt.storage.select_all_entry()
             };

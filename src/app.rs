@@ -9,7 +9,7 @@ mod storage;
 mod tui;
 
 use crate::app::config::{Cfg, load_cfg};
-use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
+use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::context::{NoteState, PntContext, RunMode};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter};
 use crate::app::storage::sqlite::SqliteConn;
@@ -155,7 +155,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
 fn await_verifier_main_pwd(mut context: PntContext) -> Result<PntContext> {
     let verifier = context.build_mpv()?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
-    for n in 0..=MAIN_PASS_MAX_RE_TRY { // fixed 0 .. =MAX_RE_TRY
+    for n in 0..ALLOC_VALID_MAIN_PASS_MAX {
         let mp = read_stdin_passwd()?;
         if verifier.verify(&mp)? {
             // 验证通过，返回SecurityContext
@@ -167,14 +167,14 @@ fn await_verifier_main_pwd(mut context: PntContext) -> Result<PntContext> {
                 "{} ({}/{})",
                 "Valid Password",
                 n + 1,
-                MAIN_PASS_MAX_RE_TRY + 1
+                ALLOC_VALID_MAIN_PASS_MAX
             );
             println!("{}", tip.on_dark_red().white())
         }
     }
     // 至此，证明for走完仍为校验通过，进程结束
     drop(context.storage); // 释放sqlite 对文件的连接资源
-    Err(AppError::ReTryMaxExceed)?
+    Err(AppError::ValidPassword)?
 }
 
 /// pnt 程序入口

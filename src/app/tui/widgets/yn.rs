@@ -1,6 +1,6 @@
 use crate::app::tui::layout;
 use crate::app::tui::layout::RectExt;
-use crate::app::tui::screen::options::YNState;
+use crate::app::tui::screen::yn::YNState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::prelude::{Alignment, Color, Constraint, Direction, Line, Stylize, Widget};

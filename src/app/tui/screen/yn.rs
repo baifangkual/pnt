@@ -55,10 +55,10 @@ impl YNState {
 impl YNState {
     /// 删除页面用的
     pub fn new_delete_tip(encrypted_entry: EncryptedEntry) -> Self {
-        let e_name = &encrypted_entry.name;
-        let e_desc = encrypted_entry.description.as_ref().map_or("_", |v| v);
+        let e_name = &encrypted_entry.about;
+        let e_desc = encrypted_entry.notes.as_ref().map_or("_", |v| v);
         let tip_title = format!("DELETE '{}' ?", e_name);
-        let tip_desc = format!("NAME: {}\nDESCRIPTION: {}", e_name, e_desc);
+        let tip_desc = format!("ABOUT: {}\nNOTES: {}", e_name, e_desc);
         let e_id = encrypted_entry.id;
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
@@ -75,9 +75,9 @@ impl YNState {
     }
     /// 保存页面用的
     pub fn new_save_tip(valid_entry: ValidEntry, e_id: Option<u32>) -> Self{
-        let e_desc = valid_entry.description.as_ref().map_or("_", |v| v);
-        let tip_title = format!("SAVE '{}' ?", valid_entry.name);
-        let tip_desc = format!("NAME: {}\nDESCRIPTION: {}", &valid_entry.name, e_desc);
+        let e_desc = valid_entry.notes.as_ref().map_or("_", |v| v);
+        let tip_title = format!("SAVE '{}' ?", valid_entry.about);
+        let tip_desc = format!("ABOUT: {}\nNOTES: {}", &valid_entry.about, e_desc);
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
             if let Some(e_id) = e_id {

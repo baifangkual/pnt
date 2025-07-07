@@ -98,7 +98,7 @@ impl MainPwdVerifier {
         }
     }
     /// 生成加密解密条目的密钥
-    pub fn gen_key(&self, passwd: &str) -> anyhow::Result<[u8; 32]> {
+    fn gen_key(&self, passwd: &str) -> anyhow::Result<[u8; 32]> {
         let mut gp = [0u8; 32];
         Argon2::default()
             .hash_password_into(passwd.as_bytes(), self.salt.as_str().as_bytes(), &mut gp)

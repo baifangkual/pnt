@@ -33,13 +33,10 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 
 pub struct DashboardWidget;
 
-
-
 impl StatefulWidget for DashboardWidget {
     type State = DashboardState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        
         // 布局 1| f | 1
         let layout_1f1 = Layout::default()
             .direction(Direction::Horizontal) // 水平
@@ -71,14 +68,13 @@ impl StatefulWidget for DashboardWidget {
             .split(layout_hm1[0]);
 
         // find 查找的字符渲染
-        let mut find_input_block = Block::bordered()
-            .border_type(BorderType::Plain);
+        let mut find_input_block = Block::bordered().border_type(BorderType::Plain);
 
         // find 时 框框 高亮
         if state.find_mode {
             find_input_block = find_input_block.fg(Color::Yellow)
         } else {
-            find_input_block = find_input_block.fg(Color::White)
+            find_input_block = find_input_block.fg(Color::from_u32(0xC6C8CC))
         }
         // find_input_block.render(layout_l_find_r[1], buf);
         Paragraph::new(state.find_input.as_str())
@@ -87,13 +83,15 @@ impl StatefulWidget for DashboardWidget {
             .render(layout_l_find_r[1], buf);
 
         let show_vec = if state.find_input.is_empty() {
-        // 若未要查找，则所有显示
+            // 若未要查找，则所有显示
             state.entries().iter().collect::<Vec<_>>()
         } else {
             // 否则过滤查找的
             let ref_find = state.find_input.as_str();
-            state.entries().iter()
-                .filter(|e| e.name.contains(ref_find))
+            state
+                .entries()
+                .iter()
+                .filter(|e| e.about.contains(ref_find))
                 .collect::<Vec<_>>()
         };
 
@@ -101,7 +99,7 @@ impl StatefulWidget for DashboardWidget {
         let inner_block = Block::new()
             .borders(Borders::BOTTOM | Borders::TOP)
             .border_type(BorderType::Plain)
-            .fg(Color::White);
+            .fg(Color::from_u32(0x6E737C));
 
         // 计算每列的宽度比例（去除边框和padding后的可用宽度）
         let available_width = area.width as usize - 4; // 减去左右边距
@@ -115,20 +113,17 @@ impl StatefulWidget for DashboardWidget {
             .enumerate()
             .map(|(i, entry)| {
                 let index_str = format!("{:>width$}", i, width = index_width);
-                let name_str = truncate_text(&entry.name, name_width);
-                let desc_str =
-                    truncate_text(entry.description.as_deref().unwrap_or(""), desc_width);
+                let name_str = truncate_text(&entry.about, name_width);
+                let desc_str = truncate_text(entry.notes.as_deref().unwrap_or(""), desc_width);
                 let line_content = format!("{} | {} │ {}", index_str, name_str, desc_str);
                 ListItem::new(Line::from(line_content))
             })
             .collect();
 
-        
-        // let e_id = format!("{:?}", state.entries[state.cursor.selected().unwrap()].id);
-        
-
         // 创建列表并设置样式
-        let list = List::new(items).block(inner_block).highlight_style(
+        let list = List::new(items).block(inner_block)
+            .fg(Color::from_u32(0xDADBDE))
+            .highlight_style(
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::from_u32(0xD9D9D9)),

@@ -1,7 +1,7 @@
-use crate::app::consts::MAIN_PASS_MAX_RE_TRY;
+use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::errors::AppError::ReTryMaxExceed;
+use crate::app::errors::AppError::ValidPassword;
 use anyhow::{Context, anyhow};
 use ratatui::widgets::ListState;
 use crate::app::tui::intents::EnterScreenIntent;
@@ -33,16 +33,16 @@ impl EditingState {
     /// 返回当前正在编辑的字段的可变引用
     pub fn current_editing_string_mut(&mut self) -> &mut String {
         match self.editing {
-            Editing::Name => &mut self.u_input.name,
-            Editing::Description => &mut self.u_input.description,
-            Editing::Identity => &mut self.u_input.identity,
+            Editing::About => &mut self.u_input.about,
+            Editing::Notes => &mut self.u_input.notes,
+            Editing::Username => &mut self.u_input.username,
             Editing::Password => &mut self.u_input.password,
         }
     }
 
     pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
         Self {
-            editing: Editing::Name,
+            editing: Editing::About,
             u_input,
             e_id: Some(e_id),
         }
@@ -50,7 +50,7 @@ impl EditingState {
 
     pub fn new_creating() -> Self {
         Self {
-            editing: Editing::Name,
+            editing: Editing::About,
             u_input: InputEntry::default(),
             e_id: None,
         }
@@ -63,10 +63,10 @@ impl EditingState {
     /// 光标向上移动，若当前光标为Name，则移动到Password
     pub fn cursor_up(&mut self) {
         self.editing = match self.editing {
-            Editing::Name => Editing::Description,
-            Editing::Identity => Editing::Name,
-            Editing::Password => Editing::Identity,
-            Editing::Description => Editing::Password,
+            Editing::About => Editing::Notes,
+            Editing::Username => Editing::About,
+            Editing::Password => Editing::Username,
+            Editing::Notes => Editing::Password,
         }
     }
 
@@ -94,10 +94,10 @@ impl EditingState {
     /// 光标向下移动，若当前光标为Password，则移动到Name
     pub fn cursor_down(&mut self) {
         self.editing = match self.editing {
-            Editing::Name => Editing::Identity,
-            Editing::Identity => Editing::Password,
-            Editing::Password => Editing::Description,
-            Editing::Description => Editing::Name,
+            Editing::About => Editing::Username,
+            Editing::Username => Editing::Password,
+            Editing::Password => Editing::Notes,
+            Editing::Notes => Editing::About,
         }
     }
 }
@@ -106,10 +106,10 @@ impl EditingState {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub enum Editing {
     #[default]
-    Name,
-    Identity,
+    About,
+    Username,
     Password,
-    Description,
+    Notes,
 }
 
 /// 主页/仪表盘 的状态信息
@@ -154,7 +154,7 @@ impl DashboardState {
 }
 
 /// 主密码输入界面状态
-#[derive(Debug, Clone)] // todo 后续该应载荷 main pwd verifier，避免验证密码时的重新构建
+#[derive(Debug)]
 pub struct NeedMainPwdState {
     pub mp_input: String,
     pub enter_screen_intent: Option<EnterScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
@@ -183,11 +183,11 @@ impl NeedMainPwdState {
         self.retry_count
     }
 
-    /// 尝试自增重试次数，若重试次数到顶 ([`MAIN_PASS_MAX_RE_TRY`])
+    /// 尝试自增重试次数，若重试次数到顶 ([`ALLOC_VALID_MAIN_PASS_MAX`])
     /// 则返回 Err
     pub fn increment_retry_count(&mut self) -> anyhow::Result<()> {
-        if self.retry_count >= MAIN_PASS_MAX_RE_TRY {
-            Err(ReTryMaxExceed)?
+        if self.retry_count + 1 >= ALLOC_VALID_MAIN_PASS_MAX {
+            Err(ValidPassword)?
         } else {
             self.retry_count += 1;
             self.mp_input.clear();
