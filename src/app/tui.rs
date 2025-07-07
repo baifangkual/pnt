@@ -12,7 +12,7 @@ use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToDashBoardV1;
 use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Dashboard, NeedMainPasswd};
+use crate::app::tui::screen::Screen::{DashboardV1, NeedMainPasswd};
 use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 
 /// tui 运行 模式
@@ -45,5 +45,5 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
 fn new_dashboard_screen(context: &PntContext) -> Screen {
     let mut vec = context.storage.select_all_entry();
     vec.sort_unstable_by(EncryptedEntry::sort_by_update_time);
-    Dashboard(DashboardState::new(vec))
+    DashboardV1(DashboardState::new(vec))
 }

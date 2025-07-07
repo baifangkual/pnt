@@ -17,7 +17,7 @@ clap::crate_name!(),
 "-v",
 clap::crate_version!(),
 "-",
-"help:F1"
+"?:f1"
 );
 
 /// 深灰色背景
@@ -53,7 +53,7 @@ impl Widget for &mut TUIApp {
 
         // 渲染当前屏幕
         match &mut self.screen {
-            Screen::Dashboard(state) => {
+            Screen::DashboardV1(state) => {
                 let dash_widget = DashboardWidget;
                 dash_widget.render(inner_area, buf, state)
             }
@@ -69,7 +69,7 @@ impl Widget for &mut TUIApp {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 state.render(rect, buf);
             }
-            Screen::YNTip(option_yn) => {
+            Screen::YNOption(option_yn) => {
                 let rect = layout::centered_rect(70, 50, inner_area);
                 option_yn.render(rect, buf);
             }

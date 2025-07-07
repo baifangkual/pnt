@@ -33,7 +33,7 @@ impl Widget for &YNState {
             ])
             .split(inner_area);
 
-        Paragraph::new(Line::from(format!(" {} ",self.title.as_str()))
+        Paragraph::new(Line::from(format!(" [] {} ",self.title.as_str()))
             .fg(Color::White).bg(Color::Red))
             .alignment(Alignment::Center)
             .render(rc_box_box[0], buf);

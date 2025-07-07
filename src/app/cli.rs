@@ -28,7 +28,7 @@ pub fn cli_run(pnt: PntContext) -> anyhow::Result<()> {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
-    /// (Cli Mode) find entry by name like
+    /// (Cli Mode) find 'about'
     #[arg(short, long)]
     pub find: Option<String>,
 }

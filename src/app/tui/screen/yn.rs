@@ -58,7 +58,7 @@ impl YNState {
         let e_name = &encrypted_entry.about;
         let e_desc = encrypted_entry.notes.as_ref().map_or("_", |v| v);
         let tip_title = format!("DELETE '{}' ?", e_name);
-        let tip_desc = format!("ABOUT: {}\nNOTES: {}", e_name, e_desc);
+        let tip_desc = format!("[󰦨 about]: {}\n[󰦨 notes]: {}", e_name, e_desc);
         let e_id = encrypted_entry.id;
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
@@ -74,10 +74,14 @@ impl YNState {
         yn
     }
     /// 保存页面用的
-    pub fn new_save_tip(valid_entry: ValidEntry, e_id: Option<u32>) -> Self{
+    pub fn new_save_tip(valid_entry: ValidEntry, e_id: Option<u32>) -> Self {
         let e_desc = valid_entry.notes.as_ref().map_or("_", |v| v);
-        let tip_title = format!("SAVE '{}' ?", valid_entry.about);
-        let tip_desc = format!("ABOUT: {}\nNOTES: {}", &valid_entry.about, e_desc);
+        let tip_title = if e_id.is_none() {
+            format!("SAVE '{}' ?", valid_entry.about)
+        } else {
+            format!("SAVE CHANGE '{}' ?", valid_entry.about)
+        };
+        let tip_desc = format!("[󰦨 about]: {}\n[󰦨 notes]: {}", &valid_entry.about, e_desc);
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
             if let Some(e_id) = e_id {
@@ -94,7 +98,7 @@ impl YNState {
         yn.set_n_call_back_screen();
         yn
     }
-    
+
     fn set_n_call_back_screen(&mut self) {
         self.set_n_call(Box::new(move |tui| Ok(tui.back_screen())))
     }

@@ -7,12 +7,12 @@ use crate::app::entry::InputEntry;
 /// 当前屏幕
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
-    Dashboard(DashboardState), // 全局浏览窗口
+    DashboardV1(DashboardState), // 全局浏览窗口
     Help,                    // f1 help
     Details(InputEntry, u32), // 某详情, u32 为 id
     Edit(EditingState), // 创建窗口
     // Updating (EditingState), // 已有条目编辑窗口
-    YNTip(YNState), // y/n 弹窗
+    YNOption(YNState), // y/n 弹窗
     // SaveTip(OptionYN<EditingState>), // 保存前提示窗口
     // 修改主密码窗口
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
@@ -26,7 +26,7 @@ impl Screen {
     /// > 该方法给多个可能实现的 dashboard 做准备
     pub fn is_dashboard(&self) -> bool {
         match self {
-            Screen::Dashboard(..) => true,
+            Screen::DashboardV1(..) => true,
             _ => false,
         }
     }

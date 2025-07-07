@@ -3,9 +3,9 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp, ToSaveTip};
+use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Dashboard, YNTip, Details, Edit, Help, NeedMainPasswd};
+use crate::app::tui::screen::Screen::{DashboardV1, YNOption, Details, Edit, Help, NeedMainPasswd};
 use crate::app::tui::screen::yn::{YNState, YN};
 use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
@@ -158,7 +158,7 @@ impl TUIApp {
                 }
             }
             // 仪表盘
-            Dashboard(state) => {
+            DashboardV1(state) => {
                 // dashboard find
                 if !state.find_mode {
                     if let KeyCode::Char('f') = key_event.code {
@@ -191,7 +191,7 @@ impl TUIApp {
                         // 任何删除都应确保删除页面上一级为dashboard
                         // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(
                                 curr_ptr_e_id,
                             )));
                             return Ok(());
@@ -224,12 +224,12 @@ impl TUIApp {
                 }
                 if key_event._is_d() {
                     let de_id = *e_id;
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(de_id)));
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(de_id)));
                     return Ok(());
                 }
             }
             // 弹窗页面
-            YNTip(option_yn) => {
+            YNOption(option_yn) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());
@@ -265,7 +265,7 @@ impl TUIApp {
                     // 验证 todo 未通过验证应给予提示
                     let e_id = state.current_e_id();
                     let valid_e = state.try_encrypt(self.pnt.try_encrypter()?)?;
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveTip(valid_e,e_id)));
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(valid_e, e_id)));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
@@ -297,7 +297,7 @@ impl TUIApp {
     /// * dashboard find 输入框有值则清理值并重新查
     /// * 其他情况回退屏幕，无屏幕则发送退出事件
     pub fn handle_key_esc_event(&mut self) -> Result<()> {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             if state.find_mode {
                 self.send_app_event(AppEvent::TurnOffFindMode);
             } else if !state.find_input.is_empty() {
@@ -323,7 +323,7 @@ impl TUIApp {
 
     /// 处理光标向上事件
     fn cursor_up(&mut self) {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             if let Some(p) = state.cursor_selected() {
                 if p == 0 {
                     state.update_cursor(Some(state.entry_count() - 1))
@@ -338,7 +338,7 @@ impl TUIApp {
 
     /// 处理光标向下事件
     fn cursor_down(&mut self) {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             if let Some(p) = state.cursor_selected() {
                 if p >= state.entry_count() - 1 {
                     state.update_cursor(Some(0))
@@ -391,7 +391,7 @@ impl TUIApp {
                 _ => {}
             }
             Ok(())
-        } else if let Dashboard(state) = &mut self.screen {
+        } else if let DashboardV1(state) = &mut self.screen {
             match key_code {
                 KeyCode::Backspace => {
                     state.find_input.pop();
@@ -422,7 +422,7 @@ impl TUIApp {
     /// 当不为 dashboard时 Err
     /// 该方法会更新高亮行位置
     fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             state.entries = if let Some(f) = find {
                 self.pnt.storage.select_entry_by_about_like(&f)
             } else {
@@ -452,7 +452,7 @@ impl TUIApp {
 
     /// 开启 find mode
     fn turn_on_find_mode(&mut self) -> Result<()> {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             state.find_mode = true;
             Ok(())
         } else {
@@ -462,7 +462,7 @@ impl TUIApp {
 
     /// 关闭 find mode
     fn turn_off_find_mode(&mut self) -> Result<()> {
-        if let Dashboard(state) = &mut self.screen {
+        if let DashboardV1(state) = &mut self.screen {
             state.find_mode = false;
             // 获取 find_input 值，刷新vec
             if !state.find_input.is_empty() {

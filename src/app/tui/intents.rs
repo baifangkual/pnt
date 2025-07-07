@@ -1,7 +1,7 @@
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{YNTip, Details, Edit, Help, NeedMainPasswd};
+use crate::app::tui::screen::Screen::{YNOption, Details, Edit, Help, NeedMainPasswd};
 use crate::app::tui::screen::yn::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use anyhow::Context;
@@ -17,8 +17,8 @@ pub enum EnterScreenIntent {
     ToDashBoardV1,
     ToDetail(u32),
     ToEditing(Option<u32>), // 有id为更新，无id为编辑
-    ToDeleteTip(u32),
-    ToSaveTip(ValidEntry, Option<u32>), // 保存提示页面
+    ToDeleteYNOption(u32),
+    ToSaveYNOption(ValidEntry, Option<u32>), // 保存提示页面
 }
 
 impl EnterScreenIntent {
@@ -59,16 +59,16 @@ impl EnterScreenIntent {
                     Ok(Edit(EditingState::new_updating(entry, *e_id)))
                 }
                 EnterScreenIntent::ToEditing(None) => Ok(Edit(EditingState::new_creating())),
-                EnterScreenIntent::ToDeleteTip(e_id) => {
+                EnterScreenIntent::ToDeleteYNOption(e_id) => {
                     let encrypted_entry = tui
                         .pnt
                         .storage
                         .select_entry_by_id(*e_id)
                         .context("not found entry")?;
-                    Ok(YNTip(YNState::new_delete_tip(encrypted_entry)))
+                    Ok(YNOption(YNState::new_delete_tip(encrypted_entry)))
                 },
-                EnterScreenIntent::ToSaveTip(ve, e_id) => {
-                  Ok(YNTip(YNState::new_save_tip(ve.clone(), *e_id)))  
+                EnterScreenIntent::ToSaveYNOption(ve, e_id) => {
+                  Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id)))  
                 },
                 EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
                 EnterScreenIntent::ToHelp => Ok(Help),

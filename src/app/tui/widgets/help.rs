@@ -46,7 +46,7 @@ impl HelpPage {
         Self {
             tips: vec![
                 HelpShowItem {
-                    key_map: "F1".to_string(),
+                    key_map: "f1".to_string(),
                     note: "help".to_string(),
                 },
                 HelpShowItem {

@@ -32,10 +32,10 @@ impl Widget for &InputEntry {
             ])
             .split(area);
 
-        let b_name = Block::bordered().title("name").fg(Color::White);
-        let b_ident = Block::bordered().title("identity").fg(Color::Red);
-        let b_password = Block::bordered().title("password").fg(Color::Red);
-        let b_description = Block::bordered().title("description").fg(Color::White);
+        let b_name = Block::bordered().title(" about ").fg(Color::White);
+        let b_ident = Block::bordered().title(" username ").fg(Color::Red);
+        let b_password = Block::bordered().title(" password ").fg(Color::Red);
+        let b_description = Block::bordered().title(" notes ").fg(Color::White);
 
         Paragraph::new(name).block(b_name).render(rc[0], buf);
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);
@@ -84,7 +84,7 @@ impl Widget for &NeedMainPwdState {
             .split(inner_area);
 
         let box_name = Block::default()
-            .title("ENTER MAIN PASSWORD")
+            .title("[󰌿] MAIN PASSWORD")
             .fg(Color::White)
             .borders(Borders::ALL);
 
