@@ -1,9 +1,9 @@
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::rt::TUIApp;
+use crate::app::tui::screen::Screen;
+use crate::app::tui::screen::Screen::{DeleteTip, Details, Edit, Help, NeedMainPasswd};
 use crate::app::tui::screen::options::OptionYN;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{DeleteTip, Details, Edit, NeedMainPasswd};
 use anyhow::Context;
 
 /// 进入屏幕的意图
@@ -12,44 +12,62 @@ use anyhow::Context;
 /// 这些行为变体只携带 entryId
 #[derive(Debug, Clone)]
 pub enum EnterScreenIntent {
-    ToDashBoard,
+    ToHelp,
+    ToDashBoardV1,
     ToDetail(u32),
     ToEditing(Option<u32>), // 有id为更新，无id为编辑
     ToDeleteTip(u32),
 }
 
 impl EnterScreenIntent {
+    /// 表达该 屏幕 在进入前是否需要 主密码
+    pub fn is_before_enter_need_main_pwd(&self) -> bool {
+        match self {
+            EnterScreenIntent::ToHelp | EnterScreenIntent::ToDashBoardV1 => false,
+            _ => true,
+        }
+    }
+}
+
+impl EnterScreenIntent {
     pub fn handle_intent(&self, tui: &TUIApp) -> anyhow::Result<Screen> {
-        if tui.pnt.is_verified() {
+        if !tui.pnt.is_verified() && self.is_before_enter_need_main_pwd() {
+            // 未有主密码则进入需要密码的页面
+            Ok(NeedMainPasswd(NeedMainPwdState::new(self.clone())))
+        } else {
             // 已有securityContext，直接发送进入事件
             match &self {
                 EnterScreenIntent::ToDetail(e_id) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
+                    let encrypted_entry = tui
+                        .pnt
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
                     let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
-                    Ok(Details(entry))
-                },
+                    Ok(Details(entry, *e_id))
+                }
                 // 有id为编辑页面
                 EnterScreenIntent::ToEditing(Some(e_id)) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
+                    let encrypted_entry = tui
+                        .pnt
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
                     let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
                     Ok(Edit(EditingState::new_updating(entry, *e_id)))
-                },
-                EnterScreenIntent::ToEditing(None) => {
-                    Ok(Edit(EditingState::new_creating()))
-                },
-                EnterScreenIntent::ToDeleteTip(e_id) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
-                    Ok(DeleteTip(OptionYN::new_delete_tip(encrypted_entry)))
-                },
-                EnterScreenIntent::ToDashBoard => {
-                    Ok(new_dashboard_screen(&tui.pnt))
                 }
+                EnterScreenIntent::ToEditing(None) => Ok(Edit(EditingState::new_creating())),
+                EnterScreenIntent::ToDeleteTip(e_id) => {
+                    let encrypted_entry = tui
+                        .pnt
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
+                    Ok(DeleteTip(OptionYN::new_delete_tip(encrypted_entry)))
+                }
+                EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
+                EnterScreenIntent::ToHelp => Ok(Help),
             }
-        } else {
-            // 未有主密码则进入需要密码的页面
-            Ok(NeedMainPasswd(NeedMainPwdState::new(self.clone())))
         }
-
-
     }
 }

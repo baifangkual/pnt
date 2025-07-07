@@ -34,7 +34,6 @@ pub enum Event {
 ///
 /// You can extend this enum with your own custom events.
 pub enum AppEvent {
-    EnterScreen(Screen),
     EnterScreenIntent(EnterScreenIntent), // 仅描述意图要进入的页面
     TurnOnFindMode,
     TurnOffFindMode,

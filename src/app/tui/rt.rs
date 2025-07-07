@@ -3,16 +3,17 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing};
-use crate::app::tui::screen::states::Editing;
+use crate::app::tui::intents::EnterScreenIntent::{ToDeleteTip, ToDetail, ToEditing, ToHelp};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, DeleteTip, Details, Edit, Help, NeedMainPasswd};
-use anyhow::{anyhow, Result};
+use crate::app::tui::screen::options::{OptionYN, YN};
+use crate::app::tui::screen::states::Editing;
+use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    crossterm, crossterm::event::{KeyCode, KeyEvent},
-    DefaultTerminal,
+    DefaultTerminal, crossterm,
+    crossterm::event::{KeyCode, KeyEvent},
 };
 
 /// TUI Application.
@@ -32,7 +33,7 @@ pub struct TUIApp {
 impl TUIApp {
     /// 返回上一个屏幕，
     /// 当上一个屏幕不存在时，发送 **退出** 事件
-    fn back_screen(&mut self) {
+    pub fn back_screen(&mut self) {
         let pop_or = self.back_screen.pop();
         if let Some(p) = pop_or {
             self.screen = p;
@@ -40,38 +41,24 @@ impl TUIApp {
             self.send_app_event(AppEvent::Quit)
         }
     }
-    /// 处理进入某屏幕的情况，该方法内进行进入
-    ///
-    /// 将当前屏幕替换为给定的屏幕，
-    /// 根据 push_old_screen，决定是否要将老屏幕（当前屏幕）存入back栈，
-    /// 若为true，则存储back栈，否则，直接替换老屏幕为新屏幕，旧老屏幕被drop
-    ///
-    /// 若进入的屏幕需要 主密码，则返回Err标识未校验主密码，
-    /// 所有进入需主密码的请求都应该通过 EnterScreenIntent事件发送
-    ///
-    /// 该方法是处理 AppEvent::EnterScreen 的端点，遂不应在进行信号发送
-    fn handle_enter_screen(&mut self, new_screen: Screen, push_old_screen: bool) -> Result<()> {
-        // 当前无主密码校验器且打开页面需要主密码，则证明未输入主密码或已过期，则需进入输入密码情况
-        if !self.pnt.is_verified() && new_screen.is_before_enter_need_main_pwd() {
-            Err(anyhow!("Unverified main password"))
+
+    /// 切换屏幕，push_old_screen 为 true 表示将换下来的屏幕压入back栈中
+    fn change_current_screen(&mut self, new_screen: Screen, push_old_screen: bool) -> Result<()> {
+        if push_old_screen {
+            let old_scr = std::mem::replace(&mut self.screen, new_screen);
+            Ok(self.back_screen.push(old_scr))
         } else {
-            if push_old_screen {
-                let old_scr = std::mem::replace(&mut self.screen, new_screen);
-                Ok(self.back_screen.push(old_scr))
-            } else {
-                Ok(self.screen = new_screen)
-            }
+            Ok(self.screen = new_screen)
         }
     }
 
-    /// 将当前屏幕替换为给定屏幕，
-    /// 该方法仅表明
+    /// 处理需进入屏幕的需求
     fn handle_enter_screen_indent(&mut self, new_screen_intent: EnterScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(&self)?;
         if let NeedMainPasswd(_) = &self.screen {
-            Ok(self.handle_enter_screen(new_screen, false)?)
+            Ok(self.change_current_screen(new_screen, false)?)
         } else {
-            Ok(self.handle_enter_screen(new_screen, true)?)
+            Ok(self.change_current_screen(new_screen, true)?)
         }
     }
 
@@ -86,7 +73,7 @@ impl TUIApp {
         while self.running {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             match self.invoke_handle_events() {
-                Ok(_) => {}
+                Ok(_) => (),
                 Err(e) => {
                     self.quit_tui_app(); // 标记关闭状态
                     self.pnt.storage.close(); // 有错误关闭数据库连接并退出当前方法
@@ -107,7 +94,7 @@ impl TUIApp {
             Event::Crossterm(event) => match event {
                 // 仅 按下
                 CEvent::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.invoke_handle_key_press_event(key_event)?
+                    self.invoke_current_screen_handle_key_press_event(key_event)?
                 }
                 _ => {}
             },
@@ -120,7 +107,6 @@ impl TUIApp {
     /// APP Event 处理
     fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
         match app_event {
-            AppEvent::EnterScreen(target_sc) => self.handle_enter_screen(target_sc, true)?,
             AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
@@ -143,7 +129,7 @@ impl TUIApp {
     /// Handles the key events and updates the state of [`TUIApp`].
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
-    fn invoke_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
             self.send_app_event(AppEvent::Quit);
@@ -156,14 +142,14 @@ impl TUIApp {
         }
         // f1 按下 进入 帮助页面
         if key_event._is_f1() {
-            self.send_app_event(AppEvent::EnterScreen(Help));
+            self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
             return Ok(());
         }
 
         // 不同屏幕不同按键响应，包装为不同的app事件
         // 走到此，则 ctrl + c ，quit， f1 已被处理，
         // 遂下无
-        match &self.screen {
+        match &mut self.screen {
             // help 页面
             Help => {
                 if key_event._is_q_ignore_case() {
@@ -223,7 +209,7 @@ impl TUIApp {
                     }
                     // 任意光标位置都可以新建
                     if key_event._is_i_ignore_case() {
-                        self.send_app_event(AppEvent::EnterScreen(Screen::new_creating()));
+                        self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(None)));
                         return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                     }
                 } else {
@@ -231,15 +217,15 @@ impl TUIApp {
                 }
             }
             // 详情页
-            Details(_) => {
+            Details(_, e_id) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());
                 }
                 if key_event._is_d() {
-                    // todo perf: details 页面应当有当前光标的id，不应该返回到dashboard再进行delete提示
-                    self.back_screen(); // 回到 dashboard
-                    self.enter_delete_cursor_pointing_entry_tips_screen()?;
+                    let de_id = *e_id;
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(de_id)));
+                    return Ok(());
                 }
             }
             DeleteTip(option_yn) => {
@@ -248,12 +234,18 @@ impl TUIApp {
                     return Ok(());
                 }
                 if let KeyCode::Char('y' | 'Y') | KeyCode::Enter = key_event.code {
-                    self.send_app_event(AppEvent::EntryRemove(option_yn.content()?.id));
-                    return Ok(());
+                    return if let Some(y_call) = option_yn.take_y_call() {
+                        y_call(self)
+                    } else {
+                        Err(anyhow!("not found y-call"))
+                    };
                 }
                 if let KeyCode::Char('n' | 'N') = key_event.code {
-                    self.back_screen();
-                    return Ok(());
+                    return if let Some(n_call) = option_yn.take_n_call() {
+                        n_call(self)
+                    } else {
+                        Err(anyhow!("not found y-call"))
+                    };
                 }
             }
             Edit(state) => {
@@ -329,22 +321,6 @@ impl TUIApp {
     pub fn invoke_handle_tick(&self) {
         // 可用判定当前包含被解密的字段的窗口打开的时间，
         // 超过一定阈值则发送关闭子窗口的事件
-    }
-
-    /// 要求进入光标指向的当前entry的删除提示页面
-    /// 若光标当前指向不为Some或当前screen不是dashboard，返回Err
-    fn enter_delete_cursor_pointing_entry_tips_screen(&mut self) -> Result<()> {
-        if let Dashboard(state) = &self.screen {
-            if let Some(c_ptr) = state.cursor_selected() {
-                let e_id = state.entries()[c_ptr].id;
-                self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(e_id)));
-            } else {
-                return Err(anyhow!("current cursor is pointing none"));
-            }
-        } else {
-            return Err(anyhow!("current screen is not dashboard screen"));
-        }
-        Ok(())
     }
 
     /// 处理光标向上事件
@@ -475,7 +451,6 @@ impl TUIApp {
 
     fn do_remove(&mut self, e_id: u32) {
         self.pnt.storage.delete_entry(e_id);
-        self.back_screen();
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
 

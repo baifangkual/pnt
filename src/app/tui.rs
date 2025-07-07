@@ -1,19 +1,19 @@
-mod layout;
-mod ui;
 mod event;
+mod intents;
+mod layout;
 mod rt;
 mod screen;
+mod ui;
 mod widgets;
-mod intents;
 
 use crate::app::context::PntContext;
 use crate::app::entry::EncryptedEntry;
 use crate::app::tui::event::EventHandler;
-use crate::app::tui::intents::EnterScreenIntent::ToDashBoard;
+use crate::app::tui::intents::EnterScreenIntent::ToDashBoardV1;
 use crate::app::tui::rt::TUIApp;
-use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Dashboard, NeedMainPasswd};
+use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
@@ -24,12 +24,11 @@ pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
     result
 }
 
-
 /// 新建 tui
 fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
     let screen = if pnt_context.cfg.need_main_passwd_on_run {
-        NeedMainPasswd(NeedMainPwdState::new(ToDashBoard))
+        NeedMainPasswd(NeedMainPwdState::new(ToDashBoardV1))
     } else {
         new_dashboard_screen(&pnt_context)
     };
@@ -48,4 +47,3 @@ fn new_dashboard_screen(context: &PntContext) -> Screen {
     vec.sort_unstable_by(EncryptedEntry::sort_by_update_time);
     Dashboard(DashboardState::new(vec))
 }
-

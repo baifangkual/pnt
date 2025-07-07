@@ -61,7 +61,7 @@ impl Widget for &mut TUIApp {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 help::HELP_PAGE_DASHBOARD.render(rect, buf)
             }
-            Screen::Details(entry) => {
+            Screen::Details(entry, _) => {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 entry.render(rect, buf);
             }
