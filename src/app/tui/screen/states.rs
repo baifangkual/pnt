@@ -6,6 +6,7 @@ use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::InputField;
 use anyhow::{Context, anyhow};
 use ratatui::widgets::ListState;
+use crate::app::tui::intents::EnterScreenIntent;
 
 #[derive(Debug, Clone)]
 pub struct EditingState {
@@ -158,22 +159,21 @@ impl DashboardState {
 #[derive(Debug, Clone)] // todo 后续该应载荷 main pwd verifier，避免验证密码时的重新构建
 pub struct NeedMainPwdState {
     pub mp_input: String,
-    pub on_ok_to_screen: Option<Box<Screen>>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
+    pub enter_screen_intent: Option<EnterScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
 }
 impl NeedMainPwdState {
-    pub fn new(on_ok_to_screen: Screen) -> Self {
+    pub fn new(enter_screen_intent: EnterScreenIntent) -> Self {
         Self {
             mp_input: String::new(),
-            on_ok_to_screen: Some(Box::new(on_ok_to_screen)), // 因为和screen的自引用嵌套问题，遂使用box指针
+            enter_screen_intent: Some(enter_screen_intent),
             retry_count: 0,
         }
     }
 
-    pub fn take_target_screen(&mut self) -> anyhow::Result<Screen> {
-        self.on_ok_to_screen
+    pub fn take_target_screen(&mut self) -> anyhow::Result<EnterScreenIntent> {
+        self.enter_screen_intent
             .take()
-            .map(|sb| *sb)
             .context("'NeedMainPwdState' not found target screen")
     }
 

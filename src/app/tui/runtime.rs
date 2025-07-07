@@ -3,6 +3,8 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::crypto::{Decrypter, NoEncrypter};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::tui::intents::EnterScreenIntent::{ToDashBoard, ToDeleteTip, ToDetail, ToEditing};
+use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{
     Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
@@ -16,6 +18,7 @@ use ratatui::{
     DefaultTerminal, crossterm,
     crossterm::event::{KeyCode, KeyEvent},
 };
+use crate::app::tui::intents::EnterScreenIntent;
 
 /// TUI Application.
 pub struct TUIRuntime {
@@ -42,50 +45,56 @@ impl TUIRuntime {
             self.send_app_event(AppEvent::Quit)
         }
     }
-    /// 将当前屏幕替换为给定的屏幕，并将旧屏幕入栈，
-    fn enter_screen(&mut self, new_screen: Screen) {
-        // 因为所有权的问题，无法将 screen先入栈再将新屏幕赋值给其，
-        // 遂使用std::mem::replace
-        let old_scr = std::mem::replace(&mut self.screen, new_screen);
-        self.back_screen.push(old_scr);
+    /// 处理进入某屏幕的情况，该方法内进行进入
+    ///
+    /// 将当前屏幕替换为给定的屏幕，
+    /// 根据 push_old_screen，决定是否要将老屏幕（当前屏幕）存入back栈，
+    /// 若为true，则存储back栈，否则，直接替换老屏幕为新屏幕，旧老屏幕被drop
+    ///
+    /// 若进入的屏幕需要 主密码，则返回Err标识未校验主密码，
+    /// 所有进入需主密码的请求都应该通过 EnterScreenIntent事件发送
+    ///
+    /// 该方法是处理 AppEvent::EnterScreen 的端点，遂不应在进行信号发送
+    fn handle_enter_screen(&mut self, new_screen: Screen, push_old_screen: bool) -> Result<()> {
+        // 当前无主密码校验器且打开页面需要主密码，则证明未输入主密码或已过期，则需进入输入密码情况
+        if !self.pnt.is_verified() && new_screen.is_before_enter_need_main_pwd() {
+            Err(anyhow!("Unverified main password"))
+        } else {
+            if push_old_screen {
+                let old_scr = std::mem::replace(&mut self.screen, new_screen);
+                Ok(self.back_screen.push(old_scr))
+            } else {
+                Ok(self.screen = new_screen)
+            }
+        }
     }
 
-    fn send_app_event(&self, event: AppEvent) {
+    /// 将当前屏幕替换为给定屏幕，
+    /// 该方法仅表明
+    fn handle_enter_screen_indent(&mut self, new_screen_intent: EnterScreenIntent) -> Result<()> {
+        let new_screen = new_screen_intent.handle_intent(&self)?;
+        if let NeedMainPasswd(_) = &self.screen {
+            Ok(self.handle_enter_screen(new_screen, false)?)
+        } else {
+            Ok(self.handle_enter_screen(new_screen, true)?)
+        }
+    }
+
+    pub fn send_app_event(&self, event: AppEvent) {
         self.events.send(event);
     }
 }
 
 impl TUIRuntime {
-    pub fn with_pnt(pnt_context: PntContext) -> Self {
-        let mut ve = pnt_context.storage.select_all_entry();
-        ve.sort_by(EncryptedEntry::sort_by_update_time);
-
-        let dash_screen = Dashboard(DashboardState::new(ve));
-        
-        // tui 情况下 处理 要求立即密码的情况
-        let screen = if pnt_context.cfg.need_main_passwd_on_run {
-            NeedMainPasswd(NeedMainPwdState::new(dash_screen))
-        } else {
-            dash_screen
-        };
-        
-        Self {
-            running: true,
-            pnt: pnt_context,
-            events: EventHandler::new(),
-            screen,
-            back_screen: Vec::with_capacity(10),
-        }
-    }
 
     /// TUI程序主循环
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
-            match self.handle_events() {
+            match self.invoke_handle_events() {
                 Ok(_) => {}
                 Err(e) => {
-                    self.quit_tui_app();
+                    self.quit_tui_app(); // 标记关闭状态
                     self.pnt.storage.close(); // 有错误关闭数据库连接并退出当前方法
                     return Err(e);
                 }
@@ -95,29 +104,30 @@ impl TUIRuntime {
     }
 
     /// 事件处理入口
-    pub fn handle_events(&mut self) -> Result<()> {
+    fn invoke_handle_events(&mut self) -> Result<()> {
         let event = self.events.next()?;
         match event {
             // tick 事件
-            Event::Tick => self.tick(),
+            Event::Tick => self.invoke_handle_tick(),
             // 后端Crossterm事件
             Event::Crossterm(event) => match event {
                 // 仅 按下
                 CEvent::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.handle_key_press_event(key_event)?
+                    self.invoke_handle_key_press_event(key_event)?
                 }
                 _ => {}
             },
             // 封装的app 事件
-            Event::App(app_event) => self.handle_app_event(app_event)?,
+            Event::App(app_event) => self.invoke_handle_app_event(app_event)?,
         }
         Ok(())
     }
 
     /// APP Event 处理
-    fn handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
+    fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
         match app_event {
-            AppEvent::EnterScreen(target_sc) => self.handle_enter_screen_end_point(target_sc)?,
+            AppEvent::EnterScreen(target_sc) => self.handle_enter_screen(target_sc, true)?,
+            AppEvent::EnterScreenIntent(intent) =>self.handle_enter_screen_indent(intent)?,
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
             AppEvent::DoEditing(code) => self.do_editing(code)?,
@@ -139,7 +149,7 @@ impl TUIRuntime {
     /// Handles the key events and updates the state of [`TUIRuntime`].
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
-    pub fn handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    fn invoke_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
             self.send_app_event(AppEvent::Quit);
@@ -182,35 +192,22 @@ impl TUIRuntime {
                     // 可进入 查看，编辑，删除tip，新建 页面
                     // 若当前光标无所指，则只能 创建
                     if let Some(c_ptr) = state.cursor_selected() {
-                        let ptr_entry = &state.entries()[c_ptr];
+                        let curr_ptr_e_id = state.entries()[c_ptr].id;
                         // open
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
-                            // 解密
-                            self.send_app_event(AppEvent::EnterScreen(Details(
-                                // fixme 这里应修复进入需要密码页面前尝试解密的问题
-                                //  因为当前 securityContext可能还不存在
-                                ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
-                            )));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // update
                         if key_event._is_u_ignore_case() {
-                            // 解密
-                            // fixme 这里应修复进入需要密码页面前尝试解密的问题
-                            //  因为当前 securityContext可能还不存在
-                            self.send_app_event(AppEvent::EnterScreen(Screen::new_updating(
-                                ptr_entry.decrypt(self.pnt.try_encrypter()?)?,
-                                ptr_entry.id,
-                            )));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                             return Ok(());
                         }
                         // delete 但是dashboard 的光标？
                         // 任何删除都应确保删除页面上一级为dashboard
                         // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
-                            self.send_app_event(AppEvent::EnterScreen(DeleteTip(
-                                OptionYN::new_delete_tip(&ptr_entry),
-                            )));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // 上移
@@ -315,14 +312,17 @@ impl TUIRuntime {
     }
 
     /// 按下 esc 的 处理器
-    /// dashboard find 模式下 退出 find 模式
+    ///
+    /// * dashboard find 模式下 退出 find 模式
+    /// * dashboard find 输入框有值则清理值并重新查
+    /// * 其他情况回退屏幕，无屏幕则发送退出事件
     pub fn handle_key_esc_event(&mut self) -> Result<()> {
         if let Dashboard(state) = &mut self.screen {
             if state.find_mode {
-                // 解决 退出后 光标不见了，因为  state 没有存显示的实体们，
-                // 但 退出的时候 find_input 里面有值，所以可使用 find_input
-                // 里面的值重新刷一下 vec
                 self.send_app_event(AppEvent::TurnOffFindMode);
+            } else if !state.find_input.is_empty() {
+                state.find_input.clear();
+                self.send_app_event(AppEvent::FlashVecItems(None))
             } else {
                 self.back_screen();
             }
@@ -332,25 +332,11 @@ impl TUIRuntime {
         Ok(())
     }
 
-    /// 处理进入某屏幕的情况，该方法内进行进入
-    /// 若进入的屏幕需要 主密码
-    /// 则会要求主密码页面
-    /// 该方法是处理 AppEvent::EnterScreen 的端点，遂不应在进行信号发送
-    fn handle_enter_screen_end_point(&mut self, new_screen: Screen) -> Result<()> {
-        // 当前无主密码校验器且打开页面需要主密码，则证明未输入主密码或已过期，则需进入输入密码情况
-        if self.pnt.security_context.is_none() && new_screen.is_before_enter_need_main_pwd() {
-            self.enter_screen(NeedMainPasswd(NeedMainPwdState::new(new_screen)));
-        } else {
-            self.enter_screen(new_screen);
-        }
-        Ok(())
-    }
-
     /// Handles the tick event of the terminal.
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&self) {
+    pub fn invoke_handle_tick(&self) {
         // 可用判定当前包含被解密的字段的窗口打开的时间，
         // 超过一定阈值则发送关闭子窗口的事件
     }
@@ -360,10 +346,8 @@ impl TUIRuntime {
     fn enter_delete_cursor_pointing_entry_tips_screen(&mut self) -> Result<()> {
         if let Dashboard(state) = &self.screen {
             if let Some(c_ptr) = state.cursor_selected() {
-                let ptr_entry = &state.entries()[c_ptr];
-                self.send_app_event(AppEvent::EnterScreen(DeleteTip(OptionYN::new_delete_tip(
-                    &ptr_entry,
-                ))));
+                let e_id = state.entries()[c_ptr].id;
+                self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(e_id)));
             } else {
                 return Err(anyhow!("current cursor is pointing none"));
             }
@@ -544,11 +528,8 @@ impl TUIRuntime {
     ) -> Result<()> {
         if let NeedMainPasswd(state) = &mut self.screen {
             self.pnt.security_context = Some(security_context);
-            self.screen = state.take_target_screen()?;
-            // 不能使用 EnterScreen事件进入屏幕，因为该事件的处理者会将老屏幕压入栈
-            // 但当前为 NeedMainPasswd屏幕，所以压栈进去无意义，
-            // 遂该方法内应直接进行屏幕替换即可
-            // self.send_app_event(AppEvent::EnterScreen(state.take_target_screen()?));
+            let intent = state.take_target_screen()?;
+            self.handle_enter_screen_indent(intent)?;
             Ok(())
         } else {
             Err(anyhow!("not NeedMainPasswd screen, no target screen"))

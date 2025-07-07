@@ -10,6 +10,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use crate::app::tui::intents::EnterScreenIntent;
 
 /// The frequency at which tick events are emitted.
 /// 每秒一次
@@ -34,6 +35,7 @@ pub enum Event {
 /// You can extend this enum with your own custom events.
 pub enum AppEvent {
     EnterScreen(Screen),
+    EnterScreenIntent(EnterScreenIntent), // 仅描述意图要进入的页面
     TurnOnFindMode,
     TurnOffFindMode,
     CursorUp,

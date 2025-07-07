@@ -44,13 +44,13 @@ impl<C> OptionYN<C> {
 
 impl OptionYN<EncryptedEntry> {
     /// 删除页面用的
-    pub fn new_delete_tip(encrypted_entry: &EncryptedEntry) -> Self {
+    pub fn new_delete_tip(encrypted_entry: EncryptedEntry) -> Self {
         let d_name = &encrypted_entry.name;
         let d_desc= encrypted_entry.description.as_ref().unwrap_or(&"_".to_string()).clone();
         OptionYN {
             title: format!("DELETE '{}' ?", d_name),
             desc: d_desc,
-            content: Some(encrypted_entry.clone()),
+            content: Some(encrypted_entry),
             yn: None,
         }
     }
