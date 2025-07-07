@@ -11,6 +11,13 @@ repository = "https://github.com/baifangkual/pnt"
 keywords = ["tui-app", "password-manager", "notes-app"]
 categories = ["command-line-utilities"]
 
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+codegen-units = 1
+strip = true # https://doc.rust-lang.org/rustc/codegen-options/index.html#strip
+
 [dependencies]
 anyhow = "1.0.98"
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
