@@ -69,17 +69,13 @@ impl Widget for &mut TUIRuntime {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 entry.render(rect, buf);
             }
-            Screen::Creating(state) => {
+            Screen::Edit(state) => {
                 let rect = layout::centered_rect(90, 90, inner_area);
                 state.render(rect, buf);
             }
             Screen::DeleteTip(option_yn) => {
                 let rect = layout::centered_rect(70, 60, inner_area);
                 option_yn.render(rect, buf);
-            }
-            Screen::Updating(state) => {
-                let rect = layout::centered_rect(90, 90, inner_area);
-                state.render(rect, buf);
             }
             Screen::NeedMainPasswd(state) => {
                 let rect = layout::centered_rect(50, 20, inner_area);

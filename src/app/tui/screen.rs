@@ -6,14 +6,14 @@ use crate::app::entry::{EncryptedEntry, InputEntry};
 
 
 /// 当前屏幕
-#[derive(Debug, Clone)] // todo 后续应移除重的 Clone
+#[derive(Debug)] // todo 后续应移除重的 Clone
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
     Dashboard(DashboardState), // 全局浏览窗口
     Help,                    // f1 help
     Details(InputEntry), // 某详情
-    Creating (EditingState), // 创建窗口
-    Updating (EditingState), // 已有条目编辑窗口
+    Edit(EditingState), // 创建窗口
+    // Updating (EditingState), // 已有条目编辑窗口
     DeleteTip(OptionYN<EncryptedEntry>), // 删除时的弹窗, 显示名称和描述（可能有）
     // SaveTip(OptionYN<EditingState>), // 保存前提示窗口
     // 修改主密码窗口
@@ -35,11 +35,11 @@ impl Screen {
     }
     /// 新建编辑页面
     pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
-        Screen::Updating(EditingState::new_updating(u_input, e_id))
+        Screen::Edit(EditingState::new_updating(u_input, e_id))
     }
     /// 新建新建页面
     pub fn new_creating() -> Self {
-        Screen::Creating(Default::default())
+        Screen::Edit(Default::default())
     }
 }
 

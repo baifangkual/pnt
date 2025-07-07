@@ -3,12 +3,11 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::crypto::{Decrypter, NoEncrypter};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDashBoard, ToDeleteTip, ToDetail, ToEditing};
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{
-    Creating, Dashboard, DeleteTip, Details, Help, NeedMainPasswd, Updating,
-};
+use crate::app::tui::screen::Screen::{Dashboard, DeleteTip, Details, Edit, Help, NeedMainPasswd};
 use crate::app::tui::screen::options::OptionYN;
 use crate::app::tui::screen::states::{DashboardState, Editing, NeedMainPwdState};
 use anyhow::{Result, anyhow};
@@ -18,7 +17,6 @@ use ratatui::{
     DefaultTerminal, crossterm,
     crossterm::event::{KeyCode, KeyEvent},
 };
-use crate::app::tui::intents::EnterScreenIntent;
 
 /// TUI Application.
 pub struct TUIRuntime {
@@ -86,7 +84,6 @@ impl TUIRuntime {
 }
 
 impl TUIRuntime {
-
     /// TUI程序主循环
     pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
@@ -127,7 +124,7 @@ impl TUIRuntime {
     fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
         match app_event {
             AppEvent::EnterScreen(target_sc) => self.handle_enter_screen(target_sc, true)?,
-            AppEvent::EnterScreenIntent(intent) =>self.handle_enter_screen_indent(intent)?,
+            AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
             AppEvent::DoEditing(code) => self.do_editing(code)?,
@@ -195,19 +192,25 @@ impl TUIRuntime {
                         let curr_ptr_e_id = state.entries()[c_ptr].id;
                         // open
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(curr_ptr_e_id)));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(
+                                curr_ptr_e_id,
+                            )));
                             return Ok(());
                         }
                         // update
                         if key_event._is_u_ignore_case() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(
+                                curr_ptr_e_id,
+                            ))));
                             return Ok(());
                         }
                         // delete 但是dashboard 的光标？
                         // 任何删除都应确保删除页面上一级为dashboard
                         // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(curr_ptr_e_id)));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteTip(
+                                curr_ptr_e_id,
+                            )));
                             return Ok(());
                         }
                         // 上移
@@ -256,7 +259,7 @@ impl TUIRuntime {
                     return Ok(());
                 }
             }
-            Creating(state) | Updating(state) => {
+            Edit(state) => {
                 // 上移
                 if key_event._is_up() {
                     self.send_app_event(AppEvent::CursorUp);
@@ -271,20 +274,10 @@ impl TUIRuntime {
                 if key_event._is_ctrl_s() && state.current_input_validate() {
                     // 验证 todo 未通过验证应给予提示
                     // todo 应有 save tip 页面
-                    match &self.screen {
-                        Creating(state) => {
-                            let (valid_e, _) = state.try_encrypt(self.pnt.try_encrypter()?)?;
-                            self.send_app_event(AppEvent::EntryInsert(valid_e));
-                        }
-                        Updating(state) => {
-                            let (valid_e, Some(e_id)) =
-                                state.try_encrypt(self.pnt.try_encrypter()?)?
-                            else {
-                                return Err(anyhow!("updating entry must have an e_id"));
-                            };
-                            self.send_app_event(AppEvent::EntryUpdate(valid_e, e_id));
-                        }
-                        _ => {}
+                    let valid_e = state.try_encrypt(self.pnt.try_encrypter()?)?;
+                    match &state.current_e_id() {
+                        None => self.send_app_event(AppEvent::EntryInsert(valid_e)),
+                        Some(e_id) => self.send_app_event(AppEvent::EntryUpdate(valid_e, *e_id)),
                     }
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
@@ -367,7 +360,7 @@ impl TUIRuntime {
                     state.cursor.select_previous();
                 }
             }
-        } else if let Creating(state) | Updating(state) = &mut self.screen {
+        } else if let Edit(state) = &mut self.screen {
             state.cursor_up();
         }
     }
@@ -382,7 +375,7 @@ impl TUIRuntime {
                     state.cursor.select_next();
                 }
             }
-        } else if let Creating(state) | Updating(state) = &mut self.screen {
+        } else if let Edit(state) = &mut self.screen {
             state.cursor_down();
         }
     }
@@ -392,7 +385,7 @@ impl TUIRuntime {
     }
 
     fn do_editing(&mut self, key_code: KeyCode) -> Result<()> {
-        if let Creating(state) | Updating(state) = &mut self.screen {
+        if let Edit(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
             if Editing::Description != *state.current_editing_type() {
                 if let KeyCode::Enter = key_code {

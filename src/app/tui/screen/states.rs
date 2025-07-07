@@ -58,8 +58,8 @@ impl EditingState {
         }
     }
 
-    pub fn current_e_id(&self) -> anyhow::Result<u32> {
-        self.e_id.context("'EditingState' not found entry id")
+    pub fn current_e_id(&self) -> Option<u32> {
+        self.e_id
     }
 
     /// 光标向上移动，若当前光标为Name，则移动到Password
@@ -83,14 +83,14 @@ impl EditingState {
     pub fn try_encrypt<'a, Enc>(
         &'a self,
         encrypter: &Enc,
-    ) -> anyhow::Result<(ValidEntry, Option<u32>)>
+    ) -> anyhow::Result<ValidEntry>
     where
         Enc: Encrypter<&'a InputEntry, ValidEntry>,
     {
         if !self.current_input_validate() {
             return Err(anyhow!("input not validate"));
         }
-        Ok((encrypter.encrypt(&self.u_input)?, self.e_id))
+        Ok(encrypter.encrypt(&self.u_input)?)
     }
 
     /// 光标向下移动，若当前光标为Password，则移动到Name

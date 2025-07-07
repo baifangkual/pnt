@@ -6,7 +6,7 @@ use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::runtime::TUIRuntime;
 use crate::app::tui::screen::options::OptionYN;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{DeleteTip, Details, NeedMainPasswd, Updating};
+use crate::app::tui::screen::Screen::{DeleteTip, Details, Edit, NeedMainPasswd};
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 
 /// 进入屏幕的意图
@@ -35,10 +35,10 @@ impl EnterScreenIntent {
                 EnterScreenIntent::ToEditing(Some(e_id)) => {
                     let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
                     let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
-                    Ok(Updating(EditingState::new_updating(entry, *e_id)))
+                    Ok(Edit(EditingState::new_updating(entry, *e_id)))
                 },
                 EnterScreenIntent::ToEditing(None) => {
-                    Ok(Updating(EditingState::new_creating()))
+                    Ok(Edit(EditingState::new_creating()))
                 },
                 EnterScreenIntent::ToDeleteTip(e_id) => {
                     let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
