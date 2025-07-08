@@ -73,9 +73,13 @@ impl StatefulWidget for DashboardWidget {
             // 否则用 paragraph渲染，无光标
             find_input_block = find_input_block.fg(Color::from_u32(0xC6C8CC));
             find_input_block.render(rect_query, buf);
-            Paragraph::new(current_find_input)
-                .left_aligned()
-                .render(query_line_rect, buf);
+
+            // find_input 是否无值，无值则出现placeholder
+            if current_find_input.is_empty() {
+                Paragraph::new(" find").fg(Color::DarkGray).left_aligned().render(query_line_rect, buf);
+            } else {
+                Paragraph::new(current_find_input).left_aligned().render(query_line_rect, buf);
+            }
         }
 
         // list 区域
