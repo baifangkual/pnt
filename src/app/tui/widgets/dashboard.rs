@@ -1,9 +1,11 @@
 use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::prelude::{Buffer, Color, Line, StatefulWidget, Style, Stylize, Widget};
-use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
+use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Stylize, Widget};
+use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+use crate::app::tui::layout::RectExt;
+use crate::app::tui::screen::yn::YN::No;
 
 /// 处理文本使其适应指定宽度，考虑中文字符
 fn truncate_text(text: &str, max_width: usize) -> String {
@@ -37,35 +39,23 @@ impl StatefulWidget for DashboardWidget {
     type State = DashboardState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        // 布局 1| f | 1
-        let layout_1f1 = Layout::default()
-            .direction(Direction::Horizontal) // 水平
-            .constraints([
-                Constraint::Max(5),
-                Constraint::Percentage(90),
-                Constraint::Max(5),
-            ])
-            .split(area);
 
-        // 布局 上下 5 | 93 | 2
-        let layout_hm1 = Layout::default()
-            .direction(Direction::Vertical) // 垂直
-            .constraints([
-                Constraint::Min(3), // 搜索框
-                Constraint::Percentage(95),
-                Constraint::Min(2),
-            ])
-            .split(layout_1f1[1]);
+        let [l_5, area90_center, _] = Layout::horizontal([
+            Constraint::Fill(5),
+            Constraint::Percentage(80),
+            Constraint::Fill(5),
+        ]).areas(area);
 
-        // 布局 左右 搜索框左右都减小
-        let layout_l_find_r = Layout::default()
-            .direction(Direction::Horizontal) // 垂直
-            .constraints([
-                Constraint::Percentage(10), // 搜索框
-                Constraint::Percentage(80),
-                Constraint::Percentage(10),
-            ])
-            .split(layout_hm1[0]);
+
+        let layout_v = Layout::vertical([
+            Constraint::Min(3), // 搜索框
+            Constraint::Percentage(95),
+            Constraint::Min(2),
+        ]);
+
+
+        // 搜索框， list 区域， 底部
+        let [q, l, b] = layout_v.areas(area90_center);
 
         // find 查找的字符渲染
         let mut find_input_block = Block::bordered().border_type(BorderType::Plain);
@@ -80,7 +70,7 @@ impl StatefulWidget for DashboardWidget {
         Paragraph::new(state.find_input.as_str())
             .block(find_input_block)
             .left_aligned()
-            .render(layout_l_find_r[1], buf);
+            .render(q.h_centered_rect(80), buf);
 
         let show_vec = if state.find_input.is_empty() {
             // 若未要查找，则所有显示
@@ -131,6 +121,19 @@ impl StatefulWidget for DashboardWidget {
         // .highlight_symbol(&e_id);
 
         // 使用 StatefulWidget 渲染
-        StatefulWidget::render(list, layout_hm1[1], buf, &mut state.cursor);
+        StatefulWidget::render(list, l, buf, state.cursor_mut_ref());
+
+        let sb = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .style(Style::default().fg(Color::from_u32(0x6E737C)))
+            .symbols(ratatui::symbols::scrollbar::VERTICAL)
+            .thumb_style(Style::default().fg(Color::from_u32(0xC6C8CC)))
+            .track_symbol(Some("|"))
+            .begin_symbol(Some(ratatui::symbols::DOT))
+            .end_symbol(Some(ratatui::symbols::DOT));
+        // 使用左边...
+        let [_, l_m, _] = layout_v.areas(l_5);
+
+        StatefulWidget::render(sb, l_m.inner(Margin::new(1, 0)), buf, state.scrollbar_state_mut());
+
     }
 }

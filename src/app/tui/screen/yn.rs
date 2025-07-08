@@ -1,4 +1,5 @@
-use crate::app::entry::{EncryptedEntry, ValidEntry};
+use crate::app::crypto::Encrypter;
+use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::tui::event::AppEvent;
 use crate::app::tui::rt::TUIApp;
 
@@ -58,7 +59,10 @@ impl YNState {
         let e_name = &encrypted_entry.about;
         let e_desc = encrypted_entry.notes.as_ref().map_or("_", |v| v);
         let tip_title = format!("DELETE '{}' ?", e_name);
-        let tip_desc = format!("[󰦨 about]: {}\n[󰦨 notes]: {}", e_name, e_desc);
+        let tip_desc = format!(
+            "[󰦨 about]: {}\n\
+             -󰦨 notes-------------\n{}",
+            e_name, e_desc);
         let e_id = encrypted_entry.id;
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
@@ -74,20 +78,31 @@ impl YNState {
         yn
     }
     /// 保存页面用的
-    pub fn new_save_tip(valid_entry: ValidEntry, e_id: Option<u32>) -> Self {
-        let e_desc = valid_entry.notes.as_ref().map_or("_", |v| v);
-        let tip_title = if e_id.is_none() {
-            format!("SAVE '{}' ?", valid_entry.about)
+    pub fn new_save_tip(ie: InputEntry, e_id: Option<u32>) -> Self {
+        let e_notes_dots = if ie.notes.is_empty() {
+            "_"
         } else {
-            format!("SAVE CHANGE '{}' ?", valid_entry.about)
+            &ie.notes
         };
-        let tip_desc = format!("[󰦨 about]: {}\n[󰦨 notes]: {}", &valid_entry.about, e_desc);
+        let tip_title = if e_id.is_none() {
+            format!("SAVE '{}' ?", ie.about)
+        } else {
+            format!("SAVE CHANGE '{}' ?", ie.about)
+        };
+        let tip_desc = format!(
+            "[󰦨 about]:    {}\n\
+             [󰌿 username]: {}\n\
+             [󰌿 password]: {}\n\
+             -󰦨 notes-------------\n{}",
+            &ie.about, &ie.username, &ie.password, e_notes_dots
+        );
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
+            let valid = tui.pnt.try_encrypter()?.encrypt(&ie)?;
             if let Some(e_id) = e_id {
-                tui.send_app_event(AppEvent::EntryUpdate(valid_entry, e_id))
+                tui.send_app_event(AppEvent::EntryUpdate(valid, e_id))
             } else {
-                tui.send_app_event(AppEvent::EntryInsert(valid_entry));
+                tui.send_app_event(AppEvent::EntryInsert(valid));
             }
             // 响应该事件时 ，当前页面一定为 tips，所以回退到上一级页面（即召唤delete tips页面的页面)
             while !tui.screen.is_dashboard() {

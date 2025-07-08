@@ -43,7 +43,6 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
 
 /// tui 新建主页 主页面
 fn new_dashboard_screen(context: &PntContext) -> Screen {
-    let mut vec = context.storage.select_all_entry();
-    vec.sort_unstable_by(EncryptedEntry::sort_by_update_time);
+    let vec = context.storage.select_all_entry();
     DashboardV1(DashboardState::new(vec))
 }

@@ -29,14 +29,14 @@ impl Widget for &EditingState {
             .split(area);
 
         // 未填写情况下 添加 * 前缀
-        let title_name = if name.is_empty() {" (*) about "} else {" about "};
-        let title_ident = if identity.is_empty() {" (*) username "} else {" username "};
-        let title_password = if password.is_empty() {" (*) password "} else {" password "};
+        let title_name = if name.is_empty() {" (*) 󰦨 about "} else {" 󰦨 about "};
+        let title_ident = if identity.is_empty() {" (*) 󰌿 username "} else {" 󰌿 username "};
+        let title_password = if password.is_empty() {" (*) 󰌿 password "} else {" 󰌿 password "};
 
         let mut b_name = Block::bordered().title(title_name).fg(Color::White);
         let mut b_ident = Block::bordered().title(title_ident).fg(Color::White);
         let mut b_password = Block::bordered().title(title_password).fg(Color::White);
-        let mut b_description = Block::bordered().title(" notes ").fg(Color::White);
+        let mut b_description = Block::bordered().title(" 󰦨 notes ").fg(Color::White);
 
         match curr_editing {
             Editing::About => {b_name = b_name.fg(Color::Yellow)}

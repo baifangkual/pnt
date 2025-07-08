@@ -3,7 +3,7 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use anyhow::{Context, anyhow};
-use ratatui::widgets::ListState;
+use ratatui::widgets::{ListState, ScrollbarState};
 use crate::app::tui::intents::EnterScreenIntent;
 
 #[derive(Debug, Clone)]
@@ -118,24 +118,37 @@ pub struct DashboardState {
     // 控制 find_input 的 标志位
     pub find_mode: bool,
     pub find_input: String,
-    pub entries: Vec<EncryptedEntry>,
-    pub cursor: ListState, // 添加ListState来控制滚动
+    entries: Vec<EncryptedEntry>,
+    cursor: ListState, // 添加ListState来控制滚动
+    scrollbar_state: ScrollbarState // 垂直滚动条样式
 }
 
 impl DashboardState {
-    pub fn new(entries: Vec<EncryptedEntry>) -> Self {
+    
+    /// 根据给定的 entries 创建
+    /// 
+    /// 该方法内会
+    pub fn new(mut entries: Vec<EncryptedEntry>) -> Self {
+        Self::sort_entries(&mut entries);
         let mut cursor = ListState::default();
         cursor.select(if entries.is_empty() { None } else { Some(0) });
+        let scrollbar_state = ScrollbarState::new(entries.len());
         Self {
             find_mode: false,
             find_input: String::new(),
             entries,
             cursor,
+            scrollbar_state
         }
+    }
+    
+    /// 对 entries 进行排序
+    fn sort_entries(entries:&mut Vec<EncryptedEntry>) {
+        entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
     }
 
     /// 更新光标坐标
-    pub fn update_cursor(&mut self, index: Option<usize>) {
+    fn update_cursor(&mut self, index: Option<usize>) {
         self.cursor.select(index);
     }
 
@@ -147,9 +160,60 @@ impl DashboardState {
     pub fn entry_count(&self) -> usize {
         self.entries.len()
     }
+    
+    pub fn cursor_mut_ref(&mut self) -> &mut ListState {
+        &mut self.cursor
+    }
 
     pub fn entries(&self) -> &Vec<EncryptedEntry> {
         &self.entries
+    }
+    
+    pub fn cursor_down(&mut self) {
+        if let Some(p) = self.cursor_selected() {
+            if p >= self.entry_count() - 1 {
+                self.update_cursor(Some(0))
+            } else {
+                self.cursor_mut_ref().select_next();
+            }
+        }
+    }
+    
+    pub fn cursor_up(&mut self) {
+        if let Some(p) = self.cursor_selected() {
+            if p == 0 {
+                self.update_cursor(Some(self.entry_count() - 1))
+            } else {
+                self.cursor_mut_ref().select_previous();
+            }
+        }
+    }
+    
+    /// 获取滚动条可变引用
+    /// 
+    /// 该方法内会进行滚动条的状态更新
+    pub fn scrollbar_state_mut(&mut self) -> &mut ScrollbarState {
+        if let Some(c_ptr) = self.cursor.selected() {
+            self.scrollbar_state = self.scrollbar_state.position(c_ptr);
+        }
+        &mut self.scrollbar_state
+    }
+    
+    /// 重置载荷的 entries，
+    /// 该方法内会进行 entries 的 sort
+    /// 
+    /// 该方法内也会同步更新 cursor and scrollbar 状态
+    pub fn reset_entries(&mut self, mut entries: Vec<EncryptedEntry>) {
+        Self::sort_entries(&mut entries);
+        self.scrollbar_state = self.scrollbar_state.content_length(entries.len());
+        self.entries = entries;
+        if !self.entries().is_empty() {
+            if let None = self.cursor_selected() {
+                self.update_cursor(Some(0))
+            }
+        } else {
+            self.update_cursor(None);
+        }
     }
 }
 

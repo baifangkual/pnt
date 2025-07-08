@@ -1,19 +1,18 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
-use crate::app::entry::{EncryptedEntry, ValidEntry};
+use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{DashboardV1, YNOption, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::yn::{YNState, YN};
 use crate::app::tui::screen::states::Editing;
-use anyhow::{Result, anyhow};
+use crate::app::tui::screen::Screen;
+use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
+use anyhow::{anyhow, Result};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    DefaultTerminal, crossterm,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm, crossterm::event::{KeyCode, KeyEvent},
+    DefaultTerminal,
 };
 
 /// TUI Application.
@@ -107,21 +106,21 @@ impl TUIApp {
     /// APP Event 处理
     fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
         match app_event {
-            AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
             AppEvent::DoEditing(code) => self.do_editing(code)?,
+            AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::EntryInsert(v_e) => self.do_insert(&v_e),
             AppEvent::EntryUpdate(v_e, e_id) => self.do_update(&v_e, e_id),
             AppEvent::EntryRemove(e_id) => self.do_remove(e_id),
             AppEvent::FlashVecItems(f) => self.do_flash_vec(f)?,
-            AppEvent::Quit => self.quit_tui_app(),
             AppEvent::TurnOnFindMode => self.turn_on_find_mode()?,
             AppEvent::TurnOffFindMode => self.turn_off_find_mode()?,
             AppEvent::MainPwdVerifySuccess(sec_context) => {
                 self.hold_security_context_and_switch_to_target_screen(sec_context)?
             }
             AppEvent::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
+            AppEvent::Quit => self.quit_tui_app(),
         }
         Ok(())
     }
@@ -264,8 +263,9 @@ impl TUIApp {
                 if key_event._is_ctrl_s() && state.current_input_validate() {
                     // 验证 todo 未通过验证应给予提示
                     let e_id = state.current_e_id();
-                    let valid_e = state.try_encrypt(self.pnt.try_encrypter()?)?;
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(valid_e, e_id)));
+                    // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
+                    let input_entry = state.current_input_entry().clone();
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
@@ -324,13 +324,7 @@ impl TUIApp {
     /// 处理光标向上事件
     fn cursor_up(&mut self) {
         if let DashboardV1(state) = &mut self.screen {
-            if let Some(p) = state.cursor_selected() {
-                if p == 0 {
-                    state.update_cursor(Some(state.entry_count() - 1))
-                } else {
-                    state.cursor.select_previous();
-                }
-            }
+            state.cursor_up();
         } else if let Edit(state) = &mut self.screen {
             state.cursor_up();
         }
@@ -339,13 +333,7 @@ impl TUIApp {
     /// 处理光标向下事件
     fn cursor_down(&mut self) {
         if let DashboardV1(state) = &mut self.screen {
-            if let Some(p) = state.cursor_selected() {
-                if p >= state.entry_count() - 1 {
-                    state.update_cursor(Some(0))
-                } else {
-                    state.cursor.select_next();
-                }
-            }
+            state.cursor_down();
         } else if let Edit(state) = &mut self.screen {
             state.cursor_down();
         }
@@ -423,20 +411,12 @@ impl TUIApp {
     /// 该方法会更新高亮行位置
     fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
         if let DashboardV1(state) = &mut self.screen {
-            state.entries = if let Some(f) = find {
+            let mut v_new = if let Some(f) = find {
                 self.pnt.storage.select_entry_by_about_like(&f)
             } else {
                 self.pnt.storage.select_all_entry()
             };
-            // 按最后更新时间倒叙
-            state.entries.sort_by(EncryptedEntry::sort_by_update_time);
-            if !state.entries.is_empty() {
-                if let None = state.cursor_selected() {
-                    state.update_cursor(Some(0))
-                }
-            } else {
-                state.update_cursor(None);
-            }
+            state.reset_entries(v_new);
             Ok(())
         } else {
             Err(anyhow!(

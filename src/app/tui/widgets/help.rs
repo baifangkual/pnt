@@ -46,7 +46,7 @@ impl HelpPage {
         Self {
             tips: vec![
                 HelpShowItem {
-                    key_map: "f1".to_string(),
+                    key_map: "<F1>".to_string(),
                     note: "help".to_string(),
                 },
                 HelpShowItem {
@@ -54,19 +54,19 @@ impl HelpPage {
                     note: "find".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "j | down".to_string(),
+                    key_map: "j | <DOWN>".to_string(),
                     note: "down".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "k | up".to_string(),
+                    key_map: "k | <UP>".to_string(),
                     note: "up".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "ctrl+c".to_string(),
+                    key_map: "<Ctrl> c".to_string(),
                     note: "quit-app".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "ESC | q".to_string(),
+                    key_map: "<ESC> | q".to_string(),
                     note: "back screen | quit-edit | quit-app | quit-find".to_string(),
                 },
                 HelpShowItem {
@@ -82,7 +82,7 @@ impl HelpPage {
                     note: "update current".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "ctrl+s".to_string(),
+                    key_map: "<Ctrl> s".to_string(),
                     note: "save edit".to_string(),
                 },
                 HelpShowItem {

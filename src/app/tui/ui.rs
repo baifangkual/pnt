@@ -14,10 +14,10 @@ use crate::app::tui::layout;
 
 const TITLE: &str = concat!(
 clap::crate_name!(),
-"-v",
+" v",
 clap::crate_version!(),
-"-",
-"?:f1"
+" ",
+"?:<f1>"
 );
 
 /// 深灰色背景

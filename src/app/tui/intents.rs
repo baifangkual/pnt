@@ -5,7 +5,7 @@ use crate::app::tui::screen::Screen::{YNOption, Details, Edit, Help, NeedMainPas
 use crate::app::tui::screen::yn::YNState;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use anyhow::Context;
-use crate::app::entry::ValidEntry;
+use crate::app::entry::{InputEntry, ValidEntry};
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码
@@ -18,7 +18,7 @@ pub enum EnterScreenIntent {
     ToDetail(u32),
     ToEditing(Option<u32>), // 有id为更新，无id为编辑
     ToDeleteYNOption(u32),
-    ToSaveYNOption(ValidEntry, Option<u32>), // 保存提示页面
+    ToSaveYNOption(InputEntry, Option<u32>), // 保存提示页面
 }
 
 impl EnterScreenIntent {
