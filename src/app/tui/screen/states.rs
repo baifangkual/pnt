@@ -117,16 +117,16 @@ pub enum Editing {
 pub struct DashboardState {
     // 控制 find_input 的 标志位
     pub find_mode: bool,
-    pub find_input: String,
+    find_input: String,
     entries: Vec<EncryptedEntry>,
     cursor: ListState, // 添加ListState来控制滚动
     scrollbar_state: ScrollbarState // 垂直滚动条样式
 }
 
 impl DashboardState {
-    
+
     /// 根据给定的 entries 创建
-    /// 
+    ///
     /// 该方法内会
     pub fn new(mut entries: Vec<EncryptedEntry>) -> Self {
         Self::sort_entries(&mut entries);
@@ -141,7 +141,19 @@ impl DashboardState {
             scrollbar_state
         }
     }
+
+    pub fn current_find_input(&self) -> &str {
+        &self.find_input
+    }
     
+    pub fn current_find_input_mut(&mut self) -> &mut String {
+        &mut self.find_input
+    }
+    
+    pub fn clear_find_input(&mut self) {
+        self.find_input.clear();
+    }
+
     /// 对 entries 进行排序
     fn sort_entries(entries:&mut Vec<EncryptedEntry>) {
         entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
@@ -160,7 +172,7 @@ impl DashboardState {
     pub fn entry_count(&self) -> usize {
         self.entries.len()
     }
-    
+
     pub fn cursor_mut_ref(&mut self) -> &mut ListState {
         &mut self.cursor
     }
@@ -168,7 +180,7 @@ impl DashboardState {
     pub fn entries(&self) -> &Vec<EncryptedEntry> {
         &self.entries
     }
-    
+
     pub fn cursor_down(&mut self) {
         if let Some(p) = self.cursor_selected() {
             if p >= self.entry_count() - 1 {
@@ -178,7 +190,7 @@ impl DashboardState {
             }
         }
     }
-    
+
     pub fn cursor_up(&mut self) {
         if let Some(p) = self.cursor_selected() {
             if p == 0 {
@@ -188,9 +200,9 @@ impl DashboardState {
             }
         }
     }
-    
+
     /// 获取滚动条可变引用
-    /// 
+    ///
     /// 该方法内会进行滚动条的状态更新
     pub fn scrollbar_state_mut(&mut self) -> &mut ScrollbarState {
         if let Some(c_ptr) = self.cursor.selected() {
@@ -198,10 +210,10 @@ impl DashboardState {
         }
         &mut self.scrollbar_state
     }
-    
+
     /// 重置载荷的 entries，
     /// 该方法内会进行 entries 的 sort
-    /// 
+    ///
     /// 该方法内也会同步更新 cursor and scrollbar 状态
     pub fn reset_entries(&mut self, mut entries: Vec<EncryptedEntry>) {
         Self::sort_entries(&mut entries);

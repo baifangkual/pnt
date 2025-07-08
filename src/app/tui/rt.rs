@@ -300,8 +300,8 @@ impl TUIApp {
         if let DashboardV1(state) = &mut self.screen {
             if state.find_mode {
                 self.send_app_event(AppEvent::TurnOffFindMode);
-            } else if !state.find_input.is_empty() {
-                state.find_input.clear();
+            } else if !state.current_find_input().is_empty() {
+                state.clear_find_input();
                 self.send_app_event(AppEvent::FlashVecItems(None))
             } else {
                 self.back_screen();
@@ -382,12 +382,12 @@ impl TUIApp {
         } else if let DashboardV1(state) = &mut self.screen {
             match key_code {
                 KeyCode::Backspace => {
-                    state.find_input.pop();
+                    state.current_find_input_mut().pop();
                     ()
                 }
                 // KeyCode::Left => {} // todo 左移光标
                 // KeyCode::Right => {} // todo 右移光标
-                KeyCode::Char(value) => state.find_input.push(value),
+                KeyCode::Char(value) => state.current_find_input_mut().push(value),
                 _ => {}
             }
             Ok(())
@@ -445,8 +445,8 @@ impl TUIApp {
         if let DashboardV1(state) = &mut self.screen {
             state.find_mode = false;
             // 获取 find_input 值，刷新vec
-            if !state.find_input.is_empty() {
-                let f = state.find_input.clone();
+            if !state.current_find_input().is_empty() {
+                let f = state.current_find_input().into();
                 self.send_app_event(AppEvent::FlashVecItems(Some(f)));
             } else {
                 // 为空则全查
