@@ -51,10 +51,10 @@ impl Widget for &YNState {
             .wrap(Wrap { trim: false })
             .alignment(Alignment::Left)
             .fg(Color::White)
-            .render(rc_box_box[2].h_centered_rect(90), buf);
+            .render(rc_box_box[2].h_centered_percent(90), buf);
 
         // 底部左右二分
-        let rc_bottom_lr = layout::split_lr_rects(rc_box_box[4]);
+        let rc_bottom_lr = layout::horizontal_split2(rc_box_box[4]);
         // 底部 YN
         Paragraph::new(Line::from("[(Y)es]").centered().bg(Color::Red).fg(Color::White))
             .alignment(Alignment::Center)

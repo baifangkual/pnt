@@ -3,6 +3,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
 use std::sync::LazyLock;
+use crate::app::tui::layout::RectExt;
 
 /// 帮助页面实体
 pub struct HelpShowItem {
@@ -36,7 +37,7 @@ impl Widget for &HelpPage {
             .map(|tip| format!("{:>10}          {:<20}", tip.key_map, tip.note))
             .map(|tl| ListItem::new(tl).fg(Color::White))
             .collect::<Vec<ListItem>>();
-        let rect = super::super::layout::centered_rect(90, 90, inner_area);
+        let rect = inner_area.centered_percent(90, 90);
         List::new(li).render(rect, buf);
     }
 }

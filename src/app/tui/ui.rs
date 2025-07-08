@@ -11,7 +11,7 @@ use ratatui::{
     widgets::{Block, BorderType, StatefulWidget, Widget},
 };
 
-const TITLE: &str = concat!(clap::crate_name!(), " v", clap::crate_version!(), " ", "?:<f1>");
+const TITLE: &str = concat!(clap::crate_name!(), " v", clap::crate_version!(), " ?:<f1>");
 
 /// 深灰色背景
 const TUI_BG_COLOR: Color = Color::from_u32(0x252624);
@@ -47,23 +47,23 @@ impl Widget for &mut TUIApp {
                 dash_widget.render(inner_area, buf, state)
             }
             Screen::Help => {
-                let rect = layout::centered_rect(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, inner_area);
                 help::HELP_PAGE_DASHBOARD.render(rect, buf)
             }
             Screen::Details(entry, _) => {
-                let rect = layout::centered_rect(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, inner_area);
                 entry.render(rect, buf);
             }
             Screen::Edit(state) => {
-                let rect = layout::centered_rect(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, inner_area);
                 state.render(rect, buf);
             }
             Screen::YNOption(option_yn) => {
-                let rect = layout::centered_rect(70, 50, inner_area);
+                let rect = layout::centered_percent(70, 50, inner_area);
                 option_yn.render(rect, buf);
             }
             Screen::NeedMainPasswd(state) => {
-                let rect = layout::centered_rect(50, 20, inner_area);
+                let rect = layout::centered_fixed(50, 5, inner_area);
                 state.render(rect, buf);
             }
         }

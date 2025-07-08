@@ -52,7 +52,7 @@ impl StatefulWidget for DashboardWidget {
 
         // find 查找的字符渲染
         let mut find_input_block = Block::bordered().border_type(BorderType::Plain);
-        let rect_query = q.h_centered_rect(80);
+        let rect_query = q.h_centered_percent(80);
         // inner
         let rect_query_inner = find_input_block.inner(rect_query);
         // lr
