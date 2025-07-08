@@ -3,16 +3,18 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::states::Editing;
+use crate::app::tui::intents::EnterScreenIntent::{
+    ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption,
+};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
-use anyhow::{anyhow, Result};
+use crate::app::tui::screen::states::Editing;
+use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    crossterm, crossterm::event::{KeyCode, KeyEvent},
-    DefaultTerminal,
+    DefaultTerminal, crossterm,
+    crossterm::event::{KeyCode, KeyEvent},
 };
 
 /// TUI Application.
@@ -108,7 +110,6 @@ impl TUIApp {
         match app_event {
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
-            AppEvent::DoEditing(code) => self.do_editing(code)?,
             AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::EntryInsert(v_e) => self.do_insert(&v_e),
             AppEvent::EntryUpdate(v_e, e_id) => self.do_update(&v_e, e_id),
@@ -212,7 +213,7 @@ impl TUIApp {
                         return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                     }
                 } else {
-                    self.send_app_event(AppEvent::DoEditing(key_event.code));
+                    self.do_editing_key_event(key_event)?;
                 }
             }
             // 详情页
@@ -265,11 +266,14 @@ impl TUIApp {
                     let e_id = state.current_e_id();
                     // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
                     let input_entry = state.current_input_entry().clone();
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(
+                        input_entry,
+                        e_id,
+                    )));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
-                self.send_app_event(AppEvent::DoEditing(key_event.code));
+                self.do_editing_key_event(key_event)?;
             }
             // 需要主密码
             NeedMainPasswd(state) => {
@@ -285,7 +289,7 @@ impl TUIApp {
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 密码编辑窗口变化
-                self.send_app_event(AppEvent::DoEditing(key_event.code));
+                self.do_editing_key_event(key_event)?;
             }
         }
         Ok(())
@@ -343,18 +347,18 @@ impl TUIApp {
         self.running = false;
     }
 
-    fn do_editing(&mut self, key_code: KeyCode) -> Result<()> {
+    fn do_editing_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         if let Edit(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
             if Editing::Notes != *state.current_editing_type() {
-                if let KeyCode::Enter = key_code {
+                if let KeyCode::Enter = key_event.code {
                     self.send_app_event(AppEvent::CursorDown);
                     return Ok(());
                 }
             }
             // do editing...
             let input = state.current_editing_string_mut();
-            match key_code {
+            match key_event.code {
                 KeyCode::Backspace => {
                     input.pop();
                     ()
@@ -368,7 +372,7 @@ impl TUIApp {
             }
             Ok(())
         } else if let NeedMainPasswd(state) = &mut self.screen {
-            match key_code {
+            match key_event.code {
                 KeyCode::Backspace => {
                     state.mp_input.pop();
                     ()
@@ -380,15 +384,13 @@ impl TUIApp {
             }
             Ok(())
         } else if let DashboardV1(state) = &mut self.screen {
-            match key_code {
-                KeyCode::Backspace => {
-                    state.current_find_input_mut().pop();
-                    ()
-                }
-                // KeyCode::Left => {} // todo 左移光标
-                // KeyCode::Right => {} // todo 右移光标
-                KeyCode::Char(value) => state.current_find_input_mut().push(value),
-                _ => {}
+            // let c_event = CEvent::Key(key_event); // 临时构建 由 key向上整个 CEvent以匹配handle_event方法签名
+            match key_event.code {
+                KeyCode::Enter => self.send_app_event(AppEvent::TurnOffFindMode),
+                _ => {
+                    // 返回bool表示是否修改了，暂时用不到
+                   let _ = state.find_textarea().input(key_event);
+                },
             }
             Ok(())
         } else {
@@ -411,7 +413,7 @@ impl TUIApp {
     /// 该方法会更新高亮行位置
     fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
         if let DashboardV1(state) = &mut self.screen {
-            let mut v_new = if let Some(f) = find {
+            let v_new = if let Some(f) = find {
                 self.pnt.storage.select_entry_by_about_like(&f)
             } else {
                 self.pnt.storage.select_all_entry()

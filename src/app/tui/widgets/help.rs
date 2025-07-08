@@ -66,12 +66,20 @@ impl HelpPage {
                     note: "quit-app".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "<ESC> | q".to_string(),
+                    key_map: "q".to_string(),
+                    note: "back screen | quit-app".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "<ESC>".to_string(),
                     note: "back screen | quit-edit | quit-app | quit-find".to_string(),
                 },
                 HelpShowItem {
+                    key_map: "<Enter>".to_string(),
+                    note: "detail current | quit-find".to_string(),
+                },
+                HelpShowItem {
                     key_map: "o".to_string(),
-                    note: "detail".to_string(),
+                    note: "detail current".to_string(),
                 },
                 HelpShowItem {
                     key_map: "i".to_string(),

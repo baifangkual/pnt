@@ -2,9 +2,13 @@ use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
-use anyhow::{Context, anyhow};
-use ratatui::widgets::{ListState, ScrollbarState};
 use crate::app::tui::intents::EnterScreenIntent;
+use anyhow::{anyhow, Context};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use ratatui::prelude::{Style, Widget};
+use ratatui::widgets::{ListState, ScrollbarState};
+use tui_textarea::TextArea;
 
 #[derive(Debug, Clone)]
 pub struct EditingState {
@@ -117,7 +121,7 @@ pub enum Editing {
 pub struct DashboardState {
     // 控制 find_input 的 标志位
     pub find_mode: bool,
-    find_input: String,
+    find_input: TextArea<'static>,
     entries: Vec<EncryptedEntry>,
     cursor: ListState, // 添加ListState来控制滚动
     scrollbar_state: ScrollbarState // 垂直滚动条样式
@@ -135,23 +139,35 @@ impl DashboardState {
         let scrollbar_state = ScrollbarState::new(entries.len());
         Self {
             find_mode: false,
-            find_input: String::new(),
+            find_input: Self::init_input_textarea(),
             entries,
             cursor,
             scrollbar_state
         }
     }
 
-    pub fn current_find_input(&self) -> &str {
-        &self.find_input
+    fn init_input_textarea() -> TextArea<'static> {
+        let mut textarea = TextArea::default();
+        textarea.set_placeholder_text("find");
+        textarea.set_cursor_line_style(Style::default());
+        textarea
     }
-    
-    pub fn current_find_input_mut(&mut self) -> &mut String {
+
+    pub fn current_find_input(&self) -> &str {
+        self.find_input.lines().last().unwrap()
+    }
+
+    // 妈的生命周期传染
+    pub fn find_textarea(& mut self) -> &mut TextArea<'static> {
         &mut self.find_input
     }
-    
+
+    pub fn render_text_area(&self, area: Rect, buf: &mut Buffer){
+        self.find_input.render(area, buf);
+    }
+
     pub fn clear_find_input(&mut self) {
-        self.find_input.clear();
+        self.find_input = Self::init_input_textarea();
     }
 
     /// 对 entries 进行排序

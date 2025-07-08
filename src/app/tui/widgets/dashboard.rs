@@ -1,4 +1,3 @@
-use crate::app::entry::EncryptedEntry;
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -59,20 +58,35 @@ impl StatefulWidget for DashboardWidget {
 
         // find 查找的字符渲染
         let mut find_input_block = Block::bordered().border_type(BorderType::Plain);
+        let rect_query = q.h_centered_rect(80);
+        // inner
+        let rect_query_inner = find_input_block.inner(rect_query);
+        // lr
+        let [icon, query_line_rect] = Layout::horizontal([
+            Constraint::Length(3),
+            Constraint::Fill(0),
+        ]).areas(rect_query_inner);
+        Paragraph::new("  ")
+            .fg(Color::from_u32(0xC6C8CC))
+            .render(icon, buf);
+
+        // 当前已输入的查找要求值
+        let current_find_input = state.current_find_input();
 
         // find 时 框框 高亮
         if state.find_mode {
-            find_input_block = find_input_block.fg(Color::Yellow)
+            find_input_block = find_input_block.fg(Color::Yellow);
+            find_input_block.render(rect_query, buf);
+            // 使用 textArea组件的渲染，渲染带光标
+            state.render_text_area(query_line_rect, buf);
         } else {
-            find_input_block = find_input_block.fg(Color::from_u32(0xC6C8CC))
+            // 否则用 paragraph渲染，无光标
+            find_input_block = find_input_block.fg(Color::from_u32(0xC6C8CC));
+            find_input_block.render(rect_query, buf);
+            Paragraph::new(current_find_input)
+                .left_aligned()
+                .render(query_line_rect, buf);
         }
-
-        let current_find_input = state.current_find_input();
-
-        Paragraph::new(current_find_input)
-            .block(find_input_block)
-            .left_aligned()
-            .render(q.h_centered_rect(80), buf);
 
         // list 区域
         let inner_block = Block::new()
