@@ -257,7 +257,7 @@ impl TUIApp {
                     // 验证 todo 未通过验证应给予提示
                     let e_id = state.current_e_id();
                     // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
-                    let input_entry = state.current_input_entry().clone();
+                    let input_entry = state.current_input_entry();
                     self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
@@ -346,19 +346,7 @@ impl TUIApp {
                 }
             }
             // do editing...
-            let input = state.current_editing_string_mut();
-            match key_event.code {
-                KeyCode::Backspace => {
-                    input.pop();
-                    ()
-                }
-                // KeyCode::Left => {} // todo 左移光标
-                // KeyCode::Right => {} // todo 右移光标
-                // KeyCode::BackTab => {} // todo up
-                KeyCode::Char(value) => input.push(value),
-                KeyCode::Enter => input.push('\n'),
-                _ => {}
-            }
+            let _ = state.current_editing_string_mut().input(key_event);
             Ok(())
         } else if let NeedMainPasswd(state) = &mut self.screen {
             match key_event.code {
@@ -366,8 +354,6 @@ impl TUIApp {
                     state.mp_input.pop();
                     ()
                 }
-                // KeyCode::Left => {} // todo 左移光标
-                // KeyCode::Right => {} // todo 右移光标
                 KeyCode::Char(value) => state.mp_input.push(value),
                 _ => {}
             }

@@ -3,17 +3,19 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
-use anyhow::{Context, anyhow};
+use crate::app::tui::widgets;
+use crate::app::tui::widgets::new_input_textarea;
+use anyhow::{anyhow, Context};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Style, Widget};
+use ratatui::prelude::Widget;
 use ratatui::widgets::{ListState, ScrollbarState};
 use tui_textarea::TextArea;
 
 #[derive(Debug, Clone)]
 pub struct EditingState {
     editing: Editing,
-    u_input: InputEntry,
+    input_textarea: [TextArea<'static>; 4],
     /// 正在编辑的条目id，若为None，则表示正在编辑的条目为新建条目
     e_id: Option<u32>,
 }
@@ -25,8 +27,13 @@ impl Default for EditingState {
 }
 
 impl EditingState {
-    pub fn current_input_entry(&self) -> &InputEntry {
-        &self.u_input
+    pub fn current_input_entry(&self) -> InputEntry {
+        InputEntry {
+            about: self.value(Editing::About),
+            username: self.value(Editing::Username),
+            password: self.value(Editing::Password),
+            notes: self.value(Editing::Notes),
+        }
     }
 
     /// 返回当前正在编辑的字段是哪一个
@@ -35,28 +42,49 @@ impl EditingState {
     }
 
     /// 返回当前正在编辑的字段的可变引用
-    pub fn current_editing_string_mut(&mut self) -> &mut String {
-        match self.editing {
-            Editing::About => &mut self.u_input.about,
-            Editing::Notes => &mut self.u_input.notes,
-            Editing::Username => &mut self.u_input.username,
-            Editing::Password => &mut self.u_input.password,
-        }
+    pub fn current_editing_string_mut(&mut self) -> &mut TextArea<'static> {
+        &mut self.input_textarea[self.editing.index()]
     }
 
     pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
-        Self {
-            editing: Editing::About,
-            u_input,
-            e_id: Some(e_id),
-        }
+        let mut new = Self::new_creating();
+        new.input_textarea[0].insert_str(u_input.about);
+        new.input_textarea[1].insert_str(u_input.username);
+        new.input_textarea[2].insert_str(u_input.password);
+        new.input_textarea[3].insert_str(u_input.notes);
+        new.e_id = Some(e_id);
+        new
     }
 
     pub fn new_creating() -> Self {
         Self {
             editing: Editing::About,
-            u_input: InputEntry::default(),
+            input_textarea: Self::new4(),
             e_id: None,
+        }
+    }
+
+    /// 输入框4个
+    fn new4() -> [TextArea<'static>; 4] {
+        [
+            new_input_textarea(Some("require about")),
+            new_input_textarea(Some("require username")),
+            new_input_textarea(Some("require password")),
+            new_input_textarea(None),
+        ]
+    }
+
+    /// 返回指定的输入框
+    pub fn textarea(&self, editing: Editing) -> &TextArea<'static> {
+        &self.input_textarea[editing.index()]
+    }
+
+    /// 某个框的内容
+    fn value(&self, editing: Editing) -> String {
+        match editing {
+            Editing::Notes => self.input_textarea[editing.index()].lines().join("\n"),
+            // textarea的lines.last().unwrap一定不会panic，因为其即使空字符串一定有值""...
+            _ => self.input_textarea[editing.index()].lines().last().unwrap().to_owned(),
         }
     }
 
@@ -74,22 +102,45 @@ impl EditingState {
         }
     }
 
+    /// 当前输入是否有效
+    ///
+    /// 有效要求：
+    /// * about 不为空
+    /// * username 不为空
+    /// * password 不为空
+    ///
+    /// # Panics
+    /// 当 about username password中任意一个有多行内容时
     pub fn current_input_validate(&self) -> bool {
-        self.u_input.validate()
+        // 0,1,2 notes 不校验
+        for idx in 0..3usize {
+            let text_area = &self.input_textarea[idx];
+            // 不得为空
+            if text_area.is_empty() {
+                return false;
+            }
+            // 不得多行（或者说有换行符）(饱和校验）
+            if text_area.lines().len() > 1 {
+                // 该情况饱和的验证，用以校验设计上漏洞，正常用户输入因前置的按键拦截，
+                // 其一定不为多行
+                panic!("Invalid input");
+            }
+        }
+        true
     }
 
     /// 尝试加密 UserInputEntry 为 ValidInsertEntry
     /// 当 UserInputEntry 不合法时，该方法会返回错误
     /// 当 UserInputEntry 合法时, 该方法会返回 ValidInsertEntry 和 可能的 条目id
     /// 当条目id为None时，表示该条目为新建条目, 反之则为更新条目
-    pub fn try_encrypt<'a, Enc>(&'a self, encrypter: &Enc) -> anyhow::Result<ValidEntry>
+    pub fn try_encrypt<Enc>(&self, encrypter: &Enc) -> anyhow::Result<ValidEntry>
     where
-        Enc: Encrypter<&'a InputEntry, ValidEntry>,
+        Enc: for<'a> Encrypter<&'a InputEntry, ValidEntry>,
     {
         if !self.current_input_validate() {
             return Err(anyhow!("input not validate"));
         }
-        Ok(encrypter.encrypt(&self.u_input)?)
+        Ok(encrypter.encrypt(&self.current_input_entry())?)
     }
 
     /// 光标向下移动，若当前光标为Password，则移动到Name
@@ -111,6 +162,17 @@ pub enum Editing {
     Username,
     Password,
     Notes,
+}
+
+impl Editing {
+    pub fn index(&self) -> usize {
+        match self {
+            Editing::About => 0,
+            Editing::Username => 1,
+            Editing::Password => 2,
+            Editing::Notes => 3,
+        }
+    }
 }
 
 /// 主页/仪表盘 的状态信息
@@ -135,18 +197,11 @@ impl DashboardState {
         let scrollbar_state = ScrollbarState::new(entries.len());
         Self {
             find_mode: false,
-            find_input: Self::init_input_textarea(),
+            find_input: new_input_textarea(Some("find")),
             entries,
             cursor,
             scrollbar_state,
         }
-    }
-
-    fn init_input_textarea() -> TextArea<'static> {
-        let mut textarea = TextArea::default();
-        textarea.set_placeholder_text("find");
-        textarea.set_cursor_line_style(Style::default());
-        textarea
     }
 
     pub fn current_find_input(&self) -> &str {
@@ -163,7 +218,7 @@ impl DashboardState {
     }
 
     pub fn clear_find_input(&mut self) {
-        self.find_input = Self::init_input_textarea();
+        self.find_input = new_input_textarea(Some("find"));
     }
 
     /// 对 entries 进行排序
