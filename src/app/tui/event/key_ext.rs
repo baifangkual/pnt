@@ -1,7 +1,5 @@
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-
-
 pub trait KeyEventExt {
     /// F1
     fn _is_f1(&self) -> bool;

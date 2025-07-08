@@ -39,9 +39,7 @@ impl Widget for &InputEntry {
 
         Paragraph::new(name).block(b_name).render(rc[0], buf);
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);
-        Paragraph::new(password)
-            .block(b_password)
-            .render(rc[2], buf);
+        Paragraph::new(password).block(b_password).render(rc[2], buf);
         Paragraph::new(desc)
             .wrap(Wrap { trim: false })
             .block(b_description)
@@ -76,11 +74,7 @@ impl Widget for &NeedMainPwdState {
 
         let rc_box_box = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Fill(0),
-                Constraint::Length(3),
-                Constraint::Fill(0),
-            ])
+            .constraints(vec![Constraint::Fill(0), Constraint::Length(3), Constraint::Fill(0)])
             .split(inner_area);
 
         let box_name = Block::default()
@@ -102,11 +96,7 @@ impl Widget for &NeedMainPwdState {
 impl InputField {
     pub fn current_weight_paragraph(&self) -> Paragraph {
         // 渲染带光标的文本
-        let cursor_char = if self.current_blink() == Show {
-            '|'
-        } else {
-            ' '
-        };
+        let cursor_char = if self.current_blink() == Show { '|' } else { ' ' };
         let text = format!(
             "{}{}{}",
             self.pre_cursor_text(),
@@ -179,11 +169,7 @@ impl InputField {
     /// 处理退格
     pub fn backspace(&mut self) {
         if self.cursor_position > 0 {
-            let char_len = self.content[..self.cursor_position]
-                .chars()
-                .last()
-                .unwrap()
-                .len_utf8();
+            let char_len = self.content[..self.cursor_position].chars().last().unwrap().len_utf8();
             self.cursor_position -= char_len;
             self.content.remove(self.cursor_position);
         }
@@ -207,22 +193,14 @@ impl InputField {
             -1 => {
                 // 左移
                 if self.cursor_position > 0 {
-                    let char_len = self.content[..self.cursor_position]
-                        .chars()
-                        .last()
-                        .unwrap()
-                        .len_utf8();
+                    let char_len = self.content[..self.cursor_position].chars().last().unwrap().len_utf8();
                     self.cursor_position -= char_len;
                 }
             }
             1 => {
                 // 右移
                 if self.cursor_position < self.content.len() {
-                    let char_len = self.content[self.cursor_position..]
-                        .chars()
-                        .next()
-                        .unwrap()
-                        .len_utf8();
+                    let char_len = self.content[self.cursor_position..].chars().next().unwrap().len_utf8();
                     self.cursor_position += char_len;
                 }
             }

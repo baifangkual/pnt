@@ -12,7 +12,6 @@ pub enum AppError {
     MainPwdNotFound,
 }
 
-
 /// 加密解密错误
 #[derive(Debug, Error)]
 pub enum CryptoError {
@@ -34,7 +33,6 @@ pub enum CryptoError {
     DecodeNonce,
     #[error("decode ciphertext error")]
     DecodeCiphertext,
-
 }
 
 /// 校验失败

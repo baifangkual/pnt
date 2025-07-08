@@ -27,10 +27,10 @@ const CREATE_ENTRY_TABLE_TEMPLATE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS "ent
 )"#;
 // rusqlite 不会造成 sql 注入，因此无需使用参数化查询
 /// 模板-插入密码的 Sqlite 语句
-const INSERT_ENTRY_SQL: &str =
-    r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
+const INSERT_ENTRY_SQL: &str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
 /// 模板-更新实体的 Sqlite 语句
-const UPDATE_ENTRY_SQL: &str = r#"UPDATE "entry" SET "about"=?, "notes"=?, "k"=?, "v"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
+const UPDATE_ENTRY_SQL: &str =
+    r#"UPDATE "entry" SET "about"=?, "notes"=?, "k"=?, "v"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
 /// 模板-删除实体的 Sqlite 语句
 const DELETE_ENTRY_SQL: &str = r#"DELETE FROM "entry" WHERE "id"=?"#;
 
@@ -144,11 +144,9 @@ impl SqliteConn {
     }
     /// 通过id查询一条密码记录
     pub fn select_entry_by_id(&self, id: u32) -> Option<EncryptedEntry> {
-        let r = self.conn.query_one(
-            "SELECT * FROM entry WHERE id = ?",
-            params![id],
-            row_map_entry,
-        );
+        let r = self
+            .conn
+            .query_one("SELECT * FROM entry WHERE id = ?", params![id], row_map_entry);
         sql_result_map_to_option(r)
     }
     /// 通过about模糊查询
@@ -158,9 +156,7 @@ impl SqliteConn {
             .conn
             .prepare("SELECT * FROM entry WHERE about LIKE ?")
             .expect("Failed to prepare query");
-        let rows = stmt
-            .query_map([nl], row_map_entry)
-            .expect("Failed to select entry");
+        let rows = stmt.query_map([nl], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
     /// 查询所有entry
@@ -169,9 +165,7 @@ impl SqliteConn {
             .conn
             .prepare("SELECT * FROM entry")
             .expect("Failed to prepare query");
-        let rows = stmt
-            .query_map([], row_map_entry)
-            .expect("Failed to select entry");
+        let rows = stmt.query_map([], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
 
@@ -199,9 +193,7 @@ impl SqliteConn {
     pub fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
         let r = self
             .conn
-            .query_row("SELECT v FROM cfg WHERE k =?", params![key], |row| {
-                row.get(0)
-            });
+            .query_row("SELECT v FROM cfg WHERE k =?", params![key], |row| row.get(0));
         sql_result_map_to_option(r)
     }
 }
@@ -250,14 +242,8 @@ mod tests {
         let after_update = after_update_query_by_id_one.unwrap();
         assert_eq!(after_update.about, other_entry.about);
         assert_eq!(after_update.id, vec[0].id);
-        assert_eq!(
-            after_update.encrypted_username,
-            other_entry.encrypted_username
-        );
-        assert_eq!(
-            after_update.encrypted_password,
-            other_entry.encrypted_password
-        );
+        assert_eq!(after_update.encrypted_username, other_entry.encrypted_username);
+        assert_eq!(after_update.encrypted_password, other_entry.encrypted_password);
         assert_eq!(after_update.created_time, other_entry.created_time);
         assert!(after_update.updated_time >= now);
         assert_ne!(after_update.notes, entry.notes);

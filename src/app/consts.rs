@@ -1,6 +1,3 @@
-
-
-
 /// 环境变量中指向的 配置文件路径 key
 pub const ENV_CONF_PATH_NAME: &str = "PNT_CONF";
 /// app name

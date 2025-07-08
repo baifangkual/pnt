@@ -62,7 +62,8 @@ impl YNState {
         let tip_desc = format!(
             "[󰦨 about]: {}\n\
              -󰦨 notes-------------\n{}",
-            e_name, e_desc);
+            e_name, e_desc
+        );
         let e_id = encrypted_entry.id;
         let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
         yn.set_y_call(Box::new(move |tui| {
@@ -79,11 +80,7 @@ impl YNState {
     }
     /// 保存页面用的
     pub fn new_save_tip(ie: InputEntry, e_id: Option<u32>) -> Self {
-        let e_notes_dots = if ie.notes.is_empty() {
-            "_"
-        } else {
-            &ie.notes
-        };
+        let e_notes_dots = if ie.notes.is_empty() { "_" } else { &ie.notes };
         let tip_title = if e_id.is_none() {
             format!("SAVE '{}' ?", ie.about)
         } else {

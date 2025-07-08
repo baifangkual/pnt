@@ -13,9 +13,7 @@ pub struct SecurityContext {
 }
 impl SecurityContext {
     pub fn new(encrypter: EntryAes256GcmSecretEncrypter) -> Self {
-        Self {
-            encrypter,
-        }
+        Self { encrypter }
     }
 }
 
@@ -30,10 +28,7 @@ pub struct PntContext {
 
 impl PntContext {
     pub fn new_with_verified(
-        cfg: Cfg,
-        cli_args: CliArgs,
-        storage: SqliteConn,
-        security_context: SecurityContext,
+        cfg: Cfg, cli_args: CliArgs, storage: SqliteConn, security_context: SecurityContext,
     ) -> Self {
         Self {
             cfg,
@@ -57,10 +52,7 @@ impl PntContext {
         let Some(mp_b64) = self.storage.select_cfg_v_by_key(MAIN_PASS_KEY) else {
             return Err(AppError::MainPwdNotFound.into());
         };
-        Ok(MainPwdVerifier::from_salt_and_passwd_hash_b64(
-            &self.cfg.salt,
-            &mp_b64,
-        )?)
+        Ok(MainPwdVerifier::from_salt_and_passwd_hash_b64(&self.cfg.salt, &mp_b64)?)
     }
     /// 检查是否已验证主密码
     pub fn is_verified(&self) -> bool {

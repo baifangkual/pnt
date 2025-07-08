@@ -56,7 +56,6 @@ impl EncryptedEntry {
     where
         Dec: Decrypter<&'a EncryptedEntry, InputEntry>,
     {
-        decrypt.decrypt(&self)
-            .with_context(|| "decrypt entry failed")
+        decrypt.decrypt(&self).with_context(|| "decrypt entry failed")
     }
 }

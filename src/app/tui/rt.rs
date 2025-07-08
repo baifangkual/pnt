@@ -3,9 +3,7 @@ use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{
-    ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption,
-};
+use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::Editing;
@@ -175,25 +173,19 @@ impl TUIApp {
                         let curr_ptr_e_id = state.entries()[c_ptr].id;
                         // open
                         if key_event._is_o_ignore_case() || key_event._is_enter() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(
-                                curr_ptr_e_id,
-                            )));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // update
                         if key_event._is_u_ignore_case() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(
-                                curr_ptr_e_id,
-                            ))));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                             return Ok(());
                         }
                         // delete 但是dashboard 的光标？
                         // 任何删除都应确保删除页面上一级为dashboard
                         // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(
-                                curr_ptr_e_id,
-                            )));
+                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // 上移
@@ -266,10 +258,7 @@ impl TUIApp {
                     let e_id = state.current_e_id();
                     // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
                     let input_entry = state.current_input_entry().clone();
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(
-                        input_entry,
-                        e_id,
-                    )));
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
@@ -389,8 +378,8 @@ impl TUIApp {
                 KeyCode::Enter => self.send_app_event(AppEvent::TurnOffFindMode),
                 _ => {
                     // 返回bool表示是否修改了，暂时用不到
-                   let _ = state.find_textarea().input(key_event);
-                },
+                    let _ = state.find_textarea().input(key_event);
+                }
             }
             Ok(())
         } else {
@@ -421,9 +410,7 @@ impl TUIApp {
             state.reset_entries(v_new);
             Ok(())
         } else {
-            Err(anyhow!(
-                "current screen is not dashboard screen, cannot flash"
-            ))
+            Err(anyhow!("current screen is not dashboard screen, cannot flash"))
         }
     }
 
@@ -465,10 +452,7 @@ impl TUIApp {
     /// 这是验证通过的事件处理终端方法
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,
     /// 并将当前屏幕切换为目标屏幕
-    fn hold_security_context_and_switch_to_target_screen(
-        &mut self,
-        security_context: SecurityContext,
-    ) -> Result<()> {
+    fn hold_security_context_and_switch_to_target_screen(&mut self, security_context: SecurityContext) -> Result<()> {
         if let NeedMainPasswd(state) = &mut self.screen {
             self.pnt.security_context = Some(security_context);
             let intent = state.take_target_screen()?;

@@ -1,8 +1,8 @@
+use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_NAME};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
-use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_NAME};
 
 /// 运行时使用的实际 cfg
 #[derive(Debug, Eq, PartialEq)]
@@ -74,7 +74,8 @@ fn default_data_path() -> PathBuf {
 fn default_conf_path() -> PathBuf {
     let env_cp_or = env::var(ENV_CONF_PATH_NAME)
         .into_iter()
-        .map(PathBuf::from).find(|p| p.exists()); // 存在才设定为 env 给定的
+        .map(PathBuf::from)
+        .find(|p| p.exists()); // 存在才设定为 env 给定的
     if let Some(env_cp) = env_cp_or {
         env_cp
     } else {

@@ -33,10 +33,13 @@ impl Widget for &YNState {
             ])
             .split(inner_area);
 
-        Paragraph::new(Line::from(format!(" [] {} ",self.title.as_str()))
-            .fg(Color::White).bg(Color::Red))
-            .alignment(Alignment::Center)
-            .render(rc_box_box[0], buf);
+        Paragraph::new(
+            Line::from(format!(" [] {} ", self.title.as_str()))
+                .fg(Color::White)
+                .bg(Color::Red),
+        )
+        .alignment(Alignment::Center)
+        .render(rc_box_box[0], buf);
 
         let box_desc = Block::default()
             .fg(DELETE_TIP_DESC_BG_COLOR)
@@ -44,11 +47,11 @@ impl Widget for &YNState {
             .borders(Borders::ALL);
 
         Paragraph::new(self.desc.as_str())
-           .block(box_desc)
-            .wrap(Wrap{trim: false})
+            .block(box_desc)
+            .wrap(Wrap { trim: false })
             .alignment(Alignment::Left)
             .fg(Color::White)
-           .render(rc_box_box[2].h_centered_rect(90), buf);
+            .render(rc_box_box[2].h_centered_rect(90), buf);
 
         // 底部左右二分
         let rc_bottom_lr = layout::split_lr_rects(rc_box_box[4]);

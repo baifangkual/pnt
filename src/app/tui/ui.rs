@@ -11,13 +11,7 @@ use ratatui::{
     widgets::{Block, BorderType, StatefulWidget, Widget},
 };
 
-const TITLE: &str = concat!(
-    clap::crate_name!(),
-    " v",
-    clap::crate_version!(),
-    " ",
-    "?:<f1>"
-);
+const TITLE: &str = concat!(clap::crate_name!(), " v", clap::crate_version!(), " ", "?:<f1>");
 
 /// 深灰色背景
 const TUI_BG_COLOR: Color = Color::from_u32(0x252624);

@@ -10,9 +10,9 @@ use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToDashBoardV1;
 use crate::app::tui::rt::TUIApp;
-use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, NeedMainPasswd};
+use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {

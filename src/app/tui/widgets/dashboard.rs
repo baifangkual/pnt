@@ -2,9 +2,7 @@ use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Stylize, Widget};
-use ratatui::widgets::{
-    Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
-};
+use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -40,12 +38,8 @@ impl StatefulWidget for DashboardWidget {
     type State = DashboardState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let [l_5, area90_center, _] = Layout::horizontal([
-            Constraint::Fill(5),
-            Constraint::Percentage(80),
-            Constraint::Fill(5),
-        ])
-        .areas(area);
+        let [l_5, area90_center, _] =
+            Layout::horizontal([Constraint::Fill(5), Constraint::Percentage(80), Constraint::Fill(5)]).areas(area);
 
         let layout_v = Layout::vertical([
             Constraint::Min(3), // 搜索框
@@ -62,13 +56,9 @@ impl StatefulWidget for DashboardWidget {
         // inner
         let rect_query_inner = find_input_block.inner(rect_query);
         // lr
-        let [icon, query_line_rect] = Layout::horizontal([
-            Constraint::Length(3),
-            Constraint::Fill(0),
-        ]).areas(rect_query_inner);
-        Paragraph::new("  ")
-            .fg(Color::from_u32(0xC6C8CC))
-            .render(icon, buf);
+        let [icon, query_line_rect] =
+            Layout::horizontal([Constraint::Length(3), Constraint::Fill(0)]).areas(rect_query_inner);
+        Paragraph::new("  ").fg(Color::from_u32(0xC6C8CC)).render(icon, buf);
 
         // 当前已输入的查找要求值
         let current_find_input = state.current_find_input();
@@ -121,11 +111,7 @@ impl StatefulWidget for DashboardWidget {
         let list = List::new(items)
             .block(inner_block)
             .fg(Color::from_u32(0xDADBDE))
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::from_u32(0xD9D9D9)),
-            );
+            .highlight_style(Style::default().fg(Color::Black).bg(Color::from_u32(0xD9D9D9)));
         // .highlight_symbol(&e_id);
 
         // 使用 StatefulWidget 渲染
@@ -141,11 +127,6 @@ impl StatefulWidget for DashboardWidget {
         // 使用左边...
         let [_, l_m, _] = layout_v.areas(l_5);
 
-        StatefulWidget::render(
-            sb,
-            l_m.inner(Margin::new(1, 0)),
-            buf,
-            state.scrollbar_state_mut(),
-        );
+        StatefulWidget::render(sb, l_m.inner(Margin::new(1, 0)), buf, state.scrollbar_state_mut());
     }
 }

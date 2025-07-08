@@ -12,6 +12,7 @@ use crate::app::config::{Cfg, load_cfg};
 use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::context::{NoteState, PntContext, RunMode};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter};
+use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -20,7 +21,6 @@ use consts::MAIN_PASS_KEY;
 use log::debug;
 use ratatui::crossterm::style::Stylize;
 use std::io::ErrorKind;
-use crate::app::errors::AppError;
 
 /// 向stdin索要输入的密码，若有utf8字符则提示无效字符
 /// 该方法内会loop阻塞直到输入有效字符
@@ -39,10 +39,7 @@ fn read_stdin_passwd() -> Result<String> {
                 // 当输入形如utf8字符时 rpassword 的该异常 "stream did not contain valid UTF-8"
                 // 转为告知用户无效字符，其他底层系统异常向上返回
                 ErrorKind::InvalidData => {
-                    println!(
-                        "{}",
-                        "> Password contains invalid characters, please re-enter".red()
-                    )
+                    println!("{}", "> Password contains invalid characters, please re-enter".red())
                 }
                 _ => Err(io_e)?,
             },
@@ -52,8 +49,7 @@ fn read_stdin_passwd() -> Result<String> {
 
 /// 初始化 db 位置
 fn init_storage(cfg: &Cfg) -> Result<SqliteConn> {
-    SqliteConn::new(&cfg.date)
-        .with_context(|| format!("Failed to init data for path: {}", &cfg.date.display()))
+    SqliteConn::new(&cfg.date).with_context(|| format!("Failed to init data for path: {}", &cfg.date.display()))
 }
 
 /// 阻塞读取stdin，
@@ -64,15 +60,9 @@ fn init_main_pwd_by_stdin() -> Result<String> {
     let mut vec = Vec::with_capacity(2);
     let p = loop {
         if vec.is_empty() {
-            println!(
-                "{}",
-                "Init main password: Enter or press CTRL+C to exit".yellow()
-            );
+            println!("{}", "Init main password: Enter or press CTRL+C to exit".yellow());
         } else {
-            println!(
-                "{}",
-                "Init main password: Enter again or press CTRL+C to exit".yellow()
-            );
+            println!("{}", "Init main password: Enter again or press CTRL+C to exit".yellow());
         }
         // 该并不支持中文，密码字符有所限制，应显式提示
         let rl = read_stdin_passwd()?;
@@ -84,10 +74,7 @@ fn init_main_pwd_by_stdin() -> Result<String> {
                 // 两次相等，返回
                 break vec.pop().unwrap();
             } else {
-                println!(
-                    "{}",
-                    "> Passwords entered twice do not match, please re-enter".red()
-                );
+                println!("{}", "> Passwords entered twice do not match, please re-enter".red());
                 vec.clear();
             }
         }
@@ -124,8 +111,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
                 let emp = MainPwdEncrypter::from_salt(&cfg.salt)?.encrypt(mp)?;
                 // 从 st中拿（NoStorage创建的）或自己创建
                 let mut st = if storage.is_none() {
-                    SqliteConn::new(&cfg.date)
-                        .with_context(|| format!("Failed to conn: {}", &cfg.date.display()))?
+                    SqliteConn::new(&cfg.date).with_context(|| format!("Failed to conn: {}", &cfg.date.display()))?
                 } else {
                     storage.take().unwrap()
                 };
@@ -163,12 +149,7 @@ fn await_verifier_main_pwd(mut context: PntContext) -> Result<PntContext> {
             return Ok(context);
         } else {
             // 校验失败，提示
-            let tip = format!(
-                "{} ({}/{})",
-                "Valid Password",
-                n + 1,
-                ALLOC_VALID_MAIN_PASS_MAX
-            );
+            let tip = format!("{} ({}/{})", "Valid Password", n + 1, ALLOC_VALID_MAIN_PASS_MAX);
             println!("{}", tip.on_dark_red().white())
         }
     }
@@ -202,4 +183,3 @@ pub fn pnt_run() -> Result<()> {
         tui::tui_run(context)
     }
 }
-

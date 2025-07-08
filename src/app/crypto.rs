@@ -30,8 +30,7 @@ pub struct MainPwdEncrypter {
 impl MainPwdEncrypter {
     pub fn from_salt(salt: &str) -> anyhow::Result<Self> {
         let enc = Self {
-            salt: SaltString::encode_b64(salt.as_bytes())
-                .map_err(|e| CryptoError::DecodeSalt(e))?,
+            salt: SaltString::encode_b64(salt.as_bytes()).map_err(|e| CryptoError::DecodeSalt(e))?,
         };
         Ok(enc)
     }
@@ -66,8 +65,7 @@ impl MainPwdVerifier {
     pub fn from_salt_and_passwd_hash_b64(salt: &str, mph_b64: &String) -> anyhow::Result<Self> {
         let ub = Base64::decode_vec(mph_b64).map_err(|e| CryptoError::DecodeMP(e))?;
         Ok(Self {
-            salt: SaltString::encode_b64(salt.as_bytes())
-                .map_err(|e| CryptoError::DecodeSalt(e))?,
+            salt: SaltString::encode_b64(salt.as_bytes()).map_err(|e| CryptoError::DecodeSalt(e))?,
             mph: String::from_utf8(ub)?,
         })
     }
@@ -109,9 +107,10 @@ impl MainPwdVerifier {
     /// 在校验成功后加载安全上下文，返回安全上下文
     /// 该方法不会对给定的密码再进行主密码校验
     pub fn load_security_context(&self, passwd: &str) -> anyhow::Result<SecurityContext> {
-        Ok(SecurityContext::new(EntryAes256GcmSecretEncrypter::from_key(self.gen_key(passwd)?)?))
+        Ok(SecurityContext::new(EntryAes256GcmSecretEncrypter::from_key(
+            self.gen_key(passwd)?,
+        )?))
     }
-
 }
 
 #[cfg(test)]

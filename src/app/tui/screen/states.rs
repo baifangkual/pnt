@@ -3,7 +3,7 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Style, Widget};
@@ -82,10 +82,7 @@ impl EditingState {
     /// 当 UserInputEntry 不合法时，该方法会返回错误
     /// 当 UserInputEntry 合法时, 该方法会返回 ValidInsertEntry 和 可能的 条目id
     /// 当条目id为None时，表示该条目为新建条目, 反之则为更新条目
-    pub fn try_encrypt<'a, Enc>(
-        &'a self,
-        encrypter: &Enc,
-    ) -> anyhow::Result<ValidEntry>
+    pub fn try_encrypt<'a, Enc>(&'a self, encrypter: &Enc) -> anyhow::Result<ValidEntry>
     where
         Enc: Encrypter<&'a InputEntry, ValidEntry>,
     {
@@ -123,12 +120,11 @@ pub struct DashboardState {
     pub find_mode: bool,
     find_input: TextArea<'static>,
     entries: Vec<EncryptedEntry>,
-    cursor: ListState, // 添加ListState来控制滚动
-    scrollbar_state: ScrollbarState // 垂直滚动条样式
+    cursor: ListState,               // 添加ListState来控制滚动
+    scrollbar_state: ScrollbarState, // 垂直滚动条样式
 }
 
 impl DashboardState {
-
     /// 根据给定的 entries 创建
     ///
     /// 该方法内会
@@ -142,7 +138,7 @@ impl DashboardState {
             find_input: Self::init_input_textarea(),
             entries,
             cursor,
-            scrollbar_state
+            scrollbar_state,
         }
     }
 
@@ -158,11 +154,11 @@ impl DashboardState {
     }
 
     // 妈的生命周期传染
-    pub fn find_textarea(& mut self) -> &mut TextArea<'static> {
+    pub fn find_textarea(&mut self) -> &mut TextArea<'static> {
         &mut self.find_input
     }
 
-    pub fn render_text_area(&self, area: Rect, buf: &mut Buffer){
+    pub fn render_text_area(&self, area: Rect, buf: &mut Buffer) {
         self.find_input.render(area, buf);
     }
 
@@ -171,7 +167,7 @@ impl DashboardState {
     }
 
     /// 对 entries 进行排序
-    fn sort_entries(entries:&mut Vec<EncryptedEntry>) {
+    fn sort_entries(entries: &mut Vec<EncryptedEntry>) {
         entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
     }
 

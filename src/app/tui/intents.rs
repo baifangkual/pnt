@@ -1,11 +1,11 @@
+use crate::app::entry::{InputEntry, ValidEntry};
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{YNOption, Details, Edit, Help, NeedMainPasswd};
-use crate::app::tui::screen::yn::YNState;
+use crate::app::tui::screen::Screen::{Details, Edit, Help, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use crate::app::tui::screen::yn::YNState;
 use anyhow::Context;
-use crate::app::entry::{InputEntry, ValidEntry};
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码
@@ -40,36 +40,22 @@ impl EnterScreenIntent {
             // 已有securityContext，直接发送进入事件
             match &self {
                 EnterScreenIntent::ToDetail(e_id) => {
-                    let encrypted_entry = tui
-                        .pnt
-                        .storage
-                        .select_entry_by_id(*e_id)
-                        .context("not found entry")?;
+                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
                     let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
                     Ok(Details(entry, *e_id))
                 }
                 // 有id为编辑页面
                 EnterScreenIntent::ToEditing(Some(e_id)) => {
-                    let encrypted_entry = tui
-                        .pnt
-                        .storage
-                        .select_entry_by_id(*e_id)
-                        .context("not found entry")?;
+                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
                     let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
                     Ok(Edit(EditingState::new_updating(entry, *e_id)))
                 }
                 EnterScreenIntent::ToEditing(None) => Ok(Edit(EditingState::new_creating())),
                 EnterScreenIntent::ToDeleteYNOption(e_id) => {
-                    let encrypted_entry = tui
-                        .pnt
-                        .storage
-                        .select_entry_by_id(*e_id)
-                        .context("not found entry")?;
+                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
                     Ok(YNOption(YNState::new_delete_tip(encrypted_entry)))
-                },
-                EnterScreenIntent::ToSaveYNOption(ve, e_id) => {
-                  Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id)))  
-                },
+                }
+                EnterScreenIntent::ToSaveYNOption(ve, e_id) => Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id))),
                 EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
                 EnterScreenIntent::ToHelp => Ok(Help),
             }
