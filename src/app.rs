@@ -11,7 +11,7 @@ mod tui;
 use crate::app::config::{Cfg, load_cfg};
 use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::context::{NoteState, PntContext, RunMode};
-use crate::app::crypto::{encode_salt_b64_mph, Encrypter, MainPwdEncrypter};
+use crate::app::crypto::{encode_b64_s_mph, Encrypter, MainPwdEncrypter};
 use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::{Context, Result};
@@ -88,7 +88,7 @@ fn init_main_pwd_by_stdin() -> Result<String> {
 /// 若存在且有main-pwd，则直接返回连接的db的conn
 fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
     // 检查 db 状态
-    let mut state = NoteState::check(cfg);
+    let mut state = NoteState::check(cfg)?;
     // conn，下 loop 完应为 Some
     let mut storage: Option<SqliteConn> = None;
 
@@ -112,11 +112,11 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
                 let b64_mph = main_pwd_encrypter.encrypt(mp)?;
                 // 从 st中拿（NoStorage创建的）或自己创建
                 let mut st = if storage.is_none() {
-                    SqliteConn::new(&cfg.date).map_err(|_| AppError::CannotOpenData)?
+                    SqliteConn::new(&cfg.date).with_context(|| AppError::CannotOpenData)?
                 } else {
                     storage.take().unwrap()
                 };
-                let b64_s_mph = encode_salt_b64_mph(&main_pwd_encrypter.salt(), &b64_mph);
+                let b64_s_mph = encode_b64_s_mph(&main_pwd_encrypter.salt(), &b64_mph);
                 st.store_b64_s_mph(&b64_s_mph);
                 // 用完归还或给其
                 storage = Some(st);
@@ -125,7 +125,7 @@ fn pre_note_state_init_check(cfg: &Cfg) -> Result<SqliteConn> {
             NoteState::Ready => {
                 if storage.is_none() {
                     let st = SqliteConn::new(&cfg.date)
-                        .map_err(|_| AppError::CannotOpenData)?;
+                        .with_context(|| AppError::CannotOpenData)?;
                     storage = Some(st);
                 }
                 break;

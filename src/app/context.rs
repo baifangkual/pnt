@@ -1,11 +1,10 @@
 use crate::app::cli::CliArgs;
 use crate::app::config::Cfg;
-use crate::app::consts::MAIN_PASS_KEY;
-use crate::app::crypto::{decode_b64_salt_mph, MainPwdVerifier};
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
+use crate::app::crypto::MainPwdVerifier;
 use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 
 /// 安全上下文，包含主密码校验器和条目加密解密器
 pub struct SecurityContext {
@@ -49,7 +48,7 @@ impl PntContext {
     /// 构建 主密码校验器，
     /// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
     pub fn build_mpv(&mut self) -> anyhow::Result<MainPwdVerifier> {
-        let b64_s_mph = self.storage.query_b64_s_mph()?;
+        let b64_s_mph = self.storage.query_b64_s_mph().ok_or(AppError::DataCorrupted)?;
         Ok(MainPwdVerifier::from_b64_s_mph(&b64_s_mph)?)
     }
     /// 检查是否已验证主密码
@@ -75,22 +74,19 @@ pub enum NoteState {
     Ready,
 }
 impl NoteState {
-    pub fn check(cfg: &Cfg) -> NoteState {
+    pub fn check(cfg: &Cfg) -> anyhow::Result<NoteState> {
         // cfg 要求的位置不存在
         if !cfg.date.exists() {
-            NoteState::NoStorage
+            Ok(NoteState::NoStorage)
         } else {
             // 存在，尝试读取主密码
-            let conn = SqliteConn::new(&cfg.date)
-                .with_context(|| format!("Failed to open data: {}", cfg.date.display()))
-                .unwrap();
+            let conn = SqliteConn::new(&cfg.date).with_context(|| AppError::CannotOpenData)?;
             // 找不到主密码
-            // todo 没有主密码但有数据，则证明数据被破坏
-            if conn.select_cfg_v_by_key(MAIN_PASS_KEY).is_none() {
-                NoteState::NoMainPwd
+            if conn.is_not_init_mph()? {
+                Ok(NoteState::NoMainPwd)
             } else {
                 // 存在主密码 但未校验
-                NoteState::Ready
+                Ok(NoteState::Ready)
             }
         }
     }

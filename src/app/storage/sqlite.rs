@@ -168,29 +168,41 @@ impl SqliteConn {
         let rows = stmt.query_map([], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
+    
+    
+    /// 查询entry数量
+    pub fn select_entry_count(&self) -> u32 {
+        let r = self
+           .conn
+           .query_row("SELECT COUNT(*) FROM entry", [], |row| row.get(0));
+        sql_result_map_to_option(r).unwrap() // 一定有值，因为表已初始化，若无则说明被破坏，直接panic
+    }
 
+    
+    // =========== cfg ==============
+    
     /// 插入配置
-    pub fn insert_cfg(&mut self, key: &str, value: &str) {
+    pub(super) fn insert_cfg(&mut self, key: &str, value: &str) {
         self.conn
             .execute(INSERT_INNER_CFG_SQL, params![key, value])
             .expect("Failed to insert cfg");
     }
 
     /// 更新配置
-    pub fn update_cfg(&mut self, key: &str, value: &str) {
+    pub(super) fn update_cfg(&mut self, key: &str, value: &str) {
         self.conn
             .execute(UPDATE_INNER_CFG_SQL, params![value, key])
             .expect("Failed to update cfg");
     }
 
     /// 删除配置
-    pub fn delete_cfg(&mut self, key: &str) {
+    pub(super) fn delete_cfg(&mut self, key: &str) {
         self.conn
             .execute(DELETE_INNER_CFG_SQL, params![key])
             .expect("Failed to delete cfg");
     }
     /// 通过key查询配置
-    pub fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
+    pub(super) fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
         let r = self
             .conn
             .query_row("SELECT v FROM cfg WHERE k =?", params![key], |row| row.get(0));
