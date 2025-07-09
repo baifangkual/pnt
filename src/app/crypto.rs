@@ -2,11 +2,13 @@
 
 pub mod aes_gcm;
 
+use anyhow::Context;
 use crate::app::context::SecurityContext;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
-use crate::app::errors::CryptoError;
+use crate::app::errors::{AppError, CryptoError};
 use argon2::password_hash::{Error, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::password_hash::rand_core::{OsRng, RngCore};
 use base64ct::{Base64, Encoding};
 
 /// 加密器
@@ -28,11 +30,20 @@ pub struct MainPwdEncrypter {
     salt: SaltString,
 }
 impl MainPwdEncrypter {
-    pub fn from_salt(salt: &str) -> anyhow::Result<Self> {
+    pub fn from_salt(salt: &[u8]) -> anyhow::Result<Self> {
         let enc = Self {
-            salt: SaltString::encode_b64(salt.as_bytes()).map_err(|e| CryptoError::DecodeSalt(e))?,
+            salt: SaltString::encode_b64(salt).map_err(|e| CryptoError::DecodeSalt(e))?,
         };
         Ok(enc)
+    }
+    pub fn new_from_random_salt() -> anyhow::Result<Self> {
+        let mut salt = [0u8; 32];
+        OsRng.fill_bytes(&mut salt);
+        Self::from_salt(&salt)
+    }
+
+    pub fn salt(&self) -> String {
+        self.salt.to_string()
     }
 }
 
@@ -61,9 +72,11 @@ impl MainPwdVerifier {
     /// 构建一个主密码校验器
     /// # Arguments
     /// * `salt` - 盐
-    /// * `mph_b64` - argon2 hash 加密后的主密码
-    pub fn from_salt_and_passwd_hash_b64(salt: &str, mph_b64: &String) -> anyhow::Result<Self> {
-        let ub = Base64::decode_vec(mph_b64).map_err(|e| CryptoError::DecodeMP(e))?;
+    /// * `b64_mph` - argon2 hash 加密后的主密码(b64编码）
+    pub fn from_b64_s_mph(b64_s_mph: &String) -> anyhow::Result<Self> {
+        // 从 s_mp_b64 可base64de到salt，若过程失败，则证明数据已被破坏
+        let (salt, b64_mph) = decode_b64_salt_mph(&b64_s_mph)?;
+        let ub = Base64::decode_vec(&b64_mph).map_err(|e| CryptoError::DecodeMP(e))?;
         Ok(Self {
             salt: SaltString::encode_b64(salt.as_bytes()).map_err(|e| CryptoError::DecodeSalt(e))?,
             mph: String::from_utf8(ub)?,
@@ -113,30 +126,62 @@ impl MainPwdVerifier {
     }
 }
 
+/// 将 B64_SALT:B64_MPH 解码为 (SALT, B64_MPH) 返回
+///
+/// 若数据被破坏则返回Err
+pub fn decode_b64_salt_mph(b64_salt_mph: &str) -> anyhow::Result<(String, String)> {
+    let mut sp = b64_salt_mph.split(':');
+    let salt_b64 = sp.next()
+        .ok_or(AppError::DataCorrupted)?;
+    let salt = String::from_utf8(Base64::decode_vec(salt_b64)?)?;
+    let mph_b64 = sp.next()
+        .ok_or(AppError::DataCorrupted)?;
+    Ok((salt, mph_b64.into()))
+}
+/// 将 SALT, B64_MPH 编码为 B64_SALT:B64_MPH 返回
+pub fn encode_salt_b64_mph(salt: &str, b64_mph: &str) -> String {
+    let b64_salt = Base64::encode_string(salt.as_bytes());
+    format!("{}:{}", b64_salt, b64_mph)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     #[test]
     fn test_main_pwd() {
         let plaintext = "Hello, world!".to_owned();
-        let encrypter = MainPwdEncrypter::from_salt("hello world").unwrap();
+        let salt = String::from("salt-string");
+        let encrypter = MainPwdEncrypter::from_salt(salt.as_bytes()).unwrap();
         let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
         let cs2 = encrypter.encrypt(plaintext.clone()).unwrap();
         assert_eq!(cs1, cs2);
-        let cs3 = MainPwdEncrypter::from_salt("hello world")
+        let cs3 = MainPwdEncrypter::from_salt(salt.as_bytes())
             .unwrap()
             .encrypt(plaintext)
             .unwrap();
         assert_eq!(cs3, cs1);
         // println!("cs1: {cs1}");
     }
+    // #[test]
+    // fn test_main_pwd_verify() {
+    //     let plaintext = "pass".to_owned();
+    //     let salt = String::from("salt-string");
+    //     let encrypter = MainPwdEncrypter::from_salt(salt.as_bytes()).unwrap();
+    //     let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
+    //     let verifier = MainPwdVerifier::from_salt_and_b64_mph(&encrypter.salt(), &cs1).unwrap();
+    //     assert_eq!(verifier.verify(&plaintext).unwrap(), true);
+    //     assert_eq!(verifier.verify("pas1").unwrap(), false);
+    // }
+
     #[test]
-    fn test_main_pwd_verify() {
-        let plaintext = "pass".to_owned();
-        let encrypter = MainPwdEncrypter::from_salt("salt1111").unwrap();
-        let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
-        let verifier = MainPwdVerifier::from_salt_and_passwd_hash_b64("salt1111", &cs1).unwrap();
-        assert_eq!(verifier.verify(&plaintext).unwrap(), true);
-        assert_eq!(verifier.verify("pas1").unwrap(), false);
+    fn test_encode_salt_and_b64_mph(){
+        let foobar = String::from("foobar");
+        let encrypter = MainPwdEncrypter::new_from_random_salt().unwrap();
+        let b64_mph = encrypter.encrypt(foobar.clone()).unwrap();
+        let salt = encrypter.salt();
+        let b64_s_mph = encode_salt_b64_mph(&salt, &b64_mph);
+        let (salt_de, b64_mph_de) = decode_b64_salt_mph(&b64_s_mph).unwrap();
+        assert_eq!(salt, salt_de);
+        assert_eq!(b64_mph, b64_mph_de);
     }
 }

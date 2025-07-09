@@ -3,7 +3,6 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::widgets;
 use crate::app::tui::widgets::new_input_textarea;
 use anyhow::{anyhow, Context};
 use ratatui::buffer::Buffer;

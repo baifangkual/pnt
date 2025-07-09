@@ -3,6 +3,7 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
+use crate::app::errors::AppError;
 
 /// 运行时使用的实际 cfg
 #[derive(Debug, Eq, PartialEq)]
@@ -10,9 +11,18 @@ pub struct Cfg {
     /// 存储各密码的sqlite-db路径, 默认在 app data
     pub date: PathBuf,
     /// 盐-该值不同则即使使用相同的主密码也无法解密内容
-    pub salt: String,
+    salt: Option<String>,
     /// 在启动时要求主密码
     pub need_main_passwd_on_run: bool,
+}
+
+impl Cfg {
+    pub fn set_salt(&mut self, salt: String) {
+        self.salt = Some(salt);
+    }
+    pub fn salt(&self) -> Option<String> {
+        self.salt.clone()
+    }
 }
 
 /// 载入配置，磁盘或默认配置
@@ -26,11 +36,10 @@ impl TryFrom<TomlCfg> for Cfg {
 
     fn try_from(value: TomlCfg) -> Result<Self, Self::Error> {
         let c = Cfg {
-            date: value.date.context("not found 'data'")?,
-            salt: value.salt.context("not found 'salt'")?,
+            date: value.date.ok_or(AppError::CannotOpenData)?,
+            salt: None, // 初始化为 none，运行时应在主密码验证后赋值
             need_main_passwd_on_run: value
-                .need_main_passwd_on_run
-                .context("not found 'need_main_passwd_on_run'")?,
+                .need_main_passwd_on_run.unwrap(), // 因为default不会panic
         };
         Ok(c)
     }
@@ -39,10 +48,8 @@ impl TryFrom<TomlCfg> for Cfg {
 /// app 配置文件
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct TomlCfg {
-    /// 存储各密码的sqlite-db路径, 默认在 app data
+    /// 存储各密码的sqlite-db路径, 默认在 app data，为防止toml的 " 转义，win路径反斜杠路径应使用 ' 符号
     date: Option<PathBuf>,
-    /// 盐-该值不同则即使使用相同的主密码也无法解密内容
-    salt: Option<String>,
     /// 在启动时要求主密码
     need_main_passwd_on_run: Option<bool>,
 }
@@ -51,7 +58,6 @@ impl Default for TomlCfg {
     fn default() -> Self {
         Self {
             date: Some(default_data_path()),
-            salt: Some(String::from("_default")), // use on argon2, len must > 7
             need_main_passwd_on_run: Some(false),
         }
     }
@@ -102,9 +108,6 @@ fn load_fill_cfg() -> anyhow::Result<TomlCfg> {
         if disk_cfg.date.is_none() {
             disk_cfg.date = lazy_default.date.clone();
         }
-        if disk_cfg.salt.is_none() {
-            disk_cfg.salt = lazy_default.salt.clone();
-        }
         if disk_cfg.need_main_passwd_on_run.is_none() {
             disk_cfg.need_main_passwd_on_run = lazy_default.need_main_passwd_on_run;
         }
@@ -135,10 +138,5 @@ mod tests {
         // println!("{:#?}", conf);
         assert!(conf.is_ok());
     }
-
-    // #[test]
-    // fn test_fill_cfg() {
-    //     let cfg = load_cfg();
-    //     println!("{:#?}", cfg);
-    // }
+    
 }

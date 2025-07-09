@@ -268,9 +268,10 @@ impl TUIApp {
             NeedMainPasswd(state) => {
                 if key_event._is_enter() {
                     let verifier = self.pnt.build_mpv()?;
-                    if verifier.verify(state.mp_input())? {
+                    let mp_input = state.mp_input();
+                    if verifier.verify(mp_input)? {
                         // 验证通过，发送 true 事件
-                        let security_context = verifier.load_security_context(state.mp_input())?;
+                        let security_context = verifier.load_security_context(mp_input)?;
                         self.send_app_event(AppEvent::MainPwdVerifySuccess(security_context))
                     } else {
                         self.send_app_event(AppEvent::MainPwdVerifyFailed)

@@ -1,7 +1,7 @@
 use crate::app::cli::CliArgs;
 use crate::app::config::Cfg;
 use crate::app::consts::MAIN_PASS_KEY;
-use crate::app::crypto::MainPwdVerifier;
+use crate::app::crypto::{decode_b64_salt_mph, MainPwdVerifier};
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
@@ -48,21 +48,19 @@ impl PntContext {
     /// 读取cfg中salt和storage中主密码的哈希校验段，
     /// 构建 主密码校验器，
     /// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
-    pub fn build_mpv(&self) -> anyhow::Result<MainPwdVerifier> {
-        let Some(mp_b64) = self.storage.select_cfg_v_by_key(MAIN_PASS_KEY) else {
-            return Err(AppError::MainPwdNotFound.into());
-        };
-        Ok(MainPwdVerifier::from_salt_and_passwd_hash_b64(&self.cfg.salt, &mp_b64)?)
+    pub fn build_mpv(&mut self) -> anyhow::Result<MainPwdVerifier> {
+        let b64_s_mph = self.storage.query_b64_s_mph()?;
+        Ok(MainPwdVerifier::from_b64_s_mph(&b64_s_mph)?)
     }
     /// 检查是否已验证主密码
     pub fn is_verified(&self) -> bool {
         self.security_context.is_some()
     }
     /// 尝试获取条目加密解密器，若未验证主密码则返回Err
-    pub fn try_encrypter(&self) -> anyhow::Result<&EntryAes256GcmSecretEncrypter> {
+    pub fn try_encrypter(&self) -> Result<&EntryAes256GcmSecretEncrypter, AppError> {
         match &self.security_context {
             Some(mpv) => Ok(&mpv.encrypter),
-            None => Err(anyhow!("Main password is not verified")),
+            None => Err(AppError::MainPwdNotVerified),
         }
     }
 }
@@ -84,9 +82,10 @@ impl NoteState {
         } else {
             // 存在，尝试读取主密码
             let conn = SqliteConn::new(&cfg.date)
-                .with_context(|| format!("Failed to conn SQLite database: {}", cfg.date.display()))
+                .with_context(|| format!("Failed to open data: {}", cfg.date.display()))
                 .unwrap();
             // 找不到主密码
+            // todo 没有主密码但有数据，则证明数据被破坏
             if conn.select_cfg_v_by_key(MAIN_PASS_KEY).is_none() {
                 NoteState::NoMainPwd
             } else {

@@ -21,13 +21,13 @@ struct StrAes256GcmEncrypter(AesGcm<Aes256, U12>);
 
 impl StrAes256GcmEncrypter {
     fn from_key(key: [u8; 32]) -> Result<Self> {
-        let gcm = aes_gcm::Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
+        let gcm = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
         Ok(Self(gcm))
     }
     #[cfg(test)]
     fn from_random_key() -> StrAes256GcmEncrypter {
         let key = Aes256Gcm::generate_key(&mut OsRng);
-        Self(aes_gcm::Aes256Gcm::new(&key))
+        Self(Aes256Gcm::new(&key))
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::app::crypto::Decrypter;
 use anyhow::Context;
 use chrono::{DateTime, Local};
+use crate::app::errors::AppError;
 
 /// 完全映射用户的输入
 /// 其中 identity and password 尚未加密
@@ -56,6 +57,7 @@ impl EncryptedEntry {
     where
         Dec: Decrypter<&'a EncryptedEntry, InputEntry>,
     {
-        decrypt.decrypt(&self).with_context(|| "decrypt entry failed")
+        // 主要提示DataCorrupted：存储成功的我想象不会解密失败，唯一解释是实际文件被人为修改，即提示数据已损坏
+        decrypt.decrypt(&self).with_context(|| AppError::DataCorrupted)
     }
 }
