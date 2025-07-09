@@ -1,9 +1,9 @@
+use crate::app::tui::layout::RectExt;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
 use std::sync::LazyLock;
-use crate::app::tui::layout::RectExt;
 
 /// 帮助页面实体
 pub struct HelpShowItem {

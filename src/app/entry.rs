@@ -1,7 +1,7 @@
 use crate::app::crypto::Decrypter;
+use crate::app::errors::AppError;
 use anyhow::Context;
 use chrono::{DateTime, Local};
-use crate::app::errors::AppError;
 
 /// 完全映射用户的输入
 /// 其中 identity and password 尚未加密

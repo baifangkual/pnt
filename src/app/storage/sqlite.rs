@@ -168,19 +168,15 @@ impl SqliteConn {
         let rows = stmt.query_map([], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
-    
-    
+
     /// 查询entry数量
     pub fn select_entry_count(&self) -> u32 {
-        let r = self
-           .conn
-           .query_row("SELECT COUNT(*) FROM entry", [], |row| row.get(0));
+        let r = self.conn.query_row("SELECT COUNT(*) FROM entry", [], |row| row.get(0));
         sql_result_map_to_option(r).unwrap() // 一定有值，因为表已初始化，若无则说明被破坏，直接panic
     }
 
-    
     // =========== cfg ==============
-    
+
     /// 插入配置
     pub(super) fn insert_cfg(&mut self, key: &str, value: &str) {
         self.conn

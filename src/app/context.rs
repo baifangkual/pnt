@@ -1,7 +1,7 @@
 use crate::app::cli::CliArgs;
 use crate::app::config::Cfg;
-use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::crypto::MainPwdVerifier;
+use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::Context;

@@ -1,9 +1,9 @@
 use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_NAME};
+use crate::app::errors::AppError;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
-use crate::app::errors::AppError;
 
 /// 运行时使用的实际 cfg
 #[derive(Debug, Eq, PartialEq)]
@@ -38,8 +38,7 @@ impl TryFrom<TomlCfg> for Cfg {
         let c = Cfg {
             date: value.date.ok_or(AppError::CannotOpenData)?,
             salt: None, // 初始化为 none，运行时应在主密码验证后赋值
-            need_main_passwd_on_run: value
-                .need_main_passwd_on_run.unwrap(), // 因为default不会panic
+            need_main_passwd_on_run: value.need_main_passwd_on_run.unwrap(), // 因为default不会panic
         };
         Ok(c)
     }
@@ -138,5 +137,4 @@ mod tests {
         // println!("{:#?}", conf);
         assert!(conf.is_ok());
     }
-    
 }

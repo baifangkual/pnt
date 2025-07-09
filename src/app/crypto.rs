@@ -2,13 +2,12 @@
 
 pub mod aes_gcm;
 
-use anyhow::Context;
 use crate::app::context::SecurityContext;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::{AppError, CryptoError};
+use argon2::password_hash::rand_core::{OsRng, RngCore};
 use argon2::password_hash::{Error, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::rand_core::{OsRng, RngCore};
 use base64ct::{Base64, Encoding};
 
 /// 加密器
@@ -31,9 +30,7 @@ pub struct MainPwdEncrypter {
 }
 impl MainPwdEncrypter {
     pub fn from_salt(salt: [u8; 32]) -> anyhow::Result<Self> {
-        Ok(Self {
-            salt,
-        })
+        Ok(Self { salt })
     }
     pub fn new_from_random_salt() -> anyhow::Result<Self> {
         let mut salt = [0u8; 32];
@@ -54,13 +51,12 @@ impl Encrypter<String, String> for MainPwdEncrypter {
     /// salt 太短 <8 或 太长 >64
     /// mph > usize::MAX/4
     fn encrypt(&self, plaintext: String) -> Result<String, CryptoError> {
-        let ss = SaltString::encode_b64(&self.salt)
-            .map_err(|e| CryptoError::DecodeSalt(e))?;
+        let ss = SaltString::encode_b64(&self.salt).map_err(|e| CryptoError::DecodeSalt(e))?;
         let mph = Argon2::default()
             .hash_password(plaintext.as_bytes(), &ss)
             .map_err(|e| CryptoError::EncryptMainPwd(e))?
             .to_string();
-        Ok(Base64::encode_string(mph.as_bytes()))
+        Ok(mph)
     }
 }
 
@@ -76,11 +72,10 @@ impl MainPwdVerifier {
     /// * `b64_mph` - argon2 hash 加密后的主密码(b64编码）
     pub fn from_b64_s_mph(b64_s_mph: &String) -> anyhow::Result<Self> {
         // 从 s_mp_b64 可base64de到salt，若过程失败，则证明数据已被破坏
-        let (salt, b64_mph) = decode_b64_s_mph(&b64_s_mph)?;
-        let ub = Base64::decode_vec(&b64_mph).map_err(|e| CryptoError::DecodeMP(e))?;
+        let (salt, mph) = decode_b64_s_mph(&b64_s_mph)?;
         Ok(Self {
             salt: SaltString::encode_b64(&salt).map_err(|e| CryptoError::DecodeSalt(e))?,
-            mph: String::from_utf8(ub)?,
+            mph,
         })
     }
 }
@@ -114,7 +109,7 @@ impl MainPwdVerifier {
         let mut gp = [0u8; 32];
         Argon2::default()
             .hash_password_into(passwd.as_bytes(), self.salt.as_str().as_bytes(), &mut gp)
-            .map_err(|_| CryptoError::GenerateKey)?;
+            .map_err(|_| CryptoError::GenerateKey)?; // 安全相关 用map_err 缩减 暴露的err信息
         Ok(gp)
     }
 
@@ -127,7 +122,7 @@ impl MainPwdVerifier {
     }
 }
 
-/// 将 b64(SALT(32) + b64_MPH) 解码为 (SALT(32), B64_MPH) 返回
+/// 将 b64(SALT(32) + MPH) 解码为 (SALT(32), MPH) 返回
 ///
 /// 若数据被破坏则返回Err
 pub fn decode_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<([u8; 32], String)> {
@@ -140,11 +135,11 @@ pub fn decode_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<([u8; 32], String)> {
     let mph = str::from_utf8(mph).map_err(|_| AppError::DataCorrupted)?.to_string();
     Ok((salt, mph))
 }
-/// 将 SALT(32), B64_MPH 编码为 b64(SALT(32) + b64_MPH) 返回
-pub fn encode_b64_s_mph(salt: &[u8;32], b64_mph: &str) -> String {
-    let mut vec = Vec::with_capacity(32 + b64_mph.len());
+/// 将 SALT(32), MPH 编码为 b64(SALT(32) + MPH) 返回
+pub fn encode_b64_s_mph(salt: &[u8; 32], mph: &str) -> String {
+    let mut vec = Vec::with_capacity(32 + mph.len());
     vec.extend(salt);
-    vec.extend(b64_mph.as_bytes());
+    vec.extend(mph.as_bytes());
     Base64::encode_string(&vec)
 }
 
@@ -159,23 +154,36 @@ mod test {
         let cs2 = encrypter.encrypt(plaintext.clone()).unwrap();
         let salt = encrypter.salt();
         assert_eq!(cs1, cs2);
-        let cs3 = MainPwdEncrypter::from_salt(*salt)
-            .unwrap()
-            .encrypt(plaintext)
-            .unwrap();
+        let cs3 = MainPwdEncrypter::from_salt(*salt).unwrap().encrypt(plaintext).unwrap();
         assert_eq!(cs3, cs1);
         // println!("cs1: {cs1}");
     }
 
     #[test]
-    fn test_encode_salt_and_b64_mph(){
+    fn test_encode_salt_and_b64_mph() {
         let foobar = String::from("foobar");
         let encrypter = MainPwdEncrypter::new_from_random_salt().unwrap();
         let b64_mph = encrypter.encrypt(foobar.clone()).unwrap();
         let salt = encrypter.salt();
         let b64_s_mph = encode_b64_s_mph(&salt, &b64_mph);
-        let (salt_de, b64_mph_de) = decode_b64_s_mph(&b64_s_mph).unwrap();
+        let (salt_de, mph) = decode_b64_s_mph(&b64_s_mph).unwrap();
         assert_eq!(*salt, salt_de);
-        assert_eq!(b64_mph, b64_mph_de);
+        assert_eq!(b64_mph, mph);
+    }
+
+    #[test]
+    fn test_gen_ne_key() {
+        let foobar = String::from("foobar");
+        let salt = SaltString::encode_b64(&[0; 32]).unwrap();
+        let mut gp = [0u8; 32];
+        Argon2::default()
+            .hash_password_into(foobar.as_bytes(), salt.as_str().as_bytes(), &mut gp)
+            .unwrap();
+        let r_p = Argon2::default()
+            .hash_password(foobar.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
+        let rpb = r_p.as_bytes();
+        assert_ne!(gp, *rpb);
     }
 }

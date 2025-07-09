@@ -13,7 +13,6 @@ mod editing;
 pub mod help;
 mod yn;
 
-
 /// 返回一个新的 tui_textarea::TextArea
 pub fn new_input_textarea(place_holder_text: Option<&str>) -> TextArea<'_> {
     let mut textarea = TextArea::default();

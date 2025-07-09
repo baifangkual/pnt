@@ -4,7 +4,7 @@ use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::widgets::new_input_textarea;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;

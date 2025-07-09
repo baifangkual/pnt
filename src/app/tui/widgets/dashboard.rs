@@ -76,9 +76,14 @@ impl StatefulWidget for DashboardWidget {
 
             // find_input 是否无值，无值则出现placeholder
             if current_find_input.is_empty() {
-                Paragraph::new(" find").fg(Color::DarkGray).left_aligned().render(query_line_rect, buf);
+                Paragraph::new(" find")
+                    .fg(Color::DarkGray)
+                    .left_aligned()
+                    .render(query_line_rect, buf);
             } else {
-                Paragraph::new(current_find_input).left_aligned().render(query_line_rect, buf);
+                Paragraph::new(current_find_input)
+                    .left_aligned()
+                    .render(query_line_rect, buf);
             }
         }
 
