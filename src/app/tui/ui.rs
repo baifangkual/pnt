@@ -1,17 +1,16 @@
 use super::rt::TUIApp;
-use crate::app::tui::colors::{CL_GLOBAL_BG, CL_GLOBAL_TITLE, CL_RED, CL_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_LL_BLACK, CL_L_BLACK, CL_RED, CL_WHITE};
 use crate::app::tui::layout;
-use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;
 use ratatui::layout::Alignment;
-use ratatui::prelude::Line;
-use ratatui::widgets::Padding;
+use ratatui::prelude::{Constraint, Layout};
+use ratatui::widgets::Paragraph;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Stylize},
+    style::Stylize,
     widgets::{Block, StatefulWidget, Widget},
 };
 
@@ -22,59 +21,68 @@ impl Widget for &mut TUIApp {
     ///
     /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::new()
-            .title(Line::from(TITLE).fg(CL_GLOBAL_TITLE))
-            .bg(CL_GLOBAL_BG)
-            .padding(Padding::bottom(1)); // 底部inner一行
+        let [top, middle, bottom] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(0), Constraint::Length(1)]).areas(area);
 
-        // 创建内容区域
-        let inner_area = block.inner(area);
-        block.render(area, buf);
+        Paragraph::new(TITLE)
+            .fg(CL_DD_WHITE)
+            .block(Block::new().bg(CL_L_BLACK))
+            .render(top, buf);
+        // 主要内容背景
+        Block::new().bg(CL_BLACK).render(middle, buf);
 
-        // todo 底部状态栏... horizontal_split::<10>() 不应
-        //  该是长条...
-        let bottom_rect = area.bottom_rect();
-        let bn = bottom_rect.horizontal_split::<10>();
+        let [bl, bc, br] =
+            Layout::horizontal([Constraint::Length(10), Constraint::Fill(0), Constraint::Length(7)]).areas(bottom);
+
+        // bc 填充颜色
+        // todo 后可作为当前screen 提示信息显示在此...
+        Block::new().bg(CL_L_BLACK).render(bc, buf);
 
         // mp状态图标
         if self.pnt.is_verified() {
-            ratatui::widgets::Paragraph::new("󰌾 UNLOCK")
+            Paragraph::new("󰌾 UNLOCK")
                 .fg(CL_WHITE)
                 .bg(CL_RED)
                 .alignment(Alignment::Center)
-                .render(bn[0], buf);
+                .render(bl, buf);
         } else {
-            ratatui::widgets::Paragraph::new("󰌾 LOCK")
+            Paragraph::new("󰌾 LOCK")
                 .fg(CL_WHITE)
-                .bg(CL_GLOBAL_TITLE)
+                .bg(CL_LL_BLACK)
                 .alignment(Alignment::Center)
-                .render(bn[0], buf);
+                .render(bl, buf);
         }
+        // 多少个条目
+        Paragraph::new(format!(" {}", self.store_entry_count))
+            .fg(CL_WHITE)
+            .bg(CL_LL_BLACK)
+            .alignment(Alignment::Center)
+            .render(br, buf);
 
         // 渲染当前屏幕
         match &mut self.screen {
             Screen::DashboardV1(state) => {
                 let dash_widget = DashboardWidget;
-                dash_widget.render(inner_area, buf, state)
+                dash_widget.render(middle, buf, state)
             }
             Screen::Help => {
-                let rect = layout::centered_percent(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, middle);
                 help::HELP_PAGE_DASHBOARD.render(rect, buf)
             }
             Screen::Details(entry, _) => {
-                let rect = layout::centered_percent(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, middle);
                 entry.render(rect, buf);
             }
             Screen::Edit(state) => {
-                let rect = layout::centered_percent(90, 90, inner_area);
+                let rect = layout::centered_percent(90, 90, middle);
                 state.render(rect, buf);
             }
             Screen::YNOption(option_yn) => {
-                let rect = layout::centered_percent(70, 50, inner_area);
+                let rect = layout::centered_percent(70, 50, middle);
                 option_yn.render(rect, buf);
             }
             Screen::NeedMainPasswd(state) => {
-                let rect = layout::centered_fixed(50, 5, inner_area);
+                let rect = layout::centered_fixed(50, 5, middle);
                 state.render(rect, buf);
             }
         }

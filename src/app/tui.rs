@@ -34,10 +34,11 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
     };
     TUIApp {
         running: true,
-        pnt: pnt_context,
         events: EventHandler::new(),
         screen,
         back_screen: Vec::with_capacity(10),
+        store_entry_count: pnt_context.storage.select_entry_count(),
+        pnt: pnt_context,
     }
 }
 

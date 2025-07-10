@@ -27,6 +27,8 @@ pub struct TUIApp {
     pub pnt: PntContext,
     /// Event handler.
     pub events: EventHandler,
+    /// current store entry count
+    pub store_entry_count: u32,
 }
 
 impl TUIApp {
@@ -109,9 +111,9 @@ impl TUIApp {
             AppEvent::CursorUp => self.cursor_up(),
             AppEvent::CursorDown => self.cursor_down(),
             AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
-            AppEvent::EntryInsert(v_e) => self.do_insert(&v_e),
-            AppEvent::EntryUpdate(v_e, e_id) => self.do_update(&v_e, e_id),
-            AppEvent::EntryRemove(e_id) => self.do_remove(e_id),
+            AppEvent::EntryInsert(v_e) => self.insert_entry(&v_e),
+            AppEvent::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
+            AppEvent::EntryRemove(e_id) => self.remove_entry(e_id),
             AppEvent::FlashVecItems(f) => self.do_flash_vec(f)?,
             AppEvent::TurnOnFindMode => self.turn_on_find_mode()?,
             AppEvent::TurnOffFindMode => self.turn_off_find_mode()?,
@@ -181,8 +183,8 @@ impl TUIApp {
                             self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(curr_ptr_e_id)));
                             return Ok(());
                         }
-                        // update
-                        if key_event._is_u_ignore_case() {
+                        // edit
+                        if key_event._is_e_ignore_case() {
                             self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                             return Ok(());
                         }
@@ -405,12 +407,14 @@ impl TUIApp {
         }
     }
 
-    fn do_insert(&mut self, e: &ValidEntry) {
+    /// 向 db 添加一个 entry，并更新 store_entry_count + 1
+    fn insert_entry(&mut self, e: &ValidEntry) {
         self.pnt.storage.insert_entry(&e);
         self.send_app_event(AppEvent::FlashVecItems(None));
+        self.store_entry_count += 1;
     }
 
-    fn do_update(&mut self, e: &ValidEntry, e_id: u32) {
+    fn update_entry(&mut self, e: &ValidEntry, e_id: u32) {
         self.pnt.storage.update_entry(&e, e_id);
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
@@ -431,10 +435,11 @@ impl TUIApp {
             Err(anyhow!("current screen is not dashboard screen, cannot flash"))
         }
     }
-
-    fn do_remove(&mut self, e_id: u32) {
+    /// 向 db 删除一个 entry，并更新 store_entry_count - 1
+    fn remove_entry(&mut self, e_id: u32) {
         self.pnt.storage.delete_entry(e_id);
         self.send_app_event(AppEvent::FlashVecItems(None));
+        self.store_entry_count -= 1;
     }
 
     /// 开启 find mode

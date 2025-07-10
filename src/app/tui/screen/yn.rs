@@ -1,7 +1,7 @@
 use crate::app::crypto::Encrypter;
-use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::entry::{EncryptedEntry, InputEntry};
 use crate::app::tui::colors::{
-    CL_BLACK, CL_DARK_DARK_DARK_RED, CL_DARK_DARK_RED, CL_DARK_RED, CL_LIGHT_BLACK, CL_WHITE,
+    CL_BLACK, CL_DDD_RED, CL_DD_RED, CL_D_RED, CL_L_BLACK, CL_WHITE,
 };
 use crate::app::tui::event::AppEvent;
 use crate::app::tui::rt::TUIApp;
@@ -15,19 +15,19 @@ pub enum YN {
 }
 
 const THEME_DELETE: Theme = Theme {
-    cl_global_bg: CL_DARK_DARK_RED,
-    cl_desc_bg: CL_DARK_DARK_DARK_RED,
-    cl_title_bg: CL_DARK_RED,
+    cl_global_bg: CL_DD_RED,
+    cl_desc_bg: CL_DDD_RED,
+    cl_title_bg: CL_D_RED,
     cl_title_fg: CL_WHITE,
-    cl_n_bg: CL_DARK_RED,
+    cl_n_bg: CL_D_RED,
     cl_n_fg: CL_WHITE,
-    cl_y_bg: CL_DARK_RED,
+    cl_y_bg: CL_D_RED,
     cl_y_fg: CL_WHITE,
     cl_desc_fg: CL_WHITE,
 };
 
 const THEME_SAVE: Theme = Theme {
-    cl_global_bg: CL_LIGHT_BLACK,
+    cl_global_bg: CL_L_BLACK,
     cl_desc_bg: CL_BLACK,
     cl_title_bg: CL_BLACK,
     cl_title_fg: CL_WHITE,

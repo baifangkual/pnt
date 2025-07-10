@@ -54,7 +54,7 @@ pub fn v_centered_percent(rect: Rect, centered_percent: u16) -> Rect {
     .areas::<3>(rect)[1]
 }
 
-/// 水平分为n份
+/// 水平分为n份，每份平均
 #[inline]
 pub fn horizontal_split<const N: usize>(rect: Rect) -> [Rect; N] {
     Layout::horizontal(Constraint::from_ratios([(1, N as u32); N])).areas(rect)

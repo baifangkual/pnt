@@ -1,9 +1,9 @@
-use crate::app::tui::colors::CL_WHITE;
+use crate::app::tui::colors::{CL_L_BLACK, CL_LL_BLACK, CL_WHITE};
 use crate::app::tui::layout::RectExt;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Stylize, Widget};
-use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
+use ratatui::prelude::{Color, Line, Span, Stylize, Text, Widget};
+use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, Padding, Paragraph};
 use std::sync::LazyLock;
 
 /// 帮助页面实体
@@ -27,19 +27,29 @@ impl Widget for &HelpPage {
         let block = Block::bordered()
             .title("help")
             .fg(CL_WHITE)
-            .border_type(BorderType::Plain);
+            .border_type(BorderType::Plain)
+            .padding(Padding::proportional(1));
         let inner_area = block.inner(area);
         block.render(area, buf);
-        Clear.render(inner_area, buf);
+        // Clear.render(inner_area, buf);
 
+        // todo 调整显示，使用table......
         let li = self
             .tips
             .iter()
-            .map(|tip| format!("{:<10}{:>30}", tip.key_map, tip.note))
-            .map(|tl| ListItem::new(tl).fg(CL_WHITE))
+            .enumerate()
+            .map(|(i, tip)| {
+                let l = Line::raw(&tip.key_map).fg(Color::Yellow).bold().left_aligned();
+                let r = Line::raw(&tip.note).fg(CL_WHITE).right_aligned();
+                let text = Text::from(vec![l, r]);
+                if i % 2 == 0 {
+                    ListItem::new(text).bg(CL_L_BLACK)
+                } else {
+                    ListItem::new(text).bg(CL_LL_BLACK)
+                }
+            })
             .collect::<Vec<ListItem>>();
-        let rect = inner_area.centered_percent(90, 90);
-        List::new(li).render(rect, buf);
+        List::new(li).render(inner_area, buf);
     }
 }
 
@@ -73,11 +83,11 @@ impl HelpPage {
                 },
                 HelpShowItem {
                     key_map: "<ESC>".to_string(),
-                    note: "back screen | quit-edit | quit-app | quit-find".to_string(),
+                    note: "back screen | [edit] quit-edit | quit-app | [find] find".to_string(),
                 },
                 HelpShowItem {
                     key_map: "<Enter>".to_string(),
-                    note: "detail current | quit-find".to_string(),
+                    note: "detail current | [find] find".to_string(),
                 },
                 HelpShowItem {
                     key_map: "o".to_string(),
@@ -88,16 +98,24 @@ impl HelpPage {
                     note: "create new".to_string(),
                 },
                 HelpShowItem {
-                    key_map: "u".to_string(),
-                    note: "update current".to_string(),
+                    key_map: "e".to_string(),
+                    note: "edit current".to_string(),
                 },
                 HelpShowItem {
                     key_map: "<Ctrl> s".to_string(),
-                    note: "save edit".to_string(),
+                    note: "[edit] save edit".to_string(),
                 },
                 HelpShowItem {
                     key_map: "d".to_string(),
                     note: "delete current".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "<Tab>".to_string(),
+                    note: "[edit] next textarea".to_string(),
+                },
+                HelpShowItem {
+                    key_map: "l".to_string(),
+                    note: "re-lock".to_string(),
                 },
             ],
         }

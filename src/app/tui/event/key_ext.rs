@@ -5,6 +5,7 @@ pub trait KeyEventExt {
     fn _is_f1(&self) -> bool;
     /// 退出
     fn _is_ctrl_c(&self) -> bool;
+    fn _is_e_ignore_case(&self) -> bool;
     /// 下-半页
     fn _is_ctrl_d(&self) -> bool;
     /// 上-半页
@@ -65,6 +66,10 @@ impl KeyEventExt for KeyEvent {
         } else {
             false
         }
+    }
+    
+    fn _is_e_ignore_case(&self) -> bool {
+        _is_press_char_ignore_case(self, 'e')
     }
 
     fn _is_ctrl_d(&self) -> bool {

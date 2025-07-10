@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_DARK_DARK_WHITE, CL_DARK_WHITE, CL_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE};
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -39,17 +39,20 @@ impl StatefulWidget for DashboardWidget {
     type State = DashboardState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let [l_5, area90_center, _] =
-            Layout::horizontal([Constraint::Fill(5), Constraint::Percentage(80), Constraint::Fill(5)]).areas(area);
+        let [l_5, area90_center, _] = Layout::horizontal([
+            Constraint::Length(4), // 不能为 0，否则 滚动条组件报错Scrollbar area is empty，防止终端重大小调整
+            Constraint::Percentage(93),
+            Constraint::Length(3),
+        ])
+        .areas(area);
 
         let layout_v = Layout::vertical([
-            Constraint::Min(3), // 搜索框
-            Constraint::Percentage(100),
-            Constraint::Min(1),
+            Constraint::Length(3), // 搜索框
+            Constraint::Fill(0),
         ]);
 
         // 搜索框， list 区域， 底部
-        let [q, l, b] = layout_v.areas(area90_center);
+        let [q, l] = layout_v.areas(area90_center);
 
         // find 查找的字符渲染
         let mut find_input_block = Block::bordered().border_type(BorderType::Plain);
@@ -60,7 +63,7 @@ impl StatefulWidget for DashboardWidget {
         let [icon, query_line_rect] =
             Layout::horizontal([Constraint::Length(3), Constraint::Fill(0)]).areas(rect_query_inner);
 
-        Paragraph::new("  ").fg(CL_DARK_WHITE).render(icon, buf);
+        Paragraph::new("  ").fg(CL_D_WHITE).render(icon, buf);
 
         // 当前已输入的查找要求值
         let current_find_input = state.current_find_input();
@@ -72,7 +75,7 @@ impl StatefulWidget for DashboardWidget {
             state.render_text_area(query_line_rect, buf);
         } else {
             // 否则用 paragraph渲染，无光标
-            find_input_block = find_input_block.fg(CL_DARK_WHITE);
+            find_input_block = find_input_block.fg(CL_D_WHITE);
             find_input_block.render(rect_query, buf);
             state.render_text_area(query_line_rect, buf);
         }
@@ -81,7 +84,7 @@ impl StatefulWidget for DashboardWidget {
         let inner_block = Block::new()
             .borders(Borders::BOTTOM | Borders::TOP)
             .border_type(BorderType::Plain)
-            .fg(CL_DARK_DARK_WHITE);
+            .fg(CL_DD_WHITE);
 
         // 计算每列的宽度比例（去除边框和padding后的可用宽度）
         let available_width = area.width as usize - 5; // 减去左右边距
@@ -108,21 +111,21 @@ impl StatefulWidget for DashboardWidget {
         let list = List::new(items)
             .block(inner_block)
             .fg(CL_WHITE)
-            .highlight_style(Style::default().fg(Color::Black).bg(CL_DARK_WHITE));
+            .highlight_style(Style::default().fg(CL_BLACK).bg(CL_DD_WHITE));
         // .highlight_symbol(&e_id);
 
         // 使用 StatefulWidget 渲染
         StatefulWidget::render(list, l, buf, state.cursor_mut_ref());
 
         let sb = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .style(Style::default().fg(CL_DARK_DARK_WHITE))
+            .style(Style::default().fg(CL_DD_WHITE))
             .symbols(ratatui::symbols::scrollbar::VERTICAL)
-            .thumb_style(Style::default().fg(CL_DARK_WHITE))
+            .thumb_style(Style::default().fg(CL_DD_WHITE))
             .track_symbol(Some("|"))
             .begin_symbol(Some(ratatui::symbols::DOT))
             .end_symbol(Some(ratatui::symbols::DOT));
         // 使用左边...
-        let [_, l_m, _] = layout_v.areas(l_5);
+        let [_, l_m] = layout_v.areas(l_5);
 
         StatefulWidget::render(sb, l_m.inner(Margin::new(1, 0)), buf, state.scrollbar_state_mut());
     }
