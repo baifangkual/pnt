@@ -1,3 +1,4 @@
+use crate::app::tui::colors::{CL_DARK_DARK_WHITE, CL_DARK_WHITE, CL_WHITE};
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::DashboardState;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -5,7 +6,6 @@ use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Styli
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use crate::app::tui::colors::{CL_DARK_DARK_WHITE, CL_DARK_WHITE, CL_WHITE};
 
 /// 处理文本使其适应指定宽度，考虑中文字符
 fn truncate_text(text: &str, max_width: usize) -> String {
@@ -66,27 +66,15 @@ impl StatefulWidget for DashboardWidget {
         let current_find_input = state.current_find_input();
 
         // find 时 框框 高亮
-        if state.find_mode {
+        if state.find_mode() {
             find_input_block = find_input_block.fg(Color::Yellow);
             find_input_block.render(rect_query, buf);
-            // 使用 textArea组件的渲染，渲染带光标
             state.render_text_area(query_line_rect, buf);
         } else {
             // 否则用 paragraph渲染，无光标
             find_input_block = find_input_block.fg(CL_DARK_WHITE);
             find_input_block.render(rect_query, buf);
-
-            // find_input 是否无值，无值则出现placeholder
-            if current_find_input.is_empty() {
-                Paragraph::new(" find")
-                    .fg(Color::DarkGray)
-                    .left_aligned()
-                    .render(query_line_rect, buf);
-            } else {
-                Paragraph::new(current_find_input)
-                    .left_aligned()
-                    .render(query_line_rect, buf);
-            }
+            state.render_text_area(query_line_rect, buf);
         }
 
         // list 区域

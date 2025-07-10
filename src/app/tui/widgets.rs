@@ -4,7 +4,7 @@ use crate::app::tui::colors::{CL_RED, CL_WHITE};
 use crate::app::tui::screen::states::NeedMainPwdState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
-use ratatui::prelude::{Layout, Line, Style, Stylize, Widget};
+use ratatui::prelude::{Layout, Line, Modifier, Style, Stylize, Widget};
 use ratatui::widgets::{Block, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use tui_textarea::TextArea;
@@ -14,13 +14,32 @@ mod editing;
 pub mod help;
 mod yn;
 
+pub trait TextAreaExt {
+    /// 设置 textarea 所谓 “激活状态”
+    ///
+    /// "激活的“ 光标可见，反之不可见
+    fn set_activate_state(&mut self, state: bool);
+}
+impl TextAreaExt for TextArea<'_> {
+    fn set_activate_state(&mut self, state: bool) {
+        if state {
+            // 光标处 反色，即显示光标
+            self.set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
+        } else {
+            // 光标不可见
+            self.set_cursor_style(Style::default());
+        }
+    }
+}
+
 /// 返回一个新的 tui_textarea::TextArea
-pub fn new_input_textarea(place_holder_text: Option<&str>) -> TextArea<'_> {
+pub fn new_input_textarea(place_holder_text: Option<&str>, activate_state: bool) -> TextArea<'_> {
     let mut textarea = TextArea::default();
     if let Some(place_holder_text) = place_holder_text {
         textarea.set_placeholder_text(place_holder_text);
     }
     textarea.set_cursor_line_style(Style::default());
+    textarea.set_activate_state(activate_state);
     textarea
 }
 

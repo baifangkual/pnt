@@ -158,13 +158,11 @@ impl TUIApp {
             // 仪表盘
             DashboardV1(state) => {
                 // dashboard find
-                if !state.find_mode {
+                if !state.find_mode() {
                     if let KeyCode::Char('f' | 'F') = key_event.code {
                         self.send_app_event(AppEvent::TurnOnFindMode);
                         return Ok(());
                     }
-                    // todo 后续因 tick丢弃 securityContext情况，以及detail页面的l响应，
-                    //  这里代码应为 调用公共方法
                     // 响应 按下 l 丢弃 securityContext以重新锁定
                     if let KeyCode::Char('l' | 'L') = key_event.code {
                         self.re_lock();
@@ -253,13 +251,22 @@ impl TUIApp {
                 }
             }
             Edit(state) => {
-                // 上移
-                if key_event._is_up() {
-                    self.send_app_event(AppEvent::CursorUp);
-                    return Ok(());
+                // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
+                if *state.current_editing_type() != Editing::Notes {
+                    // 上移
+                    if key_event._is_up() {
+                        self.send_app_event(AppEvent::CursorUp);
+                        return Ok(());
+                    }
+                    // 下移
+                    if key_event._is_down() {
+                        self.send_app_event(AppEvent::CursorDown);
+                        return Ok(());
+                    }
                 }
-                // 下移
-                if key_event._is_down() || key_event._is_tab() {
+
+                // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
+                if key_event._is_tab() {
                     self.send_app_event(AppEvent::CursorDown);
                     return Ok(());
                 }
@@ -303,7 +310,7 @@ impl TUIApp {
     /// * 其他情况回退屏幕，无屏幕则发送退出事件
     pub fn handle_key_esc_event(&mut self) -> Result<()> {
         if let DashboardV1(state) = &mut self.screen {
-            if state.find_mode {
+            if state.find_mode() {
                 self.send_app_event(AppEvent::TurnOffFindMode);
             } else if !state.current_find_input().is_empty() {
                 state.clear_find_input();
@@ -433,7 +440,7 @@ impl TUIApp {
     /// 开启 find mode
     fn turn_on_find_mode(&mut self) -> Result<()> {
         if let DashboardV1(state) = &mut self.screen {
-            state.find_mode = true;
+            state.set_find_mode(true);
             Ok(())
         } else {
             Err(anyhow!("not Dashboard screen, no find mode"))
@@ -443,7 +450,7 @@ impl TUIApp {
     /// 关闭 find mode
     fn turn_off_find_mode(&mut self) -> Result<()> {
         if let DashboardV1(state) = &mut self.screen {
-            state.find_mode = false;
+            state.set_find_mode(false);
             // 获取 find_input 值，刷新vec
             if !state.current_find_input().is_empty() {
                 let f = state.current_find_input().into();

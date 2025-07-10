@@ -1,19 +1,19 @@
 use super::rt::TUIApp;
+use crate::app::tui::colors::{CL_GLOBAL_BG, CL_GLOBAL_TITLE, CL_RED, CL_WHITE};
 use crate::app::tui::layout;
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;
+use ratatui::layout::Alignment;
 use ratatui::prelude::Line;
+use ratatui::widgets::Padding;
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Stylize},
     widgets::{Block, StatefulWidget, Widget},
 };
-use ratatui::layout::Alignment;
-use ratatui::widgets::Padding;
-use crate::app::tui::colors::{CL_GLOBAL_BG, CL_GLOBAL_TITLE, CL_RED, CL_WHITE};
 
 const TITLE: &str = concat!(clap::crate_name!(), " v", clap::crate_version!(), " ?:<f1>");
 
@@ -39,14 +39,15 @@ impl Widget for &mut TUIApp {
         // mp状态图标
         if self.pnt.is_verified() {
             ratatui::widgets::Paragraph::new("󰌾 UNLOCK")
-                .fg(CL_WHITE).bg(CL_RED)
+                .fg(CL_WHITE)
+                .bg(CL_RED)
                 .alignment(Alignment::Center)
                 .render(bn[0], buf);
         } else {
             ratatui::widgets::Paragraph::new("󰌾 LOCK")
-                .fg(CL_WHITE).bg(CL_GLOBAL_TITLE)
+                .fg(CL_WHITE)
+                .bg(CL_GLOBAL_TITLE)
                 .alignment(Alignment::Center)
-
                 .render(bn[0], buf);
         }
 

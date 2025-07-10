@@ -1,3 +1,4 @@
+mod colors;
 mod event;
 mod intents;
 mod layout;
@@ -5,7 +6,6 @@ mod rt;
 mod screen;
 mod ui;
 mod widgets;
-mod colors;
 
 use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;

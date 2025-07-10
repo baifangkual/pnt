@@ -3,7 +3,7 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::ValidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::widgets::new_input_textarea;
+use crate::app::tui::widgets::{TextAreaExt, new_input_textarea};
 use anyhow::{Context, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -56,9 +56,12 @@ impl EditingState {
     }
 
     pub fn new_creating() -> Self {
+        let editing = Editing::default();
+        let mut textarea4 = Self::new4();
+        textarea4[editing.index()].set_activate_state(true); // 光标可见
         Self {
-            editing: Editing::About,
-            input_textarea: Self::new4(),
+            editing,
+            input_textarea: textarea4,
             e_id: None,
         }
     }
@@ -66,16 +69,20 @@ impl EditingState {
     /// 输入框4个
     fn new4() -> [TextArea<'static>; 4] {
         [
-            new_input_textarea(Some("require about")),
-            new_input_textarea(Some("require username")),
-            new_input_textarea(Some("require password")),
-            new_input_textarea(None),
+            new_input_textarea(Some("require about"), false),
+            new_input_textarea(Some("require username"), false),
+            new_input_textarea(Some("require password"), false),
+            new_input_textarea(None, false),
         ]
     }
 
     /// 返回指定的输入框
     pub fn textarea(&self, editing: Editing) -> &TextArea<'static> {
         &self.input_textarea[editing.index()]
+    }
+    /// 返回持有的所有textarea切片引用
+    pub fn all_textarea(&self) -> &[TextArea<'static>; 4] {
+        &self.input_textarea
     }
 
     /// 某个框的内容
@@ -93,12 +100,27 @@ impl EditingState {
 
     /// 光标向上移动，若当前光标为Name，则移动到Password
     pub fn cursor_up(&mut self) {
+        // 将当前置位光标隐藏，将新的置位光标不隐藏
+        self.input_textarea[self.editing.index()].set_activate_state(false);
         self.editing = match self.editing {
             Editing::About => Editing::Notes,
             Editing::Username => Editing::About,
             Editing::Password => Editing::Username,
             Editing::Notes => Editing::Password,
-        }
+        };
+        self.input_textarea[self.editing.index()].set_activate_state(true);
+    }
+
+    /// 光标向下移动，若当前光标为Password，则移动到Name
+    pub fn cursor_down(&mut self) {
+        self.input_textarea[self.editing.index()].set_activate_state(false);
+        self.editing = match self.editing {
+            Editing::About => Editing::Username,
+            Editing::Username => Editing::Password,
+            Editing::Password => Editing::Notes,
+            Editing::Notes => Editing::About,
+        };
+        self.input_textarea[self.editing.index()].set_activate_state(true);
     }
 
     /// 当前输入是否有效
@@ -141,16 +163,6 @@ impl EditingState {
         }
         Ok(encrypter.encrypt(&self.current_input_entry())?)
     }
-
-    /// 光标向下移动，若当前光标为Password，则移动到Name
-    pub fn cursor_down(&mut self) {
-        self.editing = match self.editing {
-            Editing::About => Editing::Username,
-            Editing::Username => Editing::Password,
-            Editing::Password => Editing::Notes,
-            Editing::Notes => Editing::About,
-        }
-    }
 }
 
 /// 表示正在编辑 UserInputEntry的 哪一个
@@ -178,7 +190,7 @@ impl Editing {
 #[derive(Debug, Clone)]
 pub struct DashboardState {
     // 控制 find_input 的 标志位
-    pub find_mode: bool,
+    find_mode: bool,
     find_input: TextArea<'static>,
     entries: Vec<EncryptedEntry>,
     cursor: ListState,               // 添加ListState来控制滚动
@@ -196,11 +208,19 @@ impl DashboardState {
         let scrollbar_state = ScrollbarState::new(entries.len());
         Self {
             find_mode: false,
-            find_input: new_input_textarea(Some("find")),
+            find_input: new_input_textarea(Some("find"), false),
             entries,
             cursor,
             scrollbar_state,
         }
+    }
+
+    pub fn set_find_mode(&mut self, mode: bool) {
+        self.find_mode = mode;
+        self.find_input.set_activate_state(mode)
+    }
+    pub fn find_mode(&self) -> bool {
+        self.find_mode
     }
 
     pub fn current_find_input(&self) -> &str {
@@ -217,7 +237,7 @@ impl DashboardState {
     }
 
     pub fn clear_find_input(&mut self) {
-        self.find_input = new_input_textarea(Some("find"));
+        self.find_input = new_input_textarea(Some("find"), false);
     }
 
     /// 对 entries 进行排序
