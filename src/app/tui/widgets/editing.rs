@@ -3,6 +3,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, Clear, Paragraph};
+use crate::app::tui::colors::CL_WHITE;
 
 impl Widget for &EditingState {
     fn render(self, area: Rect, buf: &mut Buffer) {
@@ -41,10 +42,10 @@ impl Widget for &EditingState {
             " 󰌿 password "
         };
 
-        let b_about = Block::bordered().title(title_name).fg(Color::White);
-        let b_username = Block::bordered().title(title_ident).fg(Color::White);
-        let b_password = Block::bordered().title(title_password).fg(Color::White);
-        let b_notes = Block::bordered().title(" 󰦨 notes ").fg(Color::White);
+        let b_about = Block::bordered().title(title_name).fg(CL_WHITE);
+        let b_username = Block::bordered().title(title_ident).fg(CL_WHITE);
+        let b_password = Block::bordered().title(title_password).fg(CL_WHITE);
+        let b_notes = Block::bordered().title(" 󰦨 notes ").fg(CL_WHITE);
 
         let mut blocks = [Some(b_about), Some(b_username), Some(b_password), Some(b_notes)];
         let paragraph_text = [about, username, password, notes];

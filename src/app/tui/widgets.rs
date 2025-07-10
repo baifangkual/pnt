@@ -1,9 +1,10 @@
 use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
 use crate::app::entry::InputEntry;
+use crate::app::tui::colors::{CL_RED, CL_WHITE};
 use crate::app::tui::screen::states::NeedMainPwdState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
-use ratatui::prelude::{Color, Layout, Line, Style, Stylize, Widget};
+use ratatui::prelude::{Layout, Line, Style, Stylize, Widget};
 use ratatui::widgets::{Block, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use tui_textarea::TextArea;
@@ -32,20 +33,18 @@ impl Widget for &InputEntry {
         let desc = self.notes.as_str();
         let identity = self.username.as_str();
         let password = self.password.as_str();
-        let rc = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Length(3),
-                Constraint::Length(3),
-                Constraint::Fill(0),
-            ])
-            .split(area);
+        let rc = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Fill(0),
+        ])
+        .split(area);
 
-        let b_name = Block::bordered().title(" 󰦨 about ").fg(Color::White);
-        let b_ident = Block::bordered().title(" 󰌿 username ").fg(Color::Red);
-        let b_password = Block::bordered().title(" 󰌿 password ").fg(Color::Red);
-        let b_description = Block::bordered().title(" 󰦨 notes ").fg(Color::White);
+        let b_name = Block::bordered().title(" 󰦨 about ").fg(CL_WHITE);
+        let b_ident = Block::bordered().title(" 󰌿 username ").fg(CL_RED);
+        let b_password = Block::bordered().title(" 󰌿 password ").fg(CL_RED);
+        let b_description = Block::bordered().title(" 󰦨 notes ").fg(CL_WHITE);
 
         Paragraph::new(name).block(b_name).render(rc[0], buf);
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);
@@ -63,16 +62,16 @@ impl Widget for &NeedMainPwdState {
 
         let block = Block::bordered()
             .border_type(ratatui::widgets::BorderType::QuadrantOutside)
-            .fg(Color::Red)
-            .bg(Color::Red)
+            .fg(CL_RED)
+            .bg(CL_RED)
             .padding(Padding::horizontal(3));
 
         let block = if self.retry_count != 0 {
             let line = Line::from(format!(
-                "VALID PASSWORD: ({}/{})",
+                " VALID PASSWORD: ({}/{})",
                 self.retry_count, ALLOC_VALID_MAIN_PASS_MAX
             ))
-            .fg(Color::White);
+            .fg(CL_WHITE);
             block.title_bottom(line.centered())
         } else {
             block
@@ -84,12 +83,12 @@ impl Widget for &NeedMainPwdState {
 
         let rc_box_box = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Fill(0), Constraint::Length(3), Constraint::Fill(0)])
+            .constraints([Constraint::Fill(0), Constraint::Length(3), Constraint::Fill(0)])
             .split(inner_area);
 
         let box_name = Block::default()
             .title("[󰌿] MAIN PASSWORD")
-            .fg(Color::White)
+            .fg(CL_WHITE)
             .borders(Borders::ALL);
 
         let i = self.mp_input.chars().count();

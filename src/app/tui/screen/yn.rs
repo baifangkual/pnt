@@ -1,13 +1,61 @@
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
+use crate::app::tui::colors::{CL_BLACK, CL_DARK_DARK_DARK_RED, CL_DARK_DARK_RED, CL_DARK_RED, CL_LIGHT_BLACK, CL_WHITE};
 use crate::app::tui::event::AppEvent;
 use crate::app::tui::rt::TUIApp;
+use ratatui::prelude::Color;
 
 /// 二分类枚举
 #[derive(Debug, Clone, Copy)]
 pub enum YN {
     Yes,
     No,
+}
+
+const THEME_DELETE: Theme = Theme {
+    cl_global_bg: CL_DARK_DARK_RED,
+    cl_desc_bg: CL_DARK_DARK_DARK_RED,
+    cl_title_bg: CL_DARK_RED,
+    cl_title_fg: CL_WHITE,
+    cl_n_bg: CL_DARK_RED,
+    cl_n_fg: CL_WHITE,
+    cl_y_bg: CL_DARK_RED,
+    cl_y_fg: CL_WHITE,
+    cl_desc_fg: CL_WHITE,
+};
+
+const THEME_SAVE: Theme = Theme {
+    cl_global_bg: CL_LIGHT_BLACK,
+    cl_desc_bg: CL_BLACK,
+    cl_title_bg: CL_BLACK,
+    cl_title_fg: CL_WHITE,
+    cl_n_bg: CL_BLACK,
+    cl_n_fg: CL_WHITE,
+    cl_y_bg: CL_BLACK,
+    cl_y_fg: CL_WHITE,
+    cl_desc_fg: CL_WHITE,
+};
+
+#[derive(Copy, Clone)]
+pub struct Theme {
+    /// bg yn页面全局
+    pub cl_global_bg: Color,
+    /// bg desc部分
+    pub cl_desc_fg: Color,
+    /// fg desc文字颜色
+    pub cl_desc_bg: Color,
+    /// fg title文字颜色
+    pub cl_title_fg: Color,
+    /// bg title
+    pub cl_title_bg: Color,
+    /// y选项fy
+    pub cl_y_fg: Color,
+    /// y选项bg
+    pub cl_y_bg: Color,
+    /// n选项fy
+    pub cl_n_fg: Color,
+    /// n选项bg
+    pub cl_n_bg: Color,
 }
 
 /// 闭包，表示在Y/N情况下的行为
@@ -23,17 +71,24 @@ pub struct YNState {
     pub n_call: Option<FnCallYN>,
     /// yn 状态，None表示未设定yn
     pub yn: Option<YN>,
+    /// 显示颜色信息
+    pub theme: Theme,
 }
 
 impl YNState {
-    pub fn new_just_title_desc(title: String, desc: String) -> Self {
+    pub fn new(title: String, desc: String, theme: Theme) -> Self {
         YNState {
             title,
             desc,
             y_call: None,
             n_call: None,
             yn: None,
+            theme,
         }
+    }
+
+    pub fn theme_mut(&mut self) -> &mut Theme {
+        &mut self.theme
     }
     pub fn change_yn(&mut self, yn: YN) {
         self.yn = Some(yn);
@@ -65,7 +120,7 @@ impl YNState {
             e_name, e_desc
         );
         let e_id = encrypted_entry.id;
-        let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
+        let mut yn = Self::new(tip_title, tip_desc, THEME_DELETE);
         yn.set_y_call(Box::new(move |tui| {
             // 发送删除事件
             tui.send_app_event(AppEvent::EntryRemove(e_id));
@@ -93,7 +148,7 @@ impl YNState {
              -󰦨 notes-------------\n{}",
             &ie.about, &ie.username, &ie.password, e_notes_dots
         );
-        let mut yn = Self::new_just_title_desc(tip_title, tip_desc);
+        let mut yn = Self::new(tip_title, tip_desc, THEME_SAVE);
         yn.set_y_call(Box::new(move |tui| {
             let valid = tui.pnt.try_encrypter()?.encrypt(&ie)?;
             if let Some(e_id) = e_id {

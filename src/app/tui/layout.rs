@@ -54,10 +54,26 @@ pub fn v_centered_percent(rect: Rect, centered_percent: u16) -> Rect {
     .areas::<3>(rect)[1]
 }
 
+/// 水平分为n份
+#[inline]
+pub fn horizontal_split<const N: usize>(rect: Rect) -> [Rect; N] {
+    Layout::horizontal(Constraint::from_ratios([(1, N as u32); N])).areas(rect)
+}
+
+/// 返回 rect 的 底栏
+#[inline]
+pub fn bottom_rect(rect: Rect) -> Rect {
+    Layout::vertical([Constraint::Fill(0), Constraint::Length(1)]).areas::<2>(rect)[1]
+}
+
 pub trait RectExt {
     fn h_centered_percent(self, centered_percent: u16) -> Self;
     fn v_centered_percent(self, centered_percent: u16) -> Self;
     fn centered_percent(self, percent_width: u16, percent_height: u16) -> Self;
+
+    fn bottom_rect(self) -> Rect;
+
+    fn horizontal_split<const N: usize>(self) -> [Rect; N];
 }
 impl RectExt for Rect {
     fn h_centered_percent(self, centered_percent: u16) -> Self {
@@ -68,5 +84,11 @@ impl RectExt for Rect {
     }
     fn centered_percent(self, percent_width: u16, percent_height: u16) -> Self {
         centered_percent(percent_width, percent_height, self)
+    }
+    fn bottom_rect(self) -> Rect {
+        bottom_rect(self)
+    }
+    fn horizontal_split<const N: usize>(self) -> [Rect; N] {
+        horizontal_split(self)
     }
 }

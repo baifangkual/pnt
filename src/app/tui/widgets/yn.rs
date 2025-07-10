@@ -1,66 +1,64 @@
 use crate::app::tui::layout;
-use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::yn::YNState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
-use ratatui::prelude::{Alignment, Color, Constraint, Direction, Line, Stylize, Widget};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
-
-const DELETE_TIP_BG_COLOR: Color = Color::from_u32(0x220000);
-const DELETE_TIP_DESC_BG_COLOR: Color = Color::from_u32(0x1E0000);
+use ratatui::prelude::{Alignment, Constraint, Line, Stylize, Widget};
+use ratatui::widgets::{Block, Clear, Padding, Paragraph, Wrap};
 
 /// 删除前提示
 impl Widget for &YNState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
-        let block = Block::bordered()
-            .border_type(ratatui::widgets::BorderType::QuadrantOutside)
-            .fg(DELETE_TIP_BG_COLOR)
-            .bg(DELETE_TIP_BG_COLOR);
+        let block = Block::new().bg(self.theme.cl_global_bg).padding(Padding::uniform(1));
 
         let inner_area = block.inner(area);
 
         block.render(area, buf);
 
-        let rc_box_box = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Length(1),
-                Constraint::Fill(0),
-                Constraint::Percentage(60),
-                Constraint::Fill(0),
-                Constraint::Length(1),
-            ])
-            .split(inner_area);
+        let [r_title, _, r_desc, _, r_bottom] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(0),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
+        .areas(inner_area);
 
         Paragraph::new(
             Line::from(format!(" [] {} ", self.title.as_str()))
-                .fg(Color::White)
-                .bg(Color::Red),
+                .fg(self.theme.cl_title_fg)
+                .bg(self.theme.cl_title_bg),
         )
         .alignment(Alignment::Center)
-        .render(rc_box_box[0], buf);
+        .render(r_title, buf);
 
-        let box_desc = Block::default()
-            .fg(DELETE_TIP_DESC_BG_COLOR)
-            .bg(DELETE_TIP_DESC_BG_COLOR)
-            .borders(Borders::ALL);
-
+        // desc 部分
+        let box_desc = Block::new().bg(self.theme.cl_desc_bg).padding(Padding::proportional(1));
         Paragraph::new(self.desc.as_str())
             .block(box_desc)
             .wrap(Wrap { trim: false })
             .alignment(Alignment::Left)
-            .fg(Color::White)
-            .render(rc_box_box[2].h_centered_percent(90), buf);
+            .fg(self.theme.cl_desc_fg)
+            .render(r_desc, buf);
 
         // 底部左右二分
-        let rc_bottom_lr = layout::horizontal_split2(rc_box_box[4]);
+        let rc_bottom_lr = layout::horizontal_split2(r_bottom);
         // 底部 YN
-        Paragraph::new(Line::from("[(Y)es]").centered().bg(Color::Red).fg(Color::White))
-            .alignment(Alignment::Center)
-            .render(rc_bottom_lr[0], buf);
-        Paragraph::new(Line::from("[(N)o]").centered().bg(Color::Red).fg(Color::White))
-            .alignment(Alignment::Center)
-            .render(rc_bottom_lr[1], buf);
+        Paragraph::new(
+            Line::from("[ (Y)es ]")
+                .centered()
+                .bg(self.theme.cl_y_bg)
+                .fg(self.theme.cl_y_fg),
+        )
+        .alignment(Alignment::Center)
+        .render(rc_bottom_lr[0], buf);
+        Paragraph::new(
+            Line::from("[ (N)o ]")
+                .centered()
+                .bg(self.theme.cl_n_bg)
+                .fg(self.theme.cl_n_fg),
+        )
+        .alignment(Alignment::Center)
+        .render(rc_bottom_lr[1], buf);
     }
 }

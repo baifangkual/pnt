@@ -5,6 +5,7 @@ use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Styli
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
+use crate::app::tui::colors::{CL_DARK_DARK_WHITE, CL_DARK_WHITE, CL_WHITE};
 
 /// 处理文本使其适应指定宽度，考虑中文字符
 fn truncate_text(text: &str, max_width: usize) -> String {
@@ -58,7 +59,8 @@ impl StatefulWidget for DashboardWidget {
         // lr
         let [icon, query_line_rect] =
             Layout::horizontal([Constraint::Length(3), Constraint::Fill(0)]).areas(rect_query_inner);
-        Paragraph::new("  ").fg(Color::from_u32(0xC6C8CC)).render(icon, buf);
+
+        Paragraph::new("  ").fg(CL_DARK_WHITE).render(icon, buf);
 
         // 当前已输入的查找要求值
         let current_find_input = state.current_find_input();
@@ -71,7 +73,7 @@ impl StatefulWidget for DashboardWidget {
             state.render_text_area(query_line_rect, buf);
         } else {
             // 否则用 paragraph渲染，无光标
-            find_input_block = find_input_block.fg(Color::from_u32(0xC6C8CC));
+            find_input_block = find_input_block.fg(CL_DARK_WHITE);
             find_input_block.render(rect_query, buf);
 
             // find_input 是否无值，无值则出现placeholder
@@ -91,7 +93,7 @@ impl StatefulWidget for DashboardWidget {
         let inner_block = Block::new()
             .borders(Borders::BOTTOM | Borders::TOP)
             .border_type(BorderType::Plain)
-            .fg(Color::from_u32(0x6E737C));
+            .fg(CL_DARK_DARK_WHITE);
 
         // 计算每列的宽度比例（去除边框和padding后的可用宽度）
         let available_width = area.width as usize - 5; // 减去左右边距
@@ -109,8 +111,6 @@ impl StatefulWidget for DashboardWidget {
                 let index_str = format!("{:>width$}", i, width = index_width);
                 let name_str = truncate_text(&entry.about, name_width);
                 let desc_str = truncate_text(entry.notes.as_deref().unwrap_or(""), desc_width);
-                // let name_str = &entry.about;
-                // let desc_str = entry.notes.as_deref().unwrap_or("_");
                 let line_content = format!("{} | {} │ {}", index_str, name_str, desc_str);
                 ListItem::new(Line::from(line_content))
             })
@@ -119,17 +119,17 @@ impl StatefulWidget for DashboardWidget {
         // 创建列表并设置样式
         let list = List::new(items)
             .block(inner_block)
-            .fg(Color::from_u32(0xDADBDE))
-            .highlight_style(Style::default().fg(Color::Black).bg(Color::from_u32(0xD9D9D9)));
+            .fg(CL_WHITE)
+            .highlight_style(Style::default().fg(Color::Black).bg(CL_DARK_WHITE));
         // .highlight_symbol(&e_id);
 
         // 使用 StatefulWidget 渲染
         StatefulWidget::render(list, l, buf, state.cursor_mut_ref());
 
         let sb = Scrollbar::new(ScrollbarOrientation::VerticalRight)
-            .style(Style::default().fg(Color::from_u32(0x6E737C)))
+            .style(Style::default().fg(CL_DARK_DARK_WHITE))
             .symbols(ratatui::symbols::scrollbar::VERTICAL)
-            .thumb_style(Style::default().fg(Color::from_u32(0xC6C8CC)))
+            .thumb_style(Style::default().fg(CL_DARK_WHITE))
             .track_symbol(Some("|"))
             .begin_symbol(Some(ratatui::symbols::DOT))
             .end_symbol(Some(ratatui::symbols::DOT));

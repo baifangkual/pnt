@@ -159,9 +159,16 @@ impl TUIApp {
             DashboardV1(state) => {
                 // dashboard find
                 if !state.find_mode {
-                    if let KeyCode::Char('f') = key_event.code {
+                    if let KeyCode::Char('f' | 'F') = key_event.code {
                         self.send_app_event(AppEvent::TurnOnFindMode);
                         return Ok(());
+                    }
+                    // todo 后续因 tick丢弃 securityContext情况，以及detail页面的l响应，
+                    //  这里代码应为 调用公共方法
+                    // 响应 按下 l 丢弃 securityContext以重新锁定
+                    if let KeyCode::Char('l' | 'L') = key_event.code {
+                        self.re_lock();
+                        return Ok(()); // mut 借用返回
                     }
                     if key_event._is_q_ignore_case() {
                         self.back_screen();
@@ -218,6 +225,10 @@ impl TUIApp {
                     let de_id = *e_id;
                     self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(de_id)));
                     return Ok(());
+                }
+                if let KeyCode::Char('l' | 'L') = key_event.code {
+                    self.re_lock();
+                    return Ok(()); // mut 借用返回
                 }
             }
             // 弹窗页面
@@ -310,9 +321,22 @@ impl TUIApp {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn invoke_handle_tick(&self) {
+    pub fn invoke_handle_tick(&mut self) {
         // 可用判定当前包含被解密的字段的窗口打开的时间，
         // 超过一定阈值则发送关闭子窗口的事件
+    }
+
+    /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘
+    ///
+    /// 若并非unlock状态，则什么也不做
+    fn re_lock(&mut self) {
+        if self.pnt.is_verified() {
+            self.pnt.security_context = None;
+            // 屏幕回退
+            while !self.screen.is_dashboard() {
+                self.back_screen();
+            }
+        }
     }
 
     /// 处理光标向上事件

@@ -4,6 +4,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, Clear, List, ListItem};
 use std::sync::LazyLock;
+use crate::app::tui::colors::CL_WHITE;
 
 /// 帮助页面实体
 pub struct HelpShowItem {
@@ -25,7 +26,7 @@ impl Widget for &HelpPage {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::bordered()
             .title("help")
-            .fg(Color::White)
+            .fg(CL_WHITE)
             .border_type(BorderType::Plain);
         let inner_area = block.inner(area);
         block.render(area, buf);
@@ -34,8 +35,8 @@ impl Widget for &HelpPage {
         let li = self
             .tips
             .iter()
-            .map(|tip| format!("{:>10}          {:<20}", tip.key_map, tip.note))
-            .map(|tl| ListItem::new(tl).fg(Color::White))
+            .map(|tip| format!("{:<10}{:>30}", tip.key_map, tip.note))
+            .map(|tl| ListItem::new(tl).fg(CL_WHITE))
             .collect::<Vec<ListItem>>();
         let rect = inner_area.centered_percent(90, 90);
         List::new(li).render(rect, buf);

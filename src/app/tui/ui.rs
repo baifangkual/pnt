@@ -1,5 +1,6 @@
 use super::rt::TUIApp;
 use crate::app::tui::layout;
+use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;
@@ -8,37 +9,46 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Stylize},
-    widgets::{Block, BorderType, StatefulWidget, Widget},
+    widgets::{Block, StatefulWidget, Widget},
 };
+use ratatui::layout::Alignment;
+use ratatui::widgets::Padding;
+use crate::app::tui::colors::{CL_GLOBAL_BG, CL_GLOBAL_TITLE, CL_RED, CL_WHITE};
 
 const TITLE: &str = concat!(clap::crate_name!(), " v", clap::crate_version!(), " ?:<f1>");
-
-/// 深灰色背景
-const TUI_BG_COLOR: Color = Color::from_u32(0x252624);
-/// title color
-const TUI_TITLE_COLOR: Color = Color::from_u32(0x4D4F4B);
 
 impl Widget for &mut TUIApp {
     /// 渲染函数入口
     ///
     /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::bordered()
-            .title(Line::from(TITLE).fg(TUI_TITLE_COLOR))
-            .fg(TUI_BG_COLOR) // 灰色填充
-            .bg(TUI_BG_COLOR)
-            .border_type(BorderType::QuadrantOutside);
+        let block = Block::new()
+            .title(Line::from(TITLE).fg(CL_GLOBAL_TITLE))
+            .bg(CL_GLOBAL_BG)
+            .padding(Padding::bottom(1)); // 底部inner一行
+
         // 创建内容区域
         let inner_area = block.inner(area);
         block.render(area, buf);
 
-        // 当 back_screen 有值，一定为 dash，渲染之
-        // 若无，则证明当前为 dash，则 if 内 不渲染
-        // 注释该，仅渲染 当前 screen
-        // if let Some( Screen::Dashboard(state)) = self.back_screen.get_mut(0) {
-        //     let dash_widget = DashboardWidget;
-        //     dash_widget.render(inner_area, buf, state)
-        // }
+        // todo 底部状态栏... horizontal_split::<10>() 不应
+        //  该是长条...
+        let bottom_rect = area.bottom_rect();
+        let bn = bottom_rect.horizontal_split::<10>();
+
+        // mp状态图标
+        if self.pnt.is_verified() {
+            ratatui::widgets::Paragraph::new("󰌾 UNLOCK")
+                .fg(CL_WHITE).bg(CL_RED)
+                .alignment(Alignment::Center)
+                .render(bn[0], buf);
+        } else {
+            ratatui::widgets::Paragraph::new("󰌾 LOCK")
+                .fg(CL_WHITE).bg(CL_GLOBAL_TITLE)
+                .alignment(Alignment::Center)
+
+                .render(bn[0], buf);
+        }
 
         // 渲染当前屏幕
         match &mut self.screen {
