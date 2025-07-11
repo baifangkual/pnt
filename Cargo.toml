@@ -21,8 +21,6 @@ strip = true # https://doc.rust-lang.org/rustc/codegen-options/index.html#strip
 [dependencies]
 anyhow = "1.0.98"
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
-env_logger = "0.11.8"
-log = "0.4.27"
 ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["serde_derive"] }
 rusqlite = { version = "0.36.0", features = ["bundled", "chrono"] }
