@@ -67,7 +67,7 @@ impl KeyEventExt for KeyEvent {
             false
         }
     }
-    
+
     fn _is_e_ignore_case(&self) -> bool {
         _is_press_char_ignore_case(self, 'e')
     }

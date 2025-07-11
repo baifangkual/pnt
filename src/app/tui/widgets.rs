@@ -1,4 +1,4 @@
-use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
+use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::entry::InputEntry;
 use crate::app::tui::colors::{CL_RED, CL_WHITE};
 use crate::app::tui::screen::states::NeedMainPwdState;
@@ -87,8 +87,8 @@ impl Widget for &NeedMainPwdState {
 
         let block = if self.retry_count != 0 {
             let line = Line::from(format!(
-                " VALID PASSWORD: ({}/{})",
-                self.retry_count, ALLOC_VALID_MAIN_PASS_MAX
+                " INVALID PASSWORD: ({}/{})",
+                self.retry_count, ALLOC_INVALID_MAIN_PASS_MAX
             ))
             .fg(CL_WHITE);
             block.title_bottom(line.centered())

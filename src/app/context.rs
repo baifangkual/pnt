@@ -5,6 +5,7 @@ use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
 use crate::app::storage::sqlite::SqliteConn;
 use anyhow::Context;
+use std::path::Path;
 
 /// 安全上下文，包含主密码校验器和条目加密解密器
 pub struct SecurityContext {
@@ -19,31 +20,30 @@ impl SecurityContext {
 /// 运行时程序上下文
 pub struct PntContext {
     pub(crate) cfg: Cfg,
-    pub(crate) cli_args: CliArgs,
     pub(crate) storage: SqliteConn,
     /// 只有输入了主密码的情况该字段才不为None
     pub(crate) security_context: Option<SecurityContext>,
 }
 
 impl PntContext {
-    pub fn new_with_verified(
-        cfg: Cfg, cli_args: CliArgs, storage: SqliteConn, security_context: SecurityContext,
-    ) -> Self {
+    pub fn new_with_verified(cfg: Cfg, storage: SqliteConn, security_context: SecurityContext) -> Self {
         Self {
             cfg,
-            cli_args,
             storage,
             security_context: Some(security_context),
         }
     }
-    pub fn new_with_un_verified(cfg: Cfg, cli_args: CliArgs, storage: SqliteConn) -> Self {
+    pub fn new_with_un_verified(cfg: Cfg, storage: SqliteConn) -> Self {
         Self {
             cfg,
-            cli_args,
             storage,
             security_context: None,
         }
     }
+    pub fn is_need_mp_on_run(&self) -> bool {
+        self.cfg.inner_cfg.need_main_passwd_on_run
+    }
+
     /// 读取cfg中salt和storage中主密码的哈希校验段，
     /// 构建 主密码校验器，
     /// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
@@ -68,33 +68,26 @@ impl PntContext {
 /// - NoStorage: db文件不存在，需要初始化
 /// - NoMainPwd: db文件存在，但是主密码未设置，需要初始化
 /// - Ready: db文件存在，主密码已设置，正常运行
-pub enum NoteState {
+pub enum DataFileState {
     NoStorage,
     NoMainPwd,
-    Ready,
+    Ready(SqliteConn),
 }
-impl NoteState {
-    pub fn check(cfg: &Cfg) -> anyhow::Result<NoteState> {
+impl DataFileState {
+    pub fn look(data_path: &Path) -> anyhow::Result<DataFileState> {
         // cfg 要求的位置不存在
-        if !cfg.date.exists() {
-            Ok(NoteState::NoStorage)
+        if !data_path.exists() {
+            Ok(DataFileState::NoStorage)
         } else {
             // 存在，尝试读取主密码
-            let conn = SqliteConn::new(&cfg.date).with_context(|| AppError::CannotOpenData)?;
+            let conn = SqliteConn::new(&data_path)?;
             // 找不到主密码
             if conn.is_not_init_mph()? {
-                Ok(NoteState::NoMainPwd)
+                Ok(DataFileState::NoMainPwd)
             } else {
                 // 存在主密码 但未校验
-                Ok(NoteState::Ready)
+                Ok(DataFileState::Ready(conn))
             }
         }
     }
-}
-
-/// 运行模式，Cli运行完立即退出 TUI直到明确退出信号
-#[derive(Eq, PartialEq, Debug)]
-pub enum RunMode {
-    Cli,
-    Tui,
 }

@@ -1,7 +1,8 @@
+use crate::app::config::Cfg;
 use crate::app::entry::{EncryptedEntry, ValidEntry};
+use crate::app::errors::AppError;
 use chrono::{DateTime, Local};
 use rusqlite::{Connection, Result as SqlResult, Row, params};
-use std::path::Path;
 
 /// 内部配置表，以kv形式存储值，其中k为str类型主键
 const CREATE_INNER_CFG_TABLE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS "cfg" (
@@ -34,17 +35,10 @@ const UPDATE_ENTRY_SQL: &str =
 /// 模板-删除实体的 Sqlite 语句
 const DELETE_ENTRY_SQL: &str = r#"DELETE FROM "entry" WHERE "id"=?"#;
 
-/// 存储密码的 Sqlite 数据库
-pub struct SqliteConn {
-    conn: Connection,
-}
-
-impl SqliteConn {
-    /// 关闭连接，不再使用，该方法要求所有权
-    pub fn close(self) {
-        let _ = self.conn.close();
-    }
-}
+/// 模板-检查库表 cfg entry 是否存在，应返回2
+pub(super) const CHECK_TABLE_EXISTS: &str = r#"SELECT COUNT(*) FROM sqlite_master 
+         WHERE type='table' 
+         AND name IN ('cfg', 'entry')"#;
 
 /// 将 rusqlite::Result<T> 转换为 Option<T>，若查询返回无结果则返回None，若查询返回错误则panic
 fn sql_result_map_to_option<T>(res: SqlResult<T>) -> Option<T> {
@@ -80,27 +74,14 @@ fn row_map_cfg_kv(row: &Row) -> SqlResult<(String, String)> {
     Ok((key, value))
 }
 
-impl SqliteConn {
-    /// 指定数据库文件路径，建立连接
-    pub fn new(path: &Path) -> SqlResult<Self> {
-        let conn = Connection::open(path)?;
-        // 库文件加密 需要 bundled-sqlcipher，其需要openssl
-        // conn.pragma_update(None, "key", "secret-keyXXXX")?;
-        let mut s = Self { conn };
-        s.init_tables_if_not_exists()?;
-        Ok(s)
-    }
-    /// 使用内存
-    #[cfg(test)]
-    pub fn open_in_memory() -> SqlResult<Self> {
-        let conn = Connection::open_in_memory()?;
-        let mut s = Self { conn };
-        s.init_tables_if_not_exists()?;
-        Ok(s)
-    }
+/// 存储密码的 Sqlite 数据库
+pub struct SqliteConn {
+    pub(super) conn: Connection,
+}
 
+impl SqliteConn {
     /// 若表不存在则创建表
-    fn init_tables_if_not_exists(&mut self) -> SqlResult<()> {
+    pub(super) fn init_tables_if_not_exists(&mut self) -> SqlResult<()> {
         self.conn.execute(CREATE_ENTRY_TABLE_TEMPLATE_SQL, [])?;
         self.conn.execute(CREATE_INNER_CFG_TABLE_SQL, [])?;
         Ok(())
@@ -223,7 +204,7 @@ mod tests {
         let now: DateTime<Local> = DateTime::from(Local::now());
         // select
         db.insert_entry(&insert_e); // append ct, ut
-        let mut vec = db.select_all_entry();
+        let vec = db.select_all_entry();
         assert_eq!(vec.len(), 1);
         let entry = vec[0].clone();
         assert_eq!(entry.id, vec[0].id);

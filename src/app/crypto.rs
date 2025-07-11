@@ -29,10 +29,11 @@ pub struct MainPwdEncrypter {
     salt: [u8; 32],
 }
 impl MainPwdEncrypter {
-    pub fn from_salt(salt: [u8; 32]) -> anyhow::Result<Self> {
-        Ok(Self { salt })
+    pub fn from_salt(salt: [u8; 32]) -> Self {
+        Self { salt }
     }
-    pub fn new_from_random_salt() -> anyhow::Result<Self> {
+
+    pub fn new_from_random_salt() -> Self {
         let mut salt = [0u8; 32];
         OsRng.fill_bytes(&mut salt);
         Self::from_salt(salt)
@@ -46,7 +47,7 @@ impl MainPwdEncrypter {
 impl Encrypter<String, String> for MainPwdEncrypter {
     type EncrypterError = CryptoError;
     /// 加密主密码，使用Argon2id算法单向加密，后续仅校验hash，
-    /// 该方法内应消耗主密码内存段覆写
+    /// 返回 b64(salt32 + mph)
     /// # Panics
     /// salt 太短 <8 或 太长 >64
     /// mph > usize::MAX/4
@@ -56,7 +57,7 @@ impl Encrypter<String, String> for MainPwdEncrypter {
             .hash_password(plaintext.as_bytes(), &ss)
             .map_err(|e| CryptoError::EncryptMainPwd(e))?
             .to_string();
-        Ok(mph)
+        Ok(encode_b64_s_mph(&self.salt, &mph))
     }
 }
 
@@ -125,7 +126,7 @@ impl MainPwdVerifier {
 /// 将 b64(SALT(32) + MPH) 解码为 (SALT(32), MPH) 返回
 ///
 /// 若数据被破坏则返回Err
-pub fn decode_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<([u8; 32], String)> {
+fn decode_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<([u8; 32], String)> {
     // 正常情况下不会 b64 decode 失败，只有当 文件被手动人为修改，才会有这种情况，遂向外告知数据已损坏
     let dec = Base64::decode_vec(b64_s_mph).map_err(|_| AppError::DataCorrupted)?;
     // 前32位为salt，后为utf8 mph
@@ -136,7 +137,7 @@ pub fn decode_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<([u8; 32], String)> {
     Ok((salt, mph))
 }
 /// 将 SALT(32), MPH 编码为 b64(SALT(32) + MPH) 返回
-pub fn encode_b64_s_mph(salt: &[u8; 32], mph: &str) -> String {
+fn encode_b64_s_mph(salt: &[u8; 32], mph: &str) -> String {
     let mut vec = Vec::with_capacity(32 + mph.len());
     vec.extend(salt);
     vec.extend(mph.as_bytes());
@@ -149,12 +150,12 @@ mod test {
     #[test]
     fn test_encrypter_mph() {
         let plaintext = "Hello, world!".to_owned();
-        let encrypter = MainPwdEncrypter::new_from_random_salt().unwrap();
+        let encrypter = MainPwdEncrypter::new_from_random_salt();
         let cs1 = encrypter.encrypt(plaintext.clone()).unwrap();
         let cs2 = encrypter.encrypt(plaintext.clone()).unwrap();
         let salt = encrypter.salt();
         assert_eq!(cs1, cs2);
-        let cs3 = MainPwdEncrypter::from_salt(*salt).unwrap().encrypt(plaintext).unwrap();
+        let cs3 = MainPwdEncrypter::from_salt(*salt).encrypt(plaintext).unwrap();
         assert_eq!(cs3, cs1);
         // println!("cs1: {cs1}");
     }
@@ -162,7 +163,7 @@ mod test {
     #[test]
     fn test_encode_salt_and_b64_mph() {
         let foobar = String::from("foobar");
-        let encrypter = MainPwdEncrypter::new_from_random_salt().unwrap();
+        let encrypter = MainPwdEncrypter::new_from_random_salt();
         let b64_mph = encrypter.encrypt(foobar.clone()).unwrap();
         let salt = encrypter.salt();
         let b64_s_mph = encode_b64_s_mph(&salt, &b64_mph);

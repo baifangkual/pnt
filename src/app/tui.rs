@@ -27,7 +27,7 @@ pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
 /// 新建 tui
 fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
-    let screen = if pnt_context.cfg.need_main_passwd_on_run {
+    let screen = if pnt_context.is_need_mp_on_run() {
         NeedMainPasswd(NeedMainPwdState::new(ToDashBoardV1))
     } else {
         new_dashboard_screen(&pnt_context)

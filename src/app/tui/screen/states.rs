@@ -1,7 +1,7 @@
-use crate::app::consts::ALLOC_VALID_MAIN_PASS_MAX;
+use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
-use crate::app::errors::AppError::ValidPassword;
+use crate::app::errors::AppError::InvalidPassword;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::widgets::{TextAreaExt, new_input_textarea};
 use anyhow::{Context, anyhow};
@@ -345,11 +345,11 @@ impl NeedMainPwdState {
         self.retry_count
     }
 
-    /// 尝试自增重试次数，若重试次数到顶 ([`ALLOC_VALID_MAIN_PASS_MAX`])
+    /// 尝试自增重试次数，若重试次数到顶 ([`ALLOC_INVALID_MAIN_PASS_MAX`])
     /// 则返回 Err
     pub fn increment_retry_count(&mut self) -> anyhow::Result<()> {
-        if self.retry_count + 1 >= ALLOC_VALID_MAIN_PASS_MAX {
-            Err(ValidPassword)?
+        if self.retry_count + 1 >= ALLOC_INVALID_MAIN_PASS_MAX {
+            Err(InvalidPassword)?
         } else {
             self.retry_count += 1;
             self.mp_input.clear();

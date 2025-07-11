@@ -41,8 +41,9 @@ impl Encrypter<&str, String> for StrAes256GcmEncrypter {
             .encrypt(&nonce, plaintext.as_bytes())
             .map_err(|e| CryptoError::Encrypt(e))?;
         let s_n = nonce.as_slice();
-        if s_n.len() != 12 { // 饱和校验
-            return Err(CryptoError::InvalidNonceLength)
+        if s_n.len() != 12 {
+            // 饱和校验
+            return Err(CryptoError::InvalidNonceLength);
         }
         let mut vec = Vec::with_capacity(12 + plaintext.len());
         vec.extend_from_slice(s_n);
@@ -54,13 +55,16 @@ impl Decrypter<&str, String> for StrAes256GcmEncrypter {
     type DecrypterError = CryptoError;
     fn decrypt(&self, ciphertext: &str) -> Result<String, Self::DecrypterError> {
         // 前12字节为nonce
-        Base64::decode_vec(ciphertext).map_err(|_| CryptoError::DecodeCiphertext).and_then(|vec| {
-            let nonce: GenericArray<u8, U12> = Nonce::clone_from_slice(&vec[..12]);
-            let vec_utf8 = self
-                .0.decrypt(&nonce, &vec[12..])
-               .map_err(|e| CryptoError::Decrypt(e))?;
-            Ok(String::from_utf8(vec_utf8).map_err(|_| CryptoError::DecodeNonce)?)
-        })
+        Base64::decode_vec(ciphertext)
+            .map_err(|_| CryptoError::DecodeCiphertext)
+            .and_then(|vec| {
+                let nonce: GenericArray<u8, U12> = Nonce::clone_from_slice(&vec[..12]);
+                let vec_utf8 = self
+                    .0
+                    .decrypt(&nonce, &vec[12..])
+                    .map_err(|e| CryptoError::Decrypt(e))?;
+                Ok(String::from_utf8(vec_utf8).map_err(|_| CryptoError::DecodeNonce)?)
+            })
     }
 }
 

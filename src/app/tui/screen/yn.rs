@@ -1,8 +1,6 @@
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry};
-use crate::app::tui::colors::{
-    CL_BLACK, CL_DDD_RED, CL_DD_RED, CL_D_RED, CL_L_BLACK, CL_WHITE,
-};
+use crate::app::tui::colors::{CL_BLACK, CL_D_RED, CL_DD_RED, CL_DDD_RED, CL_L_BLACK, CL_WHITE};
 use crate::app::tui::event::AppEvent;
 use crate::app::tui::rt::TUIApp;
 use ratatui::prelude::Color;
