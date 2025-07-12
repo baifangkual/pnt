@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use thiserror::Error;
 
 /// tui运行过程的错误
@@ -52,11 +51,3 @@ pub enum CryptoError {
     InvalidNonceLength,
 }
 
-/// 校验失败
-#[derive(Debug, Error)]
-pub struct VerifyError;
-impl Display for VerifyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "verify failed")
-    }
-}
