@@ -1,39 +1,61 @@
 use crate::app::cfg::load_cfg;
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
-use crate::app::context::{DataFileState, PntContext};
-use crate::app::crypto::{Encrypter, MainPwdEncrypter};
+use crate::app::context::{DataFileState, PntContext, SecurityContext};
+use crate::app::crypto::{Encrypter, MainPwdEncrypter, build_mpv};
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
 use anyhow::anyhow;
-use clap::ValueHint;
+use clap::Args;
 use clap::{Parser, Subcommand};
 use ratatui::crossterm::style::Stylize;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-/// 子命令定义
-#[derive(Subcommand, Debug)]
-pub enum CliCommand {
-    /// Initializing pnt data storage location
-    Init,
-    /// Reset main password
-    #[command(name = "rs-mp", long_about = "Reset the main password in an interactive context")]
-    ResetMainPwd,
-}
+const CLI_HELP_DATA: &str = "Use the specified data file,\
+\nif this parameter is not provided,\
+\nUse the default data file (default_data).";
+const CLI_HELP_FIND: &str = "Find for entries with similar 'about' values";
+
+// /// sub cmd cfg 要求修改设置的 data参数的 help值
+// const CFG_SUB_ARG_HELP_DATA: &str = "Specify the specific file to modify the configuration.\
+// \nIf this parameter is not provided,\
+// \nthe configuration changes will be applied to the default data file (default_data).";
 
 /// runtime cli args...
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
-    /// Find for entries with similar 'about' values
-    #[arg(short = 'f', long = "find", value_name = "ABOUT")]
-    pub find: Option<String>,
-    /// Run with the given pnt data file
-    #[arg(short='d', long= "data", value_name = "FILE", value_hint = ValueHint::FilePath)]
-    pub data: Option<PathBuf>,
-
+    /// 要通过 about 值模糊查找的 条目
+    #[arg(short = 'f', long = "find", value_name = "ABOUT", help = CLI_HELP_FIND)]
+    find: Option<String>,
+    /// 要求使用的数据文件
+    #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = CLI_HELP_DATA)]
+    data: Option<PathBuf>,
+    /// 子命令
     #[command(subcommand)]
-    pub command: Option<CliCommand>,
+    command: Option<SubCmd>,
+}
+
+/// 子命令定义
+#[derive(Subcommand, Debug)]
+enum SubCmd {
+    /// Initializing pnt data storage location
+    Init,
+    /// Reset the main password in an interactive context
+    #[command(name = "rs-mp")]
+    ResetMainPwd,
+    /// Management of configuration related to specific data files
+    ///
+    /// If no configuration parameters are specified for setting,
+    /// it will print the current state of all configurations.
+    Cfg(SubCmdCfgArgs),
+}
+
+#[derive(Args, Debug)]
+struct SubCmdCfgArgs {
+    /// Setting whether to require the main password immediately at runtime
+    #[arg(long)]
+    need_main_pwd_on_run: Option<bool>,
 }
 
 impl CliArgs {
@@ -42,16 +64,14 @@ impl CliArgs {
     /// 若OK(None) 则表明成功cli运行结束，程序成功退出
     pub fn run(&self) -> anyhow::Result<Option<PntContext>> {
         // 看看参数要求
-        if let Some(CliCommand::Init) = &self.command {
+        if let Some(SubCmd::Init) = &self.command {
             // 显式要求 init
+            // todo 因为 --data 成为 global参数，遂对 init影响落实
             handle_pnt_data_init()?;
             return Ok(None);
-        } else if let Some(CliCommand::ResetMainPwd) = &self.command {
-            // todo modifymain pawd
-            println!("aaaaaaaaaaaaaaaaaa-------Modify main password in an interactive context");
-
-            return Ok(None);
         }
+
+        // CONTEXT BUILD =========================
         let mut cfg = load_cfg()?;
         // 没有给 -data 就连接默认数据文件
         let need_load_data_file = self.data.as_ref().unwrap_or(&cfg.default_date);
@@ -61,6 +81,46 @@ impl CliArgs {
         cfg.overwrite_inner_cfg(&conn)?;
         // pnt 上下文
         let mut context = PntContext::new_with_un_verified(cfg, conn);
+        // CONTEXT BUILD =========================
+
+        if let Some(SubCmd::ResetMainPwd) = &self.command {
+            // 要求修改主密码...
+            // todo modifymain pawd
+            println!("aaaaaaaaaaaaaaaaaa-------Modify main password in an interactive context");
+
+            return Ok(None);
+        } else if let Some(SubCmd::Cfg(args)) = &self.command {
+            // 要求修改 inner 配置
+            // dbg!(need_load_data_file.display().to_string());
+            // dbg!(&args);
+            // 控制是否 list显示配置（没有任何修改需求时）
+            let mut no_any_args = true;
+
+            println!("Data file: '{}'", context.storage.path().unwrap());
+            println!(
+                "{}",
+                "Verify the main password to modify or print its configuration".yellow()
+            );
+            // 因为要修改配置，遂立即要求主密码
+            let mut context = await_verifier_main_pwd(context)?;
+            // change inner cfg
+            if let Some(rs_need_mp_on_run) = &args.need_main_pwd_on_run {
+                no_any_args = false;
+                context.cfg.inner_cfg.need_main_passwd_on_run = *rs_need_mp_on_run;
+                context.cfg.store_inner_cfg(&mut context.storage);
+                println!(
+                    "{}",
+                    "Successfully modified configuration 'need_main_pwd_on_run'".green()
+                );
+            }
+
+            // 修改 cfg时务必修改 该值为 false，当该值为true，打印配置
+            if no_any_args {
+                println!("cfg:\n{}", context.cfg.inner_cfg)
+            }
+            // 使用 OK（NONE）打断不使TUI运行
+            return Ok(None);
+        }
 
         // cli 要求 find
         if let Some(find) = &self.find {
@@ -262,12 +322,11 @@ fn assert_data_file_ready(data_file_path: &Path) -> anyhow::Result<Storage> {
     }
 }
 
-/// 等待 stdin输入并校验主密码，当失败到一定次数时
-/// 释放sqlite 对文件的连接资源并退出进程
-/// 该方法要求所有权，因为内部可能执行 drop(conn关闭文件占用）
+/// 等待 stdin输入并校验主密码，该方法要求所有权，因为内部可能执行 drop(conn关闭文件占用），
+/// 当失败到一定次数时 释放 storage 对文件的连接资源并退出进程，
 /// 该方法要么返回，要么因stdin错误返回Err
 fn await_verifier_main_pwd(mut context: PntContext) -> anyhow::Result<PntContext> {
-    let verifier = context.build_mpv()?;
+    let verifier = build_mpv(&context.storage)?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
     for n in 0..ALLOC_INVALID_MAIN_PASS_MAX {
         let mp = loop_read_stdin_ascii_passwd(None)?;

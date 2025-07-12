@@ -1,6 +1,4 @@
-use crate::app::cfg::InnerCfg;
 use crate::app::errors::AppError;
-use crate::app::storage::kv_cfg::BitCfg;
 use anyhow::anyhow;
 use rusqlite::{Connection as sqliteConnection, Connection, Result as SqlResult};
 use std::path::Path;
@@ -46,6 +44,13 @@ impl Storage {
     /// 关闭连接，不再使用，该方法要求所有权
     pub fn close(self) {
         let _ = self.conn.close();
+    }
+    /// 返回连接的数据库文件路径，若为临时或内存数据库，则返回None
+    pub fn path(&self) -> Option<&str> {
+        self.conn
+            .path()
+            // 因为该pathAPI在临时或内存库时返回Some("")，所以过滤
+            .filter(|p| !p.is_empty())
     }
 }
 

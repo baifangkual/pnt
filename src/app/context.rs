@@ -44,13 +44,6 @@ impl PntContext {
         self.cfg.inner_cfg.need_main_passwd_on_run
     }
 
-    /// 读取cfg中salt和storage中主密码的哈希校验段，
-    /// 构建 主密码校验器，
-    /// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
-    pub fn build_mpv(&mut self) -> anyhow::Result<MainPwdVerifier> {
-        let b64_s_mph = self.storage.query_b64_s_mph().ok_or(AppError::DataCorrupted)?;
-        Ok(MainPwdVerifier::from_b64_s_mph(&b64_s_mph)?)
-    }
     /// 检查是否已验证主密码
     pub fn is_verified(&self) -> bool {
         self.security_context.is_some()

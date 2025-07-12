@@ -3,6 +3,7 @@ use crate::app::errors::AppError;
 use crate::app::storage::{Storage, kv_cfg::BitCfg};
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
 /// 运行时使用的实际 cfg
@@ -17,20 +18,29 @@ pub struct Cfg {
 impl Cfg {
     /// 将配置文件的 inner_cfg 覆盖
     pub fn overwrite_inner_cfg(&mut self, storage: &Storage) -> anyhow::Result<()> {
-        let bcf = storage.query_cfg_bit_flags()?;
-        if bcf.is_empty() {
+        let bf_or = storage.query_cfg_bit_flags()?;
+        if let Some(bf) = bf_or {
+            if bf.contains(BitCfg::NEED_MAIN_ON_RUN) {
+                self.inner_cfg.need_main_passwd_on_run = true;
+            } else {
+                self.inner_cfg.need_main_passwd_on_run = false;
+            }
             Ok(())
         } else {
-            if bcf.contains(BitCfg::NEED_MAIN_ON_RUN) {
-                self.inner_cfg.need_main_passwd_on_run = true;
-            }
             Ok(())
         }
     }
 
-    /// 将 inner_cfg 存储到db中
-    pub fn store_inner_cfg(&self, storage: &mut Storage) -> anyhow::Result<()> {
-        todo!("impl storage inner_cfg")
+    /// 将 inner_cfg 存储到db中 (存储 inner cfg，插入或刷新)
+    pub fn store_inner_cfg(&self, storage: &mut Storage) {
+        // bitflag
+        let mut bf = BitCfg::empty();
+        // need main on run
+        if self.inner_cfg.need_main_passwd_on_run {
+            bf.insert(BitCfg::NEED_MAIN_ON_RUN);
+        }
+        // store
+        storage.store_cfg_bit_flags(bf)
     }
 }
 
@@ -38,6 +48,12 @@ impl Cfg {
 pub struct InnerCfg {
     /// 在运行的时候立即要求主密码
     pub need_main_passwd_on_run: bool,
+}
+
+impl Display for InnerCfg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "need_main_passwd_on_run = {}", self.need_main_passwd_on_run)
+    }
 }
 
 /// Inner 配置 的 默认配置，data file 中没有的，使用默认配置

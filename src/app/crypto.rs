@@ -5,6 +5,7 @@ pub mod aes_gcm;
 use crate::app::context::SecurityContext;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::{AppError, CryptoError};
+use crate::app::storage::Storage;
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use argon2::password_hash::{Error, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
@@ -21,6 +22,14 @@ pub trait Decrypter<C, P> {
     type DecrypterError: std::error::Error + Sync + Send + 'static;
     /// 解密方法 - 将密文(ciphertext)转为明文(plaintext)
     fn decrypt(&self, ciphertext: C) -> Result<P, Self::DecrypterError>;
+}
+
+/// 读取storage中salt和storage中主密码的哈希校验段，
+/// 构建 主密码校验器，
+/// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
+pub fn build_mpv(storage: &Storage) -> anyhow::Result<MainPwdVerifier> {
+    let b64_s_mph = storage.query_b64_s_mph().ok_or(AppError::DataCorrupted)?;
+    Ok(MainPwdVerifier::from_b64_s_mph(&b64_s_mph)?)
 }
 
 /// 主密码加密器，使用Argon2id算法加密主密码明文

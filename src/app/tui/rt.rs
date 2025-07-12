@@ -1,6 +1,7 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{AppEvent, Event, EventHandler};
 use crate::app::context::{PntContext, SecurityContext};
+use crate::app::crypto::build_mpv;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
@@ -287,7 +288,7 @@ impl TUIApp {
             // 需要主密码
             NeedMainPasswd(state) => {
                 if key_event._is_enter() {
-                    let verifier = self.pnt.build_mpv()?;
+                    let verifier = build_mpv(&self.pnt.storage)?;
                     let mp_input = state.mp_input();
                     if verifier.verify(mp_input)? {
                         // 验证通过，发送 true 事件

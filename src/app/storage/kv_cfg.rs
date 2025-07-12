@@ -1,3 +1,4 @@
+use crate::app::cfg::InnerCfg;
 use crate::app::errors::AppError;
 use crate::app::storage::{Storage, sql_result_map_to_option};
 use anyhow::Context;
@@ -8,7 +9,7 @@ use rusqlite::params;
 const SELECT_INNER_CFG_SQL: &str = r#"SELECT "v" FROM "cfg" WHERE "k"=?"#;
 
 /// 模板-插入内部配置 sql
-const SAVE_INNER_CFG_SQL: &str = r#"INSERT OR REPLACE INTO "cfg" ("key", "value") VALUES (?, ?)"#;
+const SAVE_INNER_CFG_SQL: &str = r#"INSERT OR REPLACE INTO "cfg" ("k", "v") VALUES (?, ?)"#;
 
 /// 模板-删除内部配置 sql
 const DELETE_INNER_CFG_SQL: &str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
@@ -55,14 +56,19 @@ impl Storage {
         }
     }
 
-    /// 查找 bit flag cfg值，如不能存在，则返回全0
+    /// 查找 bit flag cfg值，如不存在，则返回Ok(None)
     ///
     /// 若人为修改db文件导致 FromStr parse失败，则Err报告数据已损坏
-    pub fn query_cfg_bit_flags(&self) -> anyhow::Result<BitCfg> {
-        self.select_cfg_v_by_key(&BIT_FLAG_CFG_ID)
-            .map(|bfv| bfv.parse())
-            .unwrap_or_else(|| Ok(BitCfg::empty().bits())) // option unwrap // 未设定情况
+    pub fn query_cfg_bit_flags(&self) -> anyhow::Result<Option<BitCfg>> {
+        let bf_or = self.select_cfg_v_by_key(&BIT_FLAG_CFG_ID);
+        if bf_or.is_none() {
+            return Ok(None);
+        }
+        bf_or
+            .unwrap()
+            .parse()
             .map(BitCfg::from_bits_truncate)
+            .map(Some)
             .with_context(|| AppError::DataCorrupted) // 被人为修改db文件导致 parse失败时
     }
 
