@@ -66,8 +66,7 @@ impl CliArgs {
         // 看看参数要求
         if let Some(SubCmd::Init) = &self.command {
             // 显式要求 init
-            // todo 因为 --data 成为 global参数，遂对 init影响落实
-            handle_pnt_data_init()?;
+            handle_pnt_data_init(self.data.clone())?;
             return Ok(None);
         }
 
@@ -146,10 +145,19 @@ use crate::app::consts;
 
 /// 初始化 pnt 数据文件
 ///
-/// 该方法内将根据env及配置文件等设置情况
-fn handle_pnt_data_init() -> anyhow::Result<()> {
+/// 该方法内将根据cli参数及env及配置文件等设置情况
+fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> {
     println!("{}", "pnt data file initialized...\n".bold().dark_cyan());
-    let data_local_path = if let Some(dp) = crate::app::cfg::env_data_file_path() {
+
+    /*
+    // 先从参数 --data 找需要，
+    // 若无，则顺次从环境变量找，
+    // 若无，则从可能存在的配置文件中找
+    // 若无，则使用默认值
+     */
+    let data_target_path = if let Some(arg_data_path) = init_arg_target {
+        arg_data_path
+    } else if let Some(dp) = crate::app::cfg::env_data_file_path() {
         let msg = format!(
             "find env:[{}='{}']\n",
             consts::ENV_DEFAULT_DATA_FILE_PATH_KEY,
@@ -212,7 +220,10 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
             default_data_path
         }
     };
-    let msg = format!("will create data file with: '{}'", data_local_path.display());
+
+    dbg!(&data_target_path);
+
+    let msg = format!("will create data file with: '{}'", data_target_path.display());
     println!("{}", msg.bold().cyan());
     println!("\npress Enter to init main password with interactive context or press Ctrl-C to exit");
     let mut buf = String::new();
@@ -222,18 +233,18 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
     println!("{}", "successfully init main password".green());
 
     // 检查 data local path 位置是否存在文件，若存在，则提示其是否覆盖
-    if data_local_path.exists() {
-        println!("\nfile '{}'already exists", data_local_path.display());
+    if data_target_path.exists() {
+        println!("\nfile '{}'already exists", data_target_path.display());
         println!("{}", "overwrite this file?".red());
         println!("\nenter 'yes' to overwrite existing file or press Ctrl-C to exit");
         buf.clear();
         std::io::stdin().read_line(&mut buf)?;
         if buf.to_lowercase().trim() == "yes" {
-            std::fs::remove_file(&data_local_path)?;
+            std::fs::remove_file(&data_target_path)?;
         } else {
             return Err(anyhow!(
                 "file '{}' already exists,\ncannot create pnt data file",
-                data_local_path.display().to_string()
+                data_target_path.display().to_string()
             ));
         }
     }
@@ -242,8 +253,8 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
     let mut conn = Storage::open_in_memory()?;
     conn.store_b64_s_mph(&mph);
     // 存储数据文件至指定位置, 该方法不会覆盖文件，位置已有会Err
-    conn.db_mem_to_disk(&data_local_path)?;
-    let msg = format!("data file created: {}", data_local_path.display());
+    conn.db_mem_to_disk(&data_target_path)?;
+    let msg = format!("data file created: {}", data_target_path.display());
     println!("{}", msg.bold().cyan());
     println!("{}", "\nsuccessfully created data file".green());
     Ok(())
