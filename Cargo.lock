@@ -775,6 +775,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "base64ct",
+ "bitflags",
  "chrono",
  "clap",
  "dirs",

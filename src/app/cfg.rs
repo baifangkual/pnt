@@ -1,6 +1,6 @@
 use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_KEY, ENV_DEFAULT_DATA_FILE_PATH_KEY};
 use crate::app::errors::AppError;
-use anyhow::Context;
+use crate::app::storage::{Storage, kv_cfg::BitCfg};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::{Path, PathBuf};
@@ -12,6 +12,26 @@ pub struct Cfg {
     pub default_date: PathBuf,
     /// 内部配置，从 data file 中读取
     pub inner_cfg: InnerCfg,
+}
+
+impl Cfg {
+    /// 将配置文件的 inner_cfg 覆盖
+    pub fn overwrite_inner_cfg(&mut self, storage: &Storage) -> anyhow::Result<()> {
+        let bcf = storage.query_cfg_bit_flags()?;
+        if bcf.is_empty() {
+            Ok(())
+        } else {
+            if bcf.contains(BitCfg::NEED_MAIN_ON_RUN) {
+                self.inner_cfg.need_main_passwd_on_run = true;
+            }
+            Ok(())
+        }
+    }
+
+    /// 将 inner_cfg 存储到db中
+    pub fn store_inner_cfg(&self, storage: &mut Storage) -> anyhow::Result<()> {
+        todo!("impl storage inner_cfg")
+    }
 }
 
 #[derive(Debug)]

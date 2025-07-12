@@ -13,6 +13,3 @@ pub const CONF_FILE_NAME: &str = "pnt.toml";
 
 /// 允许的最多输错主密码次数
 pub const ALLOC_INVALID_MAIN_PASS_MAX: u8 = 3;
-
-/// 主密码存储名，后续应通过盐hash
-pub const MAIN_PASS_KEY: &str = "mp"; // todo hash save

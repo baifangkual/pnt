@@ -1,9 +1,9 @@
-use crate::app::config::load_cfg;
+use crate::app::cfg::load_cfg;
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::context::{DataFileState, PntContext};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter};
 use crate::app::errors::AppError;
-use crate::app::storage::sqlite::SqliteConn;
+use crate::app::storage::Storage;
 use anyhow::anyhow;
 use clap::ValueHint;
 use clap::{Parser, Subcommand};
@@ -16,9 +16,9 @@ use std::path::{Path, PathBuf};
 pub enum CliCommand {
     /// Initializing pnt data storage location
     Init,
-    /// Modify main password
-    #[command(name = "mmp", long_about = "Modify the main password in an interactive context")]
-    ModifyMainPwd,
+    /// Reset main password
+    #[command(name = "rs-mp", long_about = "Reset the main password in an interactive context")]
+    ResetMainPwd,
 }
 
 /// runtime cli args...
@@ -46,7 +46,8 @@ impl CliArgs {
             // 显式要求 init
             handle_pnt_data_init()?;
             return Ok(None);
-        } else if let Some(CliCommand::ModifyMainPwd) = &self.command {
+        } else if let Some(CliCommand::ResetMainPwd) = &self.command {
+            // todo modifymain pawd
             println!("aaaaaaaaaaaaaaaaaa-------Modify main password in an interactive context");
 
             return Ok(None);
@@ -57,7 +58,7 @@ impl CliArgs {
         // 连接数据文件，因为为非显式init，所以任何失败情况该方法内均Err向上回报
         let conn = assert_data_file_ready(need_load_data_file)?;
         // 已填充inner配置的cfg
-        conn.fill_inner_cfg(&mut cfg.inner_cfg)?;
+        cfg.overwrite_inner_cfg(&conn)?;
         // pnt 上下文
         let mut context = PntContext::new_with_un_verified(cfg, conn);
 
@@ -88,7 +89,7 @@ use crate::app::consts;
 /// 该方法内将根据env及配置文件等设置情况
 fn handle_pnt_data_init() -> anyhow::Result<()> {
     println!("{}", "pnt data file initialized...\n".bold().dark_cyan());
-    let data_local_path = if let Some(dp) = crate::app::config::env_data_file_path() {
+    let data_local_path = if let Some(dp) = crate::app::cfg::env_data_file_path() {
         let msg = format!(
             "find env:[{}='{}']\n",
             consts::ENV_DEFAULT_DATA_FILE_PATH_KEY,
@@ -102,12 +103,12 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
             consts::ENV_DEFAULT_DATA_FILE_PATH_KEY
         );
         println!("{}", msg.grey());
-        let config_path = if let Some(cp) = crate::app::config::env_conf_path() {
+        let config_path = if let Some(cp) = crate::app::cfg::env_conf_path() {
             let msg = format!("find env:[{}='{}']\n", consts::ENV_CONF_PATH_KEY, cp.display());
             println!("{}", msg.grey());
             cp
         } else {
-            let cp = crate::app::config::default_conf_path();
+            let cp = crate::app::cfg::default_conf_path();
             let msg = format!(
                 "not find env:[{}],\ntry read config default local with: '{}'\n",
                 consts::ENV_CONF_PATH_KEY,
@@ -117,7 +118,7 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
             cp
         };
         // 尝试从磁盘读取配置文件
-        let cfg = crate::app::config::try_load_cfg_from_disk(&config_path)?;
+        let cfg = crate::app::cfg::try_load_cfg_from_disk(&config_path)?;
         if let Some(toml_cfg) = cfg {
             if let Some(df) = toml_cfg.default_data {
                 // 存在配置文件，存在配置
@@ -129,7 +130,7 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
                 println!("{}", msg.grey());
                 df
             } else {
-                let default_data_path = crate::app::config::default_data_path();
+                let default_data_path = crate::app::cfg::default_data_path();
                 // 存在配置文件，但没有该项配置
                 let msg = format!(
                     "config '{}' exists, but not set 'default_data',\nwill use default data file path: {}\n",
@@ -140,7 +141,7 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
                 default_data_path
             }
         } else {
-            let default_data_path = crate::app::config::default_data_path();
+            let default_data_path = crate::app::cfg::default_data_path();
             // none 为文件不存在
             let msg = format!(
                 "config '{}' not exists,\nuse default data file path: {}\n",
@@ -178,7 +179,7 @@ fn handle_pnt_data_init() -> anyhow::Result<()> {
     }
 
     println!("\nmain password hash:\n{mph}\n");
-    let mut conn = SqliteConn::open_in_memory()?;
+    let mut conn = Storage::open_in_memory()?;
     conn.store_b64_s_mph(&mph);
     // 存储数据文件至指定位置, 该方法不会覆盖文件，位置已有会Err
     conn.db_mem_to_disk(&data_local_path)?;
@@ -250,7 +251,7 @@ fn init_main_pwd_by_stdin() -> anyhow::Result<String> {
 /// 若不存在则stdin提示要求输入db位置或新建db，
 /// 若存在但无main-pwd则要求设定之，
 /// 若存在且有main-pwd，则直接返回连接的db的conn
-fn assert_data_file_ready(data_file_path: &Path) -> anyhow::Result<SqliteConn> {
+fn assert_data_file_ready(data_file_path: &Path) -> anyhow::Result<Storage> {
     match DataFileState::look(data_file_path)? {
         DataFileState::NoStorage => Err(anyhow!(
             "Unable to find the data file with: {}\nYou might want to use 'pnt init' to create a data file",

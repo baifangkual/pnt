@@ -1,9 +1,9 @@
+use crate::app::cfg::Cfg;
 use crate::app::cli::CliArgs;
-use crate::app::config::Cfg;
 use crate::app::crypto::MainPwdVerifier;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
-use crate::app::storage::sqlite::SqliteConn;
+use crate::app::storage::Storage;
 use anyhow::Context;
 use std::path::Path;
 
@@ -20,20 +20,20 @@ impl SecurityContext {
 /// 运行时程序上下文
 pub struct PntContext {
     pub(crate) cfg: Cfg,
-    pub(crate) storage: SqliteConn,
+    pub(crate) storage: Storage,
     /// 只有输入了主密码的情况该字段才不为None
     pub(crate) security_context: Option<SecurityContext>,
 }
 
 impl PntContext {
-    pub fn new_with_verified(cfg: Cfg, storage: SqliteConn, security_context: SecurityContext) -> Self {
+    pub fn new_with_verified(cfg: Cfg, storage: Storage, security_context: SecurityContext) -> Self {
         Self {
             cfg,
             storage,
             security_context: Some(security_context),
         }
     }
-    pub fn new_with_un_verified(cfg: Cfg, storage: SqliteConn) -> Self {
+    pub fn new_with_un_verified(cfg: Cfg, storage: Storage) -> Self {
         Self {
             cfg,
             storage,
@@ -71,7 +71,7 @@ impl PntContext {
 pub enum DataFileState {
     NoStorage,
     NoMainPwd,
-    Ready(SqliteConn),
+    Ready(Storage),
 }
 impl DataFileState {
     pub fn look(data_path: &Path) -> anyhow::Result<DataFileState> {
@@ -80,7 +80,7 @@ impl DataFileState {
             Ok(DataFileState::NoStorage)
         } else {
             // 存在，尝试读取主密码
-            let conn = SqliteConn::new(&data_path)?;
+            let conn = Storage::new(&data_path)?;
             // 找不到主密码
             if conn.is_not_init_mph()? {
                 Ok(DataFileState::NoMainPwd)

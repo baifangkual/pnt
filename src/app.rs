@@ -1,5 +1,5 @@
+mod cfg;
 mod cli;
-mod config;
 mod consts;
 mod context;
 mod crypto;

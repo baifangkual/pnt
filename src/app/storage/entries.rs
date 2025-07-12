@@ -1,32 +1,9 @@
-use crate::app::config::Cfg;
 use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::errors::AppError;
+use crate::app::storage::{Storage, entries, sql_result_map_to_option};
 use chrono::{DateTime, Local};
-use rusqlite::{Connection, Result as SqlResult, Row, params};
+use rusqlite::{Result as SqlResult, Row, params};
 
-/// 内部配置表，以kv形式存储值，其中k为str类型主键
-const CREATE_INNER_CFG_TABLE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS "cfg" (
-    "k" TEXT NOT NULL PRIMARY KEY,
-    "v" TEXT
-)"#;
-/// 模板-插入内部配置的 Sqlite 语句
-const INSERT_INNER_CFG_SQL: &str = r#"INSERT INTO "cfg" ("k", "v") VALUES (?,?)"#;
-/// 模板-更新内部配置的 Sqlite 语句
-const UPDATE_INNER_CFG_SQL: &str = r#"UPDATE "cfg" SET "v"=? WHERE "k"=?"#;
-/// 模板-删除内部配置的 Sqlite 语句
-const DELETE_INNER_CFG_SQL: &str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
-
-/// 模板-创建密码表的 Sqlite 语句
-const CREATE_ENTRY_TABLE_TEMPLATE_SQL: &str = r#"CREATE TABLE IF NOT EXISTS "entry" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "about" TEXT NOT NULL,
-    "notes" TEXT,
-    "k" TEXT NOT NULL,
-    "v" TEXT NOT NULL,
-    "ct" TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-    "ut" TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-)"#;
-// rusqlite 不会造成 sql 注入，因此无需使用参数化查询
 /// 模板-插入密码的 Sqlite 语句
 const INSERT_ENTRY_SQL: &str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
 /// 模板-更新实体的 Sqlite 语句
@@ -35,19 +12,6 @@ const UPDATE_ENTRY_SQL: &str =
 /// 模板-删除实体的 Sqlite 语句
 const DELETE_ENTRY_SQL: &str = r#"DELETE FROM "entry" WHERE "id"=?"#;
 
-/// 模板-检查库表 cfg entry 是否存在，应返回2
-pub(super) const CHECK_TABLE_EXISTS: &str = r#"SELECT COUNT(*) FROM sqlite_master 
-         WHERE type='table' 
-         AND name IN ('cfg', 'entry')"#;
-
-/// 将 rusqlite::Result<T> 转换为 Option<T>，若查询返回无结果则返回None，若查询返回错误则panic
-fn sql_result_map_to_option<T>(res: SqlResult<T>) -> Option<T> {
-    match res {
-        Ok(t) => Some(t),
-        Err(rusqlite::Error::QueryReturnedNoRows) => None,
-        Err(e) => panic!("{e:?}"),
-    }
-}
 /// 将 Row 转换为 Entry
 fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
     let id: u32 = row.get(0)?;
@@ -67,26 +31,8 @@ fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
         updated_time,
     })
 }
-/// 将 Row 转换为 (k, v)
-fn row_map_cfg_kv(row: &Row) -> SqlResult<(String, String)> {
-    let key: String = row.get(0)?;
-    let value: String = row.get(1)?;
-    Ok((key, value))
-}
 
-/// 存储密码的 Sqlite 数据库
-pub struct SqliteConn {
-    pub(super) conn: Connection,
-}
-
-impl SqliteConn {
-    /// 若表不存在则创建表
-    pub(super) fn init_tables_if_not_exists(&mut self) -> SqlResult<()> {
-        self.conn.execute(CREATE_ENTRY_TABLE_TEMPLATE_SQL, [])?;
-        self.conn.execute(CREATE_INNER_CFG_TABLE_SQL, [])?;
-        Ok(())
-    }
-
+impl Storage {
     /// 插入一条密码记录
     pub fn insert_entry(&mut self, insert_entry: &ValidEntry) {
         self.conn
@@ -133,19 +79,13 @@ impl SqliteConn {
     /// 通过about模糊查询
     pub fn select_entry_by_about_like(&self, name_like: &str) -> Vec<EncryptedEntry> {
         let nl = format!("%{}%", name_like); // 左右
-        let mut stmt = self
-            .conn
-            .prepare("SELECT * FROM entry WHERE about LIKE ?")
-            .expect("Failed to prepare query");
+        let mut stmt = self.conn.prepare("SELECT * FROM entry WHERE about LIKE ?").unwrap();
         let rows = stmt.query_map([nl], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
     /// 查询所有entry
     pub fn select_all_entry(&self) -> Vec<EncryptedEntry> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT * FROM entry")
-            .expect("Failed to prepare query");
+        let mut stmt = self.conn.prepare("SELECT * FROM entry").unwrap();
         let rows = stmt.query_map([], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }
@@ -153,46 +93,17 @@ impl SqliteConn {
     /// 查询entry数量
     pub fn select_entry_count(&self) -> u32 {
         let r = self.conn.query_row("SELECT COUNT(*) FROM entry", [], |row| row.get(0));
-        sql_result_map_to_option(r).unwrap() // 一定有值，因为表已初始化，若无则说明被破坏，直接panic
-    }
-
-    // =========== cfg ==============
-
-    /// 插入配置
-    pub(super) fn insert_cfg(&mut self, key: &str, value: &str) {
-        self.conn
-            .execute(INSERT_INNER_CFG_SQL, params![key, value])
-            .expect("Failed to insert cfg");
-    }
-
-    /// 更新配置
-    pub(super) fn update_cfg(&mut self, key: &str, value: &str) {
-        self.conn
-            .execute(UPDATE_INNER_CFG_SQL, params![value, key])
-            .expect("Failed to update cfg");
-    }
-
-    /// 删除配置
-    pub(super) fn delete_cfg(&mut self, key: &str) {
-        self.conn
-            .execute(DELETE_INNER_CFG_SQL, params![key])
-            .expect("Failed to delete cfg");
-    }
-    /// 通过key查询配置
-    pub(super) fn select_cfg_v_by_key(&self, key: &str) -> Option<String> {
-        let r = self
-            .conn
-            .query_row("SELECT v FROM cfg WHERE k =?", params![key], |row| row.get(0));
-        sql_result_map_to_option(r)
+        sql_result_map_to_option(r).unwrap_or_else(|| panic!("{}", AppError::DataCorrupted)) // 一定有值，因为表已初始化，若无则说明被破坏，直接panic
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::storage::Storage;
     #[test]
     fn test_db() {
-        let mut db = SqliteConn::open_in_memory().unwrap();
+        let mut db = Storage::open_in_memory().unwrap();
         let insert_e = ValidEntry {
             about: String::from("test"),
             notes: None,
