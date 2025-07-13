@@ -1,38 +1,37 @@
+//! tui 运行时 
+//! 
+//! 处理 事件循环主要模块
+
 use super::event::key_ext::KeyEventExt;
-use super::event::{AppEvent, Event, EventHandler};
-use crate::app::context::{PntContext, SecurityContext};
+use super::event::{AppEvent, Event};
+use crate::app::context::SecurityContext;
 use crate::app::crypto::build_mpv;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
+use crate::app::tui::screen::states::Editing;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
-use crate::app::tui::screen::states::Editing;
-use anyhow::{Result, anyhow};
+use crate::app::tui::TUIApp;
+use anyhow::{anyhow, Result};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    DefaultTerminal, crossterm,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm, crossterm::event::{KeyCode, KeyEvent}
+    ,
 };
 
-/// TUI Application.
-pub struct TUIApp {
-    /// Is the application running?
-    pub running: bool,
-    /// 当前屏幕
-    pub screen: Screen,
-    /// 上一个页面
-    pub back_screen: Vec<Screen>,
-    /// context
-    pub pnt: PntContext,
-    /// Event handler.
-    pub events: EventHandler,
-    /// current store entry count
-    pub store_entry_count: u32,
-}
 
 impl TUIApp {
+    
+    fn idle_tick_increment(&mut self) {
+        self.idle_tick_count += 1;
+    }
+    fn idle_tick_reset(&mut self) {
+        self.idle_tick_count = 0;
+    }
+    
+    
     /// 返回上一个屏幕，
     /// 当上一个屏幕不存在时，发送 **退出** 事件
     pub fn back_screen(&mut self) {
@@ -72,24 +71,9 @@ impl TUIApp {
 }
 
 impl TUIApp {
-    /// TUI程序主循环
-    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> Result<()> {
-        while self.running {
-            terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
-            match self.invoke_handle_events() {
-                Ok(_) => (),
-                Err(e) => {
-                    self.quit_tui_app(); // 标记关闭状态
-                    self.pnt.storage.close(); // 有错误关闭数据库连接并退出当前方法
-                    return Err(e);
-                }
-            }
-        }
-        Ok(())
-    }
-
+    
     /// 事件处理入口
-    fn invoke_handle_events(&mut self) -> Result<()> {
+    pub fn invoke_handle_events(&mut self) -> Result<()> {
         let event = self.events.next()?;
         match event {
             // tick 事件
@@ -133,6 +117,10 @@ impl TUIApp {
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
     fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        
+        // 每次操作将闲置tick计数清零
+        self.idle_tick_reset();
+        
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
             self.send_app_event(AppEvent::Quit);
@@ -336,6 +324,8 @@ impl TUIApp {
     pub fn invoke_handle_tick(&mut self) {
         // 可用判定当前包含被解密的字段的窗口打开的时间，
         // 超过一定阈值则发送关闭子窗口的事件
+        self.idle_tick_increment();
+        
     }
 
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘

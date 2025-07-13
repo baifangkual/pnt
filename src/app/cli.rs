@@ -141,7 +141,7 @@ impl CliArgs {
             // ===========================================================
             if let Some(rs_need_mp_on_run) = &args.modify_need_main_pwd_on_run {
                 no_any_args = false;
-                context.cfg.inner_cfg.need_main_passwd_on_run = *rs_need_mp_on_run;
+                context.cfg.inner_cfg.need_main_pwd_on_run = *rs_need_mp_on_run;
                 context.cfg.store_inner_cfg(&mut context.storage);
                 println!(
                     "{}",

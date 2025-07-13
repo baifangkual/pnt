@@ -14,8 +14,6 @@ const SAVE_INNER_CFG_SQL: &str = r#"INSERT OR REPLACE INTO "cfg" ("k", "v") VALU
 #[allow(unused)]
 const DELETE_INNER_CFG_SQL: &str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
 
-// todo cfg 中 key v均应 hash，防止明确指向
-
 /// 主密码存储名
 pub const MAIN_PASS_KEY: &str = "mp";
 /// bit flag key
@@ -24,7 +22,7 @@ const BIT_FLAG_CFG_ID: &str = "bf";
 bitflags! {
       pub struct BitCfg: u8 {
         /// 运行立即需要密码
-        const NEED_MAIN_ON_RUN = 0b0000_0001;
+        const NEED_MAIN_PWD_ON_RUN = 0b0000_0001;
         const _ = 0b0000_0010;
         // ... 预留其他
     }

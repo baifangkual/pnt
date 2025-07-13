@@ -1,6 +1,6 @@
-use super::rt::TUIApp;
+
 use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
-use crate::app::tui::layout;
+use crate::app::tui::{layout, TUIApp};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;

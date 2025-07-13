@@ -46,7 +46,7 @@ impl PntContext {
         }
     }
     pub fn is_need_mp_on_run(&self) -> bool {
-        self.cfg.inner_cfg.need_main_passwd_on_run
+        self.cfg.inner_cfg.need_main_pwd_on_run
     }
 
     /// 检查是否已验证主密码

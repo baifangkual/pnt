@@ -1,11 +1,10 @@
 use crate::app::entry::InputEntry;
-use crate::app::tui::new_dashboard_screen;
-use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Details, Edit, Help, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::yn::YNState;
 use anyhow::Context;
+use crate::app::tui::{new_dashboard_screen, TUIApp};
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码

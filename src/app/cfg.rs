@@ -20,7 +20,7 @@ impl Cfg {
     pub fn overwrite_inner_cfg(&mut self, storage: &Storage) -> anyhow::Result<()> {
         let bf_or = storage.query_cfg_bit_flags()?;
         if let Some(bf) = bf_or {
-            self.inner_cfg.need_main_passwd_on_run = bf.contains(BitCfg::NEED_MAIN_ON_RUN);
+            self.inner_cfg.need_main_pwd_on_run = bf.contains(BitCfg::NEED_MAIN_PWD_ON_RUN);
             Ok(())
         } else {
             Ok(())
@@ -32,8 +32,8 @@ impl Cfg {
         // bitflag
         let mut bf = BitCfg::empty();
         // need main on run
-        if self.inner_cfg.need_main_passwd_on_run {
-            bf.insert(BitCfg::NEED_MAIN_ON_RUN);
+        if self.inner_cfg.need_main_pwd_on_run {
+            bf.insert(BitCfg::NEED_MAIN_PWD_ON_RUN);
         }
         // store
         storage.store_cfg_bit_flags(bf)
@@ -43,12 +43,12 @@ impl Cfg {
 #[derive(Debug)]
 pub struct InnerCfg {
     /// 在运行的时候立即要求主密码
-    pub need_main_passwd_on_run: bool,
+    pub need_main_pwd_on_run: bool,
 }
 
 impl Display for InnerCfg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "need_main_passwd_on_run = {}", self.need_main_passwd_on_run)
+        write!(f, "need_main_pwd_on_run = {}", self.need_main_pwd_on_run)
     }
 }
 
@@ -56,7 +56,7 @@ impl Display for InnerCfg {
 impl Default for InnerCfg {
     fn default() -> Self {
         Self {
-            need_main_passwd_on_run: true,
+            need_main_pwd_on_run: true,
         }
     }
 }
