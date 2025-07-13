@@ -12,30 +12,6 @@ pub enum YN {
     No,
 }
 
-const THEME_DELETE: Theme = Theme {
-    cl_global_bg: CL_DD_RED,
-    cl_desc_bg: CL_DDD_RED,
-    cl_title_bg: CL_D_RED,
-    cl_title_fg: CL_WHITE,
-    cl_n_bg: CL_D_RED,
-    cl_n_fg: CL_WHITE,
-    cl_y_bg: CL_D_RED,
-    cl_y_fg: CL_WHITE,
-    cl_desc_fg: CL_WHITE,
-};
-
-const THEME_SAVE: Theme = Theme {
-    cl_global_bg: CL_L_BLACK,
-    cl_desc_bg: CL_BLACK,
-    cl_title_bg: CL_BLACK,
-    cl_title_fg: CL_WHITE,
-    cl_n_bg: CL_BLACK,
-    cl_n_fg: CL_WHITE,
-    cl_y_bg: CL_BLACK,
-    cl_y_fg: CL_WHITE,
-    cl_desc_fg: CL_WHITE,
-};
-
 #[derive(Copy, Clone)]
 pub struct Theme {
     /// bg yn页面全局
@@ -56,6 +32,32 @@ pub struct Theme {
     pub cl_n_fg: Color,
     /// n选项bg
     pub cl_n_bg: Color,
+}
+
+impl Theme {
+    const THEME_DELETE: Theme = Theme {
+        cl_global_bg: CL_DD_RED,
+        cl_desc_bg: CL_DDD_RED,
+        cl_title_bg: CL_D_RED,
+        cl_title_fg: CL_WHITE,
+        cl_n_bg: CL_D_RED,
+        cl_n_fg: CL_WHITE,
+        cl_y_bg: CL_D_RED,
+        cl_y_fg: CL_WHITE,
+        cl_desc_fg: CL_WHITE,
+    };
+
+    const THEME_SAVE: Theme = Theme {
+        cl_global_bg: CL_L_BLACK,
+        cl_desc_bg: CL_BLACK,
+        cl_title_bg: CL_BLACK,
+        cl_title_fg: CL_WHITE,
+        cl_n_bg: CL_BLACK,
+        cl_n_fg: CL_WHITE,
+        cl_y_bg: CL_BLACK,
+        cl_y_fg: CL_WHITE,
+        cl_desc_fg: CL_WHITE,
+    };
 }
 
 /// 闭包，表示在Y/N情况下的行为
@@ -116,11 +118,11 @@ impl YNState {
         let tip_title = format!("DELETE '{}' ?", e_name);
         let tip_desc = format!(
             "[󰦨 about]: {}\n\
-             -󰦨 notes-------------\n{}",
+             -󰦨 notes-\n{}",
             e_name, e_desc
         );
         let e_id = encrypted_entry.id;
-        let mut yn = Self::new(tip_title, tip_desc, THEME_DELETE);
+        let mut yn = Self::new(tip_title, tip_desc, Theme::THEME_DELETE);
         yn.set_y_call(Box::new(move |tui| {
             // 发送删除事件
             tui.send_app_event(AppEvent::EntryRemove(e_id));
@@ -145,10 +147,10 @@ impl YNState {
             "[󰦨 about]:    {}\n\
              [󰌿 username]: {}\n\
              [󰌿 password]: {}\n\
-             -󰦨 notes-------------\n{}",
+             -󰦨 notes-\n{}",
             &ie.about, &ie.username, &ie.password, e_notes_dots
         );
-        let mut yn = Self::new(tip_title, tip_desc, THEME_SAVE);
+        let mut yn = Self::new(tip_title, tip_desc, Theme::THEME_SAVE);
         yn.set_y_call(Box::new(move |tui| {
             let valid = tui.pnt.try_encrypter()?.encrypt(&ie)?;
             if let Some(e_id) = e_id {

@@ -3,25 +3,19 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Line, Stylize, Text, Widget};
 use ratatui::widgets::{Block, BorderType, List, ListItem, Padding};
-use std::sync::LazyLock;
 
 /// 帮助页面实体
-pub struct HelpShowItem {
-    pub key_map: String,
-    pub note: String,
+pub struct HelpShowItem<'a> {
+    pub key_map: &'a str,
+    pub note: &'a str,
 }
 
 /// 帮助页面
-pub struct HelpPage {
-    pub tips: Vec<HelpShowItem>,
+pub struct HelpPage<'a, const N: usize> {
+    pub tips: [HelpShowItem<'a>; N],
 }
 
-/// 帮助页面单例, 即使没有多线程访问，rust也要求 static 为 Sync 的，所以使用 LazyLock
-pub static HELP_PAGE_DASHBOARD: LazyLock<HelpPage> = LazyLock::new(HelpPage::dashboard);
-
-// todo 后续应修改为 不同页面不同 help 项
-
-impl Widget for &HelpPage {
+impl<'a, const N: usize> Widget for &HelpPage<'a, N> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::bordered()
             .title("help")
@@ -38,8 +32,8 @@ impl Widget for &HelpPage {
             .iter()
             .enumerate()
             .map(|(i, tip)| {
-                let l = Line::raw(&tip.key_map).fg(Color::Yellow).bold().left_aligned();
-                let r = Line::raw(&tip.note).fg(CL_WHITE).right_aligned();
+                let l = Line::raw(tip.key_map).fg(Color::Yellow).bold().left_aligned();
+                let r = Line::raw(tip.note).fg(CL_WHITE).right_aligned();
                 let text = Text::from(vec![l, r]);
                 if i % 2 == 0 {
                     ListItem::new(text).bg(CL_L_BLACK)
@@ -52,69 +46,71 @@ impl Widget for &HelpPage {
     }
 }
 
-impl HelpPage {
-    fn dashboard() -> Self {
+impl HelpPage<'static, 15> {
+    // todo 后续应修改为 不同页面不同 help 项
+    pub const HELP_PAGE_DASHBOARD: HelpPage<'static, 15> = HelpPage::dashboard();
+    const fn dashboard() -> Self {
         Self {
-            tips: vec![
+            tips: [
                 HelpShowItem {
-                    key_map: "<F1>".to_string(),
-                    note: "help".to_string(),
+                    key_map: "<F1>",
+                    note: "help",
                 },
                 HelpShowItem {
-                    key_map: "f".to_string(),
-                    note: "find".to_string(),
+                    key_map: "f",
+                    note: "find",
                 },
                 HelpShowItem {
-                    key_map: "j | <DOWN>".to_string(),
-                    note: "down".to_string(),
+                    key_map: "j | <DOWN>",
+                    note: "down",
                 },
                 HelpShowItem {
-                    key_map: "k | <UP>".to_string(),
-                    note: "up".to_string(),
+                    key_map: "k | <UP>",
+                    note: "up",
                 },
                 HelpShowItem {
-                    key_map: "<Ctrl> c".to_string(),
-                    note: "quit-app".to_string(),
+                    key_map: "<Ctrl> c",
+                    note: "quit-app",
                 },
                 HelpShowItem {
-                    key_map: "q".to_string(),
-                    note: "back screen | quit-app".to_string(),
+                    key_map: "q",
+                    note: "back screen | quit-app",
                 },
                 HelpShowItem {
-                    key_map: "<ESC>".to_string(),
-                    note: "back screen | [edit] quit-edit | quit-app | [find] find".to_string(),
+                    key_map: "<ESC>",
+                    note: "back screen | [edit] quit-edit | quit-app | [find] find",
                 },
                 HelpShowItem {
-                    key_map: "<Enter>".to_string(),
-                    note: "detail current | [find] find".to_string(),
+                    key_map: "<Enter>",
+                    note: "detail current | [find] find",
                 },
                 HelpShowItem {
-                    key_map: "o".to_string(),
-                    note: "detail current".to_string(),
+                    key_map: "o",
+                    note: "detail current",
                 },
                 HelpShowItem {
-                    key_map: "i".to_string(),
-                    note: "create new".to_string(),
+                    key_map: "i",
+                    note: "create new",
                 },
                 HelpShowItem {
-                    key_map: "e".to_string(),
-                    note: "edit current".to_string(),
+                    key_map: "e",
+                    note: "edit current",
                 },
                 HelpShowItem {
-                    key_map: "<Ctrl> s".to_string(),
-                    note: "[edit] save edit".to_string(),
+                    key_map: "<Ctrl> s",
+                    note: "[edit] save edit",
                 },
                 HelpShowItem {
-                    key_map: "d".to_string(),
-                    note: "delete current".to_string(),
+                    key_map: "d",
+                    note: "delete current",
                 },
                 HelpShowItem {
-                    key_map: "<Tab>".to_string(),
-                    note: "[edit] next textarea".to_string(),
+                    key_map: "<Tab>",
+                    note: "[edit] next textarea",
                 },
                 HelpShowItem {
-                    key_map: "l".to_string(),
-                    note: "re-lock".to_string(),
+                    key_map: "l",
+                    note: "re-lock",
                 },
             ],
         }

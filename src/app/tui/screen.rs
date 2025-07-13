@@ -2,6 +2,9 @@ pub(crate) mod states;
 pub(crate) mod yn;
 
 use crate::app::entry::InputEntry;
+use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use crate::app::tui::screen::yn::YNState;
+use states::DashboardState;
 
 /// 当前屏幕
 pub enum Screen {
@@ -36,6 +39,4 @@ impl Screen {
     }
 }
 
-use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
-use crate::app::tui::screen::yn::YNState;
-use states::DashboardState;
+

@@ -11,29 +11,26 @@ use ratatui::crossterm::style::Stylize;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-const CLI_HELP_DATA: &str = "Use the specified data file,\
-\nif this parameter is not provided,\
-\nUse the default data file (default_data).";
-const CLI_HELP_FIND: &str = "Find for entries with similar 'about' values";
-
-// /// sub cmd cfg 要求修改设置的 data参数的 help值
-// const CFG_SUB_ARG_HELP_DATA: &str = "Specify the specific file to modify the configuration.\
-// \nIf this parameter is not provided,\
-// \nthe configuration changes will be applied to the default data file (default_data).";
-
 /// runtime cli args...
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
     /// 要通过 about 值模糊查找的 条目
-    #[arg(short = 'f', long = "find", value_name = "ABOUT", help = CLI_HELP_FIND)]
+    #[arg(short = 'f', long = "find", value_name = "ABOUT", help = Self::CLI_HELP_FIND)]
     find: Option<String>,
     /// 要求使用的数据文件
-    #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = CLI_HELP_DATA)]
+    #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = Self::CLI_HELP_DATA)]
     data: Option<PathBuf>,
     /// 子命令
     #[command(subcommand)]
     command: Option<SubCmd>,
+}
+
+impl CliArgs {
+    const CLI_HELP_DATA: &'static str = "Use the specified data file,\
+\nif this parameter is not provided,\
+\nUse the default data file (default_data).";
+    const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values";
 }
 
 /// 子命令定义

@@ -31,6 +31,7 @@ pub struct PntContext {
 }
 
 impl PntContext {
+    #[cfg(test)]
     pub fn new_with_verified(cfg: Cfg, storage: Storage, security_context: SecurityContext) -> Self {
         Self {
             cfg,

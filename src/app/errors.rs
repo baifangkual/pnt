@@ -6,9 +6,6 @@ pub enum AppError {
     /// 主密码重试到最大次数仍未正确
     #[error("invalid password")]
     InvalidPassword,
-    /// 找不到主密码
-    #[error("main password not found")]
-    MainPwdNotFound,
     /// 数据被破坏（即部分cf读取值失败，即说明手动修改了数据文件）
     ///
     /// 在使用pnt时，这是不允许的情况，程序应退出
@@ -17,11 +14,6 @@ pub enum AppError {
     /// 未校验主密码却到达了需要主密码的请求
     #[error("main password is not verified")]
     MainPwdNotVerified,
-    /// 需要读取data文件但读取失败的情况
-    #[error("failed to open data")]
-    CannotOpenData,
-    #[error("data file path does not exist: {0}")]
-    DataFilePathDoesNotExist(String),
     #[error("cannot get data file path")]
     CannotGetDataFilePath,
 }

@@ -4,14 +4,6 @@ use crate::app::storage::{Storage, sql_result_map_to_option};
 use chrono::{DateTime, Local};
 use rusqlite::{Result as SqlResult, Row, params};
 
-/// 模板-插入密码的 Sqlite 语句
-const INSERT_ENTRY_SQL: &str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
-/// 模板-更新实体的 Sqlite 语句
-const UPDATE_ENTRY_SQL: &str =
-    r#"UPDATE "entry" SET "about"=?, "notes"=?, "k"=?, "v"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
-/// 模板-删除实体的 Sqlite 语句
-const DELETE_ENTRY_SQL: &str = r#"DELETE FROM "entry" WHERE "id"=?"#;
-
 /// 将 Row 转换为 Entry
 fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
     let id: u32 = row.get(0)?;
@@ -33,11 +25,19 @@ fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
 }
 
 impl Storage {
+    /// 模板-插入密码的 Sqlite 语句
+    const INSERT_ENTRY_SQL: &'static str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
+    /// 模板-更新实体的 Sqlite 语句
+    const UPDATE_ENTRY_SQL: &'static str =
+        r#"UPDATE "entry" SET "about"=?, "notes"=?, "k"=?, "v"=?, "ut"=datetime('now', 'localtime') WHERE "id"=?"#;
+    /// 模板-删除实体的 Sqlite 语句
+    const DELETE_ENTRY_SQL: &'static str = r#"DELETE FROM "entry" WHERE "id"=?"#;
+
     /// 插入一条密码记录
     pub fn insert_entry(&self, insert_entry: &ValidEntry) {
         self.conn
             .execute(
-                INSERT_ENTRY_SQL,
+                Self::INSERT_ENTRY_SQL,
                 params![
                     insert_entry.about,
                     insert_entry.notes,
@@ -51,7 +51,7 @@ impl Storage {
     pub fn update_entry(&self, update_entry: &ValidEntry, id: u32) {
         self.conn
             .execute(
-                UPDATE_ENTRY_SQL,
+                Self::UPDATE_ENTRY_SQL,
                 params![
                     update_entry.about,
                     update_entry.notes,
@@ -66,7 +66,7 @@ impl Storage {
     /// 删除一条密码记录
     pub fn delete_entry(&self, entry_id: u32) {
         self.conn
-            .execute(DELETE_ENTRY_SQL, params![entry_id])
+            .execute(Self::DELETE_ENTRY_SQL, params![entry_id])
             .expect("Failed to delete entry");
     }
     /// 通过id查询一条密码记录

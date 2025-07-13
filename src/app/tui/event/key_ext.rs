@@ -41,6 +41,7 @@ pub trait KeyEventExt {
 }
 
 /// 判定是否按下 ctrl 和 某个字母键
+#[inline]
 pub fn _is_press_ctrl_and_char(key_event: &KeyEvent, char: char) -> bool {
     if key_event.modifiers == KeyModifiers::CONTROL {
         key_event.code == KeyCode::Char(char)
@@ -50,6 +51,7 @@ pub fn _is_press_ctrl_and_char(key_event: &KeyEvent, char: char) -> bool {
 }
 
 /// 判定是否按下 某个字母键-忽略大小写
+#[inline]
 pub fn _is_press_char_ignore_case(key_event: &KeyEvent, char: char) -> bool {
     key_event.code == KeyCode::Char(char.to_ascii_lowercase())
         || key_event.code == KeyCode::Char(char.to_ascii_uppercase())

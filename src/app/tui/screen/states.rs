@@ -175,13 +175,13 @@ pub enum Editing {
     Notes = 3_u8,
 }
 
-impl<T> std::ops::Index<Editing> for [T] {
+impl<T> std::ops::Index<Editing> for [T; 4] {
     type Output = T;
     fn index(&self, editing: Editing) -> &T {
         &self[editing as usize]
     }
 }
-impl<T> std::ops::IndexMut<Editing> for [T] {
+impl<T> std::ops::IndexMut<Editing> for [T; 4] {
     fn index_mut(&mut self, editing: Editing) -> &mut T {
         &mut self[editing as usize]
     }
