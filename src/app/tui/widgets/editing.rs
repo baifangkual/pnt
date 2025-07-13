@@ -48,7 +48,7 @@ impl Widget for &EditingState {
         for idx in 0..4_usize {
             let blc = blocks[idx].take().unwrap();
             let curr_area = areas[idx];
-            let n_blc = if idx == curr_editing.index() {
+            let n_blc = if idx == curr_editing as usize {
                 // is_active
                 // 正在编辑的，fg yellow，光标显示
                 blc.fg(Color::Yellow)

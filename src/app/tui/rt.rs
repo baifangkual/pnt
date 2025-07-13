@@ -257,7 +257,7 @@ impl TUIApp {
             }
             Edit(state) => {
                 // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
-                if *state.current_editing_type() != Editing::Notes {
+                if state.current_editing_type() != Editing::Notes {
                     // 上移
                     if key_event._is_up() {
                         self.send_app_event(AppEvent::CursorUp);
@@ -376,7 +376,7 @@ impl TUIApp {
     fn do_editing_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         if let Edit(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
-            if Editing::Notes != *state.current_editing_type() {
+            if Editing::Notes != state.current_editing_type() {
                 if let KeyCode::Enter = key_event.code {
                     self.send_app_event(AppEvent::CursorDown);
                     return Ok(());

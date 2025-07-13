@@ -36,13 +36,13 @@ impl EditingState {
     }
 
     /// 返回当前正在编辑的字段是哪一个
-    pub fn current_editing_type(&self) -> &Editing {
-        &self.editing
+    pub fn current_editing_type(&self) -> Editing {
+        self.editing
     }
 
     /// 返回当前正在编辑的字段的可变引用
     pub fn current_editing_string_mut(&mut self) -> &mut TextArea<'static> {
-        &mut self.input_textarea[self.editing.index()]
+        &mut self.input_textarea[self.editing]
     }
 
     pub fn new_updating(u_input: InputEntry, e_id: u32) -> Self {
@@ -58,7 +58,7 @@ impl EditingState {
     pub fn new_creating() -> Self {
         let editing = Editing::default();
         let mut textarea4 = Self::new4();
-        textarea4[editing.index()].set_activate_state(true); // 光标可见
+        textarea4[editing].set_activate_state(true); // 光标可见
         Self {
             editing,
             input_textarea: textarea4,
@@ -78,7 +78,7 @@ impl EditingState {
 
     /// 返回指定的输入框
     pub fn textarea(&self, editing: Editing) -> &TextArea<'static> {
-        &self.input_textarea[editing.index()]
+        &self.input_textarea[editing]
     }
     /// 返回持有的所有textarea切片引用
     pub fn all_textarea(&self) -> &[TextArea<'static>; 4] {
@@ -88,9 +88,9 @@ impl EditingState {
     /// 某个框的内容
     fn value(&self, editing: Editing) -> String {
         match editing {
-            Editing::Notes => self.input_textarea[editing.index()].lines().join("\n"),
+            Editing::Notes => self.input_textarea[editing].lines().join("\n"),
             // textarea的lines.last().unwrap一定不会panic，因为其即使空字符串一定有值""...
-            _ => self.input_textarea[editing.index()].lines().last().unwrap().to_owned(),
+            _ => self.input_textarea[editing].lines().last().unwrap().to_owned(),
         }
     }
 
@@ -101,26 +101,26 @@ impl EditingState {
     /// 光标向上移动，若当前光标为Name，则移动到Password
     pub fn cursor_up(&mut self) {
         // 将当前置位光标隐藏，将新的置位光标不隐藏
-        self.input_textarea[self.editing.index()].set_activate_state(false);
+        self.input_textarea[self.editing].set_activate_state(false);
         self.editing = match self.editing {
             Editing::About => Editing::Notes,
             Editing::Username => Editing::About,
             Editing::Password => Editing::Username,
             Editing::Notes => Editing::Password,
         };
-        self.input_textarea[self.editing.index()].set_activate_state(true);
+        self.input_textarea[self.editing].set_activate_state(true);
     }
 
     /// 光标向下移动，若当前光标为Password，则移动到Name
     pub fn cursor_down(&mut self) {
-        self.input_textarea[self.editing.index()].set_activate_state(false);
+        self.input_textarea[self.editing].set_activate_state(false);
         self.editing = match self.editing {
             Editing::About => Editing::Username,
             Editing::Username => Editing::Password,
             Editing::Password => Editing::Notes,
             Editing::Notes => Editing::About,
         };
-        self.input_textarea[self.editing.index()].set_activate_state(true);
+        self.input_textarea[self.editing].set_activate_state(true);
     }
 
     /// 当前输入是否有效
@@ -164,25 +164,26 @@ impl EditingState {
         Ok(encrypter.encrypt(&self.current_input_entry())?)
     }
 }
-
 /// 表示正在编辑 UserInputEntry的 哪一个
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
 pub enum Editing {
     #[default]
-    About,
-    Username,
-    Password,
-    Notes,
+    About = 0_u8,
+    Username = 1_u8,
+    Password = 2_u8,
+    Notes = 3_u8,
 }
 
-impl Editing {
-    pub fn index(&self) -> usize {
-        match self {
-            Editing::About => 0,
-            Editing::Username => 1,
-            Editing::Password => 2,
-            Editing::Notes => 3,
-        }
+impl<T> std::ops::Index<Editing> for [T] {
+    type Output = T;
+    fn index(&self, editing: Editing) -> &T {
+        &self[editing as usize]
+    }
+}
+impl<T> std::ops::IndexMut<Editing> for [T] {
+    fn index_mut(&mut self, editing: Editing) -> &mut T {
+        &mut self[editing as usize]
     }
 }
 
