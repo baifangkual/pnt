@@ -23,10 +23,7 @@ impl Screen {
     ///
     /// > 该方法给多个可能实现的 dashboard 做准备
     pub fn is_dashboard(&self) -> bool {
-        match self {
-            Screen::DashboardV1(..) => true,
-            _ => false,
-        }
+        matches!(self, Screen::DashboardV1(..))
     }
 
     /// 新建编辑页面

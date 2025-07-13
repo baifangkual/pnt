@@ -67,11 +67,16 @@ pub fn bottom_rect(rect: Rect) -> Rect {
 
 pub trait RectExt {
     fn h_centered_percent(self, centered_percent: u16) -> Self;
+
+    #[allow(unused)]
     fn v_centered_percent(self, centered_percent: u16) -> Self;
+    #[allow(unused)]
     fn centered_percent(self, percent_width: u16, percent_height: u16) -> Self;
 
+    #[allow(unused)]
     fn bottom_rect(self) -> Rect;
 
+    #[allow(unused)]
     fn horizontal_split<const N: usize>(self) -> [Rect; N];
 }
 impl RectExt for Rect {

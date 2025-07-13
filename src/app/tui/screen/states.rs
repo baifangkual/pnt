@@ -241,7 +241,7 @@ impl DashboardState {
     }
 
     /// 对 entries 进行排序
-    fn sort_entries(entries: &mut Vec<EncryptedEntry>) {
+    fn sort_entries(entries: &mut [EncryptedEntry]) {
         entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
     }
 
@@ -306,7 +306,7 @@ impl DashboardState {
         self.scrollbar_state = self.scrollbar_state.content_length(entries.len());
         self.entries = entries;
         if !self.entries().is_empty() {
-            if let None = self.cursor_selected() {
+            if self.cursor_selected().is_none() {
                 self.update_cursor(Some(0))
             }
         } else {

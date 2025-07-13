@@ -53,11 +53,11 @@ impl EncryptedEntry {
         right.created_time.cmp(&left.created_time)
     }
     /// 解密 Entry 为 UserInputEntry
-    pub fn decrypt<'a, Dec>(&'a self, decrypt: &Dec) -> anyhow::Result<InputEntry>
+    pub fn decrypt<'a, 'b: 'a, Dec>(&'b self, decrypt: &Dec) -> anyhow::Result<InputEntry>
     where
         Dec: Decrypter<&'a EncryptedEntry, InputEntry>,
     {
         // 主要提示DataCorrupted：存储成功的我想象不会解密失败，唯一解释是实际文件被人为修改，即提示数据已损坏
-        decrypt.decrypt(&self).with_context(|| AppError::DataCorrupted)
+        decrypt.decrypt(self).with_context(|| AppError::DataCorrupted)
     }
 }

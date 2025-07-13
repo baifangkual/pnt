@@ -14,20 +14,23 @@ use aes_gcm::{
 use anyhow::Result;
 use base64ct::{Base64, Encoding};
 
-/// 使用 aes256gcm 实现对 string 的加密解密
-/// 该实现中，同明文在不同次加密时会被加密为不同密文
+/// 使用 aes256gcm 实现对 string 的加密解密，
+/// 该实现中，同明文在不同次加密时会被加密为不同密文，
 /// 同明文对应的不同密文解密可得到同明文
-struct StrAes256GcmEncrypter(AesGcm<Aes256, U12>);
+///
+/// 使用Box引用，因为AesGcm占1000多字节（clippy分析），在Event enum中第二大的
+/// Crossterm(CrosstermEvent) 变体只占 24 bytes，用指针优化Event枚举大小
+struct StrAes256GcmEncrypter(Box<AesGcm<Aes256, U12>>);
 
 impl StrAes256GcmEncrypter {
     fn from_key(key: [u8; 32]) -> Result<Self> {
         let gcm = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
-        Ok(Self(gcm))
+        Ok(Self(Box::from(gcm)))
     }
     #[cfg(test)]
     fn from_random_key() -> StrAes256GcmEncrypter {
         let key = Aes256Gcm::generate_key(&mut OsRng);
-        Self(Aes256Gcm::new(&key))
+        Self(Box::from(Aes256Gcm::new(&key)))
     }
 }
 
@@ -39,7 +42,7 @@ impl Encrypter<&str, String> for StrAes256GcmEncrypter {
         let cipher = self
             .0
             .encrypt(&nonce, plaintext.as_bytes())
-            .map_err(|e| CryptoError::Encrypt(e))?;
+            .map_err(CryptoError::Encrypt)?;
         let s_n = nonce.as_slice();
         if s_n.len() != 12 {
             // 饱和校验
@@ -59,11 +62,8 @@ impl Decrypter<&str, String> for StrAes256GcmEncrypter {
             .map_err(|_| CryptoError::DecodeCiphertext)
             .and_then(|vec| {
                 let nonce: GenericArray<u8, U12> = Nonce::clone_from_slice(&vec[..12]);
-                let vec_utf8 = self
-                    .0
-                    .decrypt(&nonce, &vec[12..])
-                    .map_err(|e| CryptoError::Decrypt(e))?;
-                Ok(String::from_utf8(vec_utf8).map_err(|_| CryptoError::DecodeNonce)?)
+                let vec_utf8 = self.0.decrypt(&nonce, &vec[12..]).map_err(CryptoError::Decrypt)?;
+                String::from_utf8(vec_utf8).map_err(|_| CryptoError::DecodeNonce)
             })
     }
 }

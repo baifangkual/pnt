@@ -29,7 +29,7 @@ pub trait Decrypter<C, P> {
 /// 若主密码在storage中找不到或因salt等原因构建失败则返回Err
 pub fn build_mpv(storage: &Storage) -> anyhow::Result<MainPwdVerifier> {
     let b64_s_mph = storage.query_b64_s_mph().ok_or(AppError::DataCorrupted)?;
-    Ok(MainPwdVerifier::from_b64_s_mph(&b64_s_mph)?)
+    MainPwdVerifier::from_b64_s_mph(&b64_s_mph)
 }
 
 /// 主密码加密器，使用Argon2id算法加密主密码明文
@@ -48,6 +48,7 @@ impl MainPwdEncrypter {
         Self::from_salt(salt)
     }
 
+    #[cfg(test)]
     pub fn salt(&self) -> &[u8; 32] {
         &self.salt
     }
@@ -61,10 +62,10 @@ impl Encrypter<String, String> for MainPwdEncrypter {
     /// salt 太短 <8 或 太长 >64
     /// mph > usize::MAX/4
     fn encrypt(&self, plaintext: String) -> Result<String, CryptoError> {
-        let ss = SaltString::encode_b64(&self.salt).map_err(|e| CryptoError::DecodeSalt(e))?;
+        let ss = SaltString::encode_b64(&self.salt).map_err(CryptoError::DecodeSalt)?;
         let mph = Argon2::default()
             .hash_password(plaintext.as_bytes(), &ss)
-            .map_err(|e| CryptoError::EncryptMainPwd(e))?
+            .map_err(CryptoError::EncryptMainPwd)?
             .to_string();
         Ok(encode_b64_s_mph(&self.salt, &mph))
     }
@@ -80,11 +81,11 @@ impl MainPwdVerifier {
     /// # Arguments
     /// * `salt` - 盐
     /// * `b64_mph` - argon2 hash 加密后的主密码(b64编码）
-    pub fn from_b64_s_mph(b64_s_mph: &String) -> anyhow::Result<Self> {
+    pub fn from_b64_s_mph(b64_s_mph: &str) -> anyhow::Result<Self> {
         // 从 s_mp_b64 可base64de到salt，若过程失败，则证明数据已被破坏
-        let (salt, mph) = decode_b64_s_mph(&b64_s_mph)?;
+        let (salt, mph) = decode_b64_s_mph(b64_s_mph)?;
         Ok(Self {
-            salt: SaltString::encode_b64(&salt).map_err(|e| CryptoError::DecodeSalt(e))?,
+            salt: SaltString::encode_b64(&salt).map_err(CryptoError::DecodeSalt)?,
             mph,
         })
     }
@@ -101,7 +102,7 @@ impl MainPwdVerifier {
         let argon2 = Argon2::default();
         let verify_r = argon2.verify_password(
             passwd.as_bytes(),
-            &PasswordHash::new(&self.mph).map_err(|e| CryptoError::EncryptMainPwd(e))?,
+            &PasswordHash::new(&self.mph).map_err(CryptoError::EncryptMainPwd)?,
         );
         match verify_r {
             Ok(()) => Ok(true),

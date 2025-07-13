@@ -11,6 +11,7 @@ const SELECT_INNER_CFG_SQL: &str = r#"SELECT "v" FROM "cfg" WHERE "k"=?"#;
 const SAVE_INNER_CFG_SQL: &str = r#"INSERT OR REPLACE INTO "cfg" ("k", "v") VALUES (?, ?)"#;
 
 /// 模板-删除内部配置 sql
+#[allow(unused)]
 const DELETE_INNER_CFG_SQL: &str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
 
 // todo cfg 中 key v均应 hash，防止明确指向
@@ -59,7 +60,7 @@ impl Storage {
     ///
     /// 若人为修改db文件导致 FromStr parse失败，则Err报告数据已损坏
     pub fn query_cfg_bit_flags(&self) -> anyhow::Result<Option<BitCfg>> {
-        let bf_or = self.select_cfg_v_by_key(&BIT_FLAG_CFG_ID);
+        let bf_or = self.select_cfg_v_by_key(BIT_FLAG_CFG_ID);
         if bf_or.is_none() {
             return Ok(None);
         }
@@ -73,7 +74,7 @@ impl Storage {
 
     /// 存储 bit flag 配置，覆盖或插入(依赖key值是否相同）
     pub fn store_cfg_bit_flags(&self, bf: BitCfg) {
-        self.save_cfg(&BIT_FLAG_CFG_ID, &bf.bits().to_string())
+        self.save_cfg(BIT_FLAG_CFG_ID, &bf.bits().to_string())
     }
 
     /// 插入配置 OR 更新配置 （取决于给定的key在table是否存在，存在则更新，不存在则插入）
@@ -84,6 +85,7 @@ impl Storage {
     }
 
     /// 删除配置
+    #[cfg(test)]
     fn delete_cfg(&self, key: &str) {
         self.conn
             .execute(DELETE_INNER_CFG_SQL, params![key])

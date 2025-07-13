@@ -20,11 +20,7 @@ impl Cfg {
     pub fn overwrite_inner_cfg(&mut self, storage: &Storage) -> anyhow::Result<()> {
         let bf_or = storage.query_cfg_bit_flags()?;
         if let Some(bf) = bf_or {
-            if bf.contains(BitCfg::NEED_MAIN_ON_RUN) {
-                self.inner_cfg.need_main_passwd_on_run = true;
-            } else {
-                self.inner_cfg.need_main_passwd_on_run = false;
-            }
+            self.inner_cfg.need_main_passwd_on_run = bf.contains(BitCfg::NEED_MAIN_ON_RUN);
             Ok(())
         } else {
             Ok(())
@@ -140,7 +136,7 @@ pub fn default_conf_path() -> PathBuf {
 /// 从磁盘载入配置文件，若配置文件存在则载入，若不存在则 Ok(None)，io错误将 Err
 pub fn try_load_cfg_from_disk(cp: &Path) -> anyhow::Result<Option<TomlCfg>> {
     if cp.exists() {
-        let c_str = std::fs::read_to_string(&cp)?;
+        let c_str = std::fs::read_to_string(cp)?;
         Ok(Some(toml::from_str::<TomlCfg>(&c_str)?))
     } else {
         Ok(None)
@@ -151,7 +147,7 @@ pub fn try_load_cfg_from_disk(cp: &Path) -> anyhow::Result<Option<TomlCfg>> {
 /// 返回的Path即使指向的位置没有或不是一个有效文件，也返回Some，
 /// None仅代表没有该环境变量项
 pub fn env_conf_path() -> Option<PathBuf> {
-    env::var(ENV_CONF_PATH_KEY).into_iter().map(PathBuf::from).last() // 不检查 PathBuf指向的位置是否有效，只要环境变量配置存在，则覆盖默认配置文件中找的行为
+    env::var(ENV_CONF_PATH_KEY).into_iter().map(PathBuf::from).next_back() // 不检查 PathBuf指向的位置是否有效，只要环境变量配置存在，则覆盖默认配置文件中找的行为
 }
 
 /// 从env中寻找配置要求的default_data file path
@@ -161,7 +157,7 @@ pub fn env_data_file_path() -> Option<PathBuf> {
     env::var(ENV_DEFAULT_DATA_FILE_PATH_KEY)
         .into_iter()
         .map(PathBuf::from)
-        .last() // 不检查 PathBuf指向的位置是否有效，只要环境变量配置存在，则覆盖默认配置文件中找的行为
+        .next_back() // 不检查 PathBuf指向的位置是否有效，只要环境变量配置存在，则覆盖默认配置文件中找的行为
 }
 
 /// 载入配置文件，尝试从磁盘载入，若磁盘配置文件不存在，

@@ -17,7 +17,7 @@ pub struct HelpPage {
 }
 
 /// 帮助页面单例, 即使没有多线程访问，rust也要求 static 为 Sync 的，所以使用 LazyLock
-pub static HELP_PAGE_DASHBOARD: LazyLock<HelpPage> = LazyLock::new(|| HelpPage::dashboard());
+pub static HELP_PAGE_DASHBOARD: LazyLock<HelpPage> = LazyLock::new(HelpPage::dashboard);
 
 // todo 后续应修改为 不同页面不同 help 项
 

@@ -167,6 +167,9 @@ impl YNState {
     }
 
     fn set_n_call_back_screen(&mut self) {
-        self.set_n_call(Box::new(move |tui| Ok(tui.back_screen())))
+        self.set_n_call(Box::new(move |tui| {
+            tui.back_screen();
+            Ok(())
+        }))
     }
 }

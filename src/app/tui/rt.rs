@@ -48,15 +48,17 @@ impl TUIApp {
     fn change_current_screen(&mut self, new_screen: Screen, push_old_screen: bool) -> Result<()> {
         if push_old_screen {
             let old_scr = std::mem::replace(&mut self.screen, new_screen);
-            Ok(self.back_screen.push(old_scr))
+            self.back_screen.push(old_scr);
+            Ok(())
         } else {
-            Ok(self.screen = new_screen)
+            self.screen = new_screen;
+            Ok(())
         }
     }
 
     /// 处理需进入屏幕的需求
     fn handle_enter_screen_indent(&mut self, new_screen_intent: EnterScreenIntent) -> Result<()> {
-        let new_screen = new_screen_intent.handle_intent(&self)?;
+        let new_screen = new_screen_intent.handle_intent(self)?;
         if let NeedMainPasswd(_) = &self.screen {
             Ok(self.change_current_screen(new_screen, false)?)
         } else {
@@ -387,7 +389,6 @@ impl TUIApp {
             match key_event.code {
                 KeyCode::Backspace => {
                     state.mp_input.pop();
-                    ()
                 }
                 KeyCode::Char(value) => state.mp_input.push(value),
                 _ => {}
@@ -410,13 +411,13 @@ impl TUIApp {
 
     /// 向 db 添加一个 entry，并更新 store_entry_count + 1
     fn insert_entry(&mut self, e: &ValidEntry) {
-        self.pnt.storage.insert_entry(&e);
+        self.pnt.storage.insert_entry(e);
         self.send_app_event(AppEvent::FlashVecItems(None));
         self.store_entry_count += 1;
     }
 
     fn update_entry(&mut self, e: &ValidEntry, e_id: u32) {
-        self.pnt.storage.update_entry(&e, e_id);
+        self.pnt.storage.update_entry(e, e_id);
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
 

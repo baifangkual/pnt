@@ -78,7 +78,7 @@ impl DataFileState {
             Ok(DataFileState::NoStorage)
         } else {
             // 存在，尝试读取主密码
-            let conn = Storage::open_file(&data_path)?;
+            let conn = Storage::open_file(data_path)?;
             // 找不到主密码
             if conn.is_not_init_mph()? {
                 Ok(DataFileState::NoMainPwd)

@@ -167,7 +167,7 @@ impl CliArgs {
             }
             context
                 .storage
-                .select_entry_by_about_like(&find)
+                .select_entry_by_about_like(find)
                 .into_iter()
                 .enumerate()
                 .for_each(|(i, entry)| println!("{:>3}: {}", i + 1, entry.about));
@@ -219,7 +219,7 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
             let msg = format!(
                 "not find env:[{}],\ntry read config default local with: '{}'\n",
                 consts::ENV_CONF_PATH_KEY,
-                cp.display().to_string()
+                cp.display()
             );
             println!("{}", msg.grey());
             cp
