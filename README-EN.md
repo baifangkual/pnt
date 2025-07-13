@@ -10,8 +10,7 @@ Compile: `cargo build --release`
 
 Copyright (c) baifangkual
 
-[MIT] OR [Apache-2.0]
+[MIT]
 
-[MIT]: ./LICENSE-MIT
-[Apache-2.0]: ./LICENSE-APACHE
+[MIT]: ./LICENSE
 [NerdFont]: https://www.nerdfonts.com/#home

@@ -3,7 +3,7 @@ name = "pnt"
 version = "0.1.5"
 authors = ["baifangkual <baifangkuai@live.com>"]
 edition = "2024"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 description = "A simple TUI password note application"
 readme = "README.md"
 homepage = "https://github.com/baifangkual/pnt"
@@ -11,7 +11,7 @@ repository = "https://github.com/baifangkual/pnt"
 keywords = ["tui-app", "password-manager", "notes-app"]
 categories = ["command-line-utilities"]
 
-[profile.release]
+[profile.release] # release 可执行程序尽可能小
 opt-level = "s"
 lto = true
 panic = "abort"
