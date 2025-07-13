@@ -1,6 +1,10 @@
+use crate::app::context::SecurityContext;
+use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
+use crate::app::crypto::{Decrypter, Encrypter};
 use crate::app::errors::AppError;
 use anyhow::anyhow;
 use rusqlite::{Connection as sqliteConnection, Connection, Result as SqlResult};
+use std::ops::Deref;
 use std::path::Path;
 
 pub mod entries;
@@ -41,6 +45,38 @@ pub struct Storage {
 }
 
 impl Storage {
+    /// 更新主密码，
+    /// 能进入该代码块则旧的主密码已成功验证(因为有old的SecurityContext)，新主密码已加密为b64_s_mph，
+    ///
+    /// 该方法会修改所有已知的加密条目的加密为新密码，
+    /// 且对db文件进行vacuum操作，移除未使用空间
+    /// 这些操作，除了最后的vacuum操作，都在一个事务中进行
+    pub fn update_b64_s_mph(
+        &self, new_b64_s_mph: String, old_sec_ctx: SecurityContext, new_sec_ctx: SecurityContext,
+    ) -> anyhow::Result<()> {
+        // 1. 遍历所有条目，解密，加密，更新
+        // 2. 更新主密码
+        // 3. vacuum操作，移除未使用空间
+
+        // 不会嵌套事务，安全 uncheck
+        let transaction = self.conn.unchecked_transaction()?;
+        // transaction =====================================================
+        let all_ent = self.select_all_entry();
+        self.store_b64_s_mph(&new_b64_s_mph);
+        for ent in all_ent {
+            let id = ent.id;
+            let old_e = old_sec_ctx.decrypt(&ent)?;
+            let new_v_e = new_sec_ctx.encrypt(&old_e)?;
+            self.update_entry(&new_v_e, id);
+        }
+        transaction.commit()?; // 同步阻塞
+        // transaction =====================================================
+        self.vacuum_db()?; // 同步阻塞
+        Ok(())
+    }
+}
+
+impl Storage {
     /// 关闭连接，不再使用，该方法要求所有权
     pub fn close(self) {
         let _ = self.conn.close();
@@ -52,6 +88,13 @@ impl Storage {
             // 因为该pathAPI在临时或内存库时返回Some("")，所以过滤
             .filter(|p| !p.is_empty())
     }
+
+    /// 执行vacuum操作，移除未使用的空间
+    pub fn vacuum_db(&self) -> anyhow::Result<()> {
+        // 重建整个数据库文件，移除未使用空间
+        self.conn.execute("VACUUM", [])?;
+        Ok(())
+    }
 }
 
 impl Storage {
@@ -61,6 +104,9 @@ impl Storage {
     pub fn db_mem_to_disk(self, disk_path: &Path) -> anyhow::Result<()> {
         if disk_path.exists() {
             Err(anyhow!("file '{}' already exists", disk_path.display().to_string()))
+        } else if self.path().is_some() {
+            // 饱和校验，非内存库Err
+            Err(anyhow!("current is not a memory database"))
         } else {
             // 使用 VACUUM INTO 语句将内存数据库复制到磁盘
             let sql = format!("VACUUM INTO '{}'", disk_path.to_str().unwrap());
@@ -70,7 +116,7 @@ impl Storage {
     }
 
     /// 指定数据库文件路径，建立连接, 该方法能Ok返回则表一定存在
-    pub fn new(path: &Path) -> anyhow::Result<Self> {
+    pub fn open_file(path: &Path) -> anyhow::Result<Self> {
         let conn = Connection::open(path)?;
         let s = Self { conn };
         s.assert_all_tables_exists()?;
@@ -99,7 +145,7 @@ impl Storage {
     }
 
     /// 若表不存在则创建表
-    pub(in crate::app::storage) fn init_tables_if_not_exists(&mut self) -> anyhow::Result<()> {
+    fn init_tables_if_not_exists(&mut self) -> anyhow::Result<()> {
         self.conn.execute(CREATE_ENTRY_TABLE_TEMPLATE_SQL, [])?;
         self.conn.execute(CREATE_INNER_CFG_TABLE_SQL, [])?;
         Ok(())

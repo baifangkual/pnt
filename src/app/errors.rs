@@ -50,4 +50,3 @@ pub enum CryptoError {
     #[error("invalid nonce length")]
     InvalidNonceLength,
 }
-

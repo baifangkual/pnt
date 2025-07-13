@@ -1,7 +1,7 @@
 use crate::app::cfg::load_cfg;
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
-use crate::app::context::{DataFileState, PntContext, SecurityContext};
-use crate::app::crypto::{Encrypter, MainPwdEncrypter, build_mpv};
+use crate::app::context::{DataFileState, PntContext};
+use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier, build_mpv};
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
 use anyhow::anyhow;
@@ -41,9 +41,9 @@ pub struct CliArgs {
 enum SubCmd {
     /// Initializing pnt data storage location
     Init,
-    /// Reset the main password in an interactive context
-    #[command(name = "rs-mp")]
-    ResetMainPwd,
+    /// Modify the main password in an interactive context
+    #[command(name = "mmp")]
+    ModifyMainPwd,
     /// Management of configuration related to specific data files
     ///
     /// If no configuration parameters are specified for setting,
@@ -54,8 +54,8 @@ enum SubCmd {
 #[derive(Args, Debug)]
 struct SubCmdCfgArgs {
     /// Setting whether to require the main password immediately at runtime
-    #[arg(long)]
-    need_main_pwd_on_run: Option<bool>,
+    #[arg(long = "modify--need-main-pwd-on-run", value_name = "VALUE")]
+    modify_need_main_pwd_on_run: Option<bool>,
 }
 
 impl CliArgs {
@@ -70,22 +70,55 @@ impl CliArgs {
             return Ok(None);
         }
 
+        // =======================================
         // CONTEXT BUILD =========================
+        // =======================================
         let mut cfg = load_cfg()?;
+        let arg_data = self.data.as_ref();
         // 没有给 -data 就连接默认数据文件
-        let need_load_data_file = self.data.as_ref().unwrap_or(&cfg.default_date);
+        let need_load_data_file = arg_data.unwrap_or(&cfg.default_date);
         // 连接数据文件，因为为非显式init，所以任何失败情况该方法内均Err向上回报
         let conn = assert_data_file_ready(need_load_data_file)?;
         // 已填充inner配置的cfg
         cfg.overwrite_inner_cfg(&conn)?;
         // pnt 上下文
         let mut context = PntContext::new_with_un_verified(cfg, conn);
+        // =======================================
         // CONTEXT BUILD =========================
+        // =======================================
 
-        if let Some(SubCmd::ResetMainPwd) = &self.command {
+        if let Some(SubCmd::ModifyMainPwd) = &self.command {
             // 要求修改主密码...
-            // todo modifymain pawd
-            println!("aaaaaaaaaaaaaaaaaa-------Modify main password in an interactive context");
+            println!("Data file: '{}'", context.storage.path().unwrap());
+            println!(
+                "{}",
+                "Verify the current data file main password to modify main password".yellow()
+            );
+            // 因为要修改主密码，遂立即要求主密码
+            let context = await_verifier_main_pwd(context)?;
+
+            // 至此 原主密码已校验
+            let new_mp = setting_main_pwd_by_stdin("New main password")?;
+
+            // 不可反驳解构 PNT CONTEXT，因为已经校验了主密码，所以 else 一定不会发生
+            let PntContext {
+                storage,
+                security_context: Some(old_sec_ctx),
+                ..
+            } = context
+            else {
+                unreachable!("因上述await_verifier_main_pwd，不会执行到该分支")
+            };
+
+            let new_b64_s_mph = MainPwdEncrypter::new_from_random_salt().encrypt(new_mp.clone())?;
+            println!("\nNew main password hash:\n{new_b64_s_mph}\n");
+            let new_sec_ctx = MainPwdVerifier::from_b64_s_mph(&new_b64_s_mph)?.load_security_context(&new_mp)?;
+
+            // 当前线程卡在这，等待数据库文件内容更新返回 =====
+            println!("{}", "...modify main password...\n".grey());
+            storage.update_b64_s_mph(new_b64_s_mph, old_sec_ctx, new_sec_ctx)?;
+            println!("{}", "Successfully modify main password".green());
+            // 当前线程卡在这，等待数据库文件内容更新返回 =====
 
             return Ok(None);
         } else if let Some(SubCmd::Cfg(args)) = &self.command {
@@ -98,12 +131,15 @@ impl CliArgs {
             println!("Data file: '{}'", context.storage.path().unwrap());
             println!(
                 "{}",
-                "Verify the main password to modify or print its configuration".yellow()
+                "Verify the current data file main password to modify or print its configuration".yellow()
             );
             // 因为要修改配置，遂立即要求主密码
             let mut context = await_verifier_main_pwd(context)?;
-            // change inner cfg
-            if let Some(rs_need_mp_on_run) = &args.need_main_pwd_on_run {
+
+            // ===========================================================
+            // change inner cfg and store ================================
+            // ===========================================================
+            if let Some(rs_need_mp_on_run) = &args.modify_need_main_pwd_on_run {
                 no_any_args = false;
                 context.cfg.inner_cfg.need_main_passwd_on_run = *rs_need_mp_on_run;
                 context.cfg.store_inner_cfg(&mut context.storage);
@@ -112,6 +148,9 @@ impl CliArgs {
                     "Successfully modified configuration 'need_main_pwd_on_run'".green()
                 );
             }
+            // ===========================================================
+            // change inner cfg and store ================================
+            // ===========================================================
 
             // 修改 cfg时务必修改 该值为 false，当该值为true，打印配置
             if no_any_args {
@@ -229,7 +268,7 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
     let mut buf = String::new();
     std::io::stdin().read_line(&mut buf)?;
     // 初始化主密码
-    let mph = MainPwdEncrypter::new_from_random_salt().encrypt(init_main_pwd_by_stdin()?)?;
+    let mph = MainPwdEncrypter::new_from_random_salt().encrypt(setting_main_pwd_by_stdin("Init main password")?)?;
     println!("{}", "successfully init main password".green());
 
     // 检查 data local path 位置是否存在文件，若存在，则提示其是否覆盖
@@ -293,13 +332,15 @@ fn loop_read_stdin_ascii_passwd(check_too_short: Option<u8>) -> anyhow::Result<S
 /// 要求至少两次主密码,
 /// 至少要求密码字符大于等于6个
 /// 返回的字符串为明文
-fn init_main_pwd_by_stdin() -> anyhow::Result<String> {
+fn setting_main_pwd_by_stdin(prefix: &str) -> anyhow::Result<String> {
     let mut vec = Vec::with_capacity(2);
     let p = loop {
         if vec.is_empty() {
-            println!("{}", "Init main password: Enter or press CTRL+C to exit".yellow());
+            let prefix_msg = format!("{}: Enter or press CTRL+C to exit", prefix);
+            println!("{}", prefix_msg.yellow());
         } else {
-            println!("{}", "Init main password: Enter again or press CTRL+C to exit".yellow());
+            let prefix_msg = format!("{}: Enter again or press CTRL+C to exit", prefix);
+            println!("{}", prefix_msg.yellow());
         }
         // 该并不支持中文，密码字符有所限制，应显式提示
         let rl = loop_read_stdin_ascii_passwd(Some(6))?;

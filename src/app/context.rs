@@ -5,6 +5,7 @@ use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
 use anyhow::Context;
+use std::ops::Deref;
 use std::path::Path;
 
 /// 安全上下文，包含主密码校验器和条目加密解密器
@@ -14,6 +15,13 @@ pub struct SecurityContext {
 impl SecurityContext {
     pub fn new(encrypter: EntryAes256GcmSecretEncrypter) -> Self {
         Self { encrypter }
+    }
+}
+
+impl Deref for SecurityContext {
+    type Target = EntryAes256GcmSecretEncrypter;
+    fn deref(&self) -> &Self::Target {
+        &self.encrypter
     }
 }
 
@@ -51,7 +59,7 @@ impl PntContext {
     /// 尝试获取条目加密解密器，若未验证主密码则返回Err
     pub fn try_encrypter(&self) -> Result<&EntryAes256GcmSecretEncrypter, AppError> {
         match &self.security_context {
-            Some(mpv) => Ok(&mpv.encrypter),
+            Some(security_ctx) => Ok(security_ctx),
             None => Err(AppError::MainPwdNotVerified),
         }
     }
@@ -73,7 +81,7 @@ impl DataFileState {
             Ok(DataFileState::NoStorage)
         } else {
             // 存在，尝试读取主密码
-            let conn = Storage::new(&data_path)?;
+            let conn = Storage::open_file(&data_path)?;
             // 找不到主密码
             if conn.is_not_init_mph()? {
                 Ok(DataFileState::NoMainPwd)

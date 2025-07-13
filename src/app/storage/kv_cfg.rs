@@ -37,7 +37,7 @@ impl Storage {
     }
 
     /// 存储给定的新值盐-主密码，存在则更新，不存在则插入
-    pub fn store_b64_s_mph(&mut self, b64_salt_mph: &str) {
+    pub fn store_b64_s_mph(&self, b64_salt_mph: &str) {
         self.save_cfg(MAIN_PASS_KEY, b64_salt_mph)
     }
 
@@ -73,19 +73,19 @@ impl Storage {
     }
 
     /// 存储 bit flag 配置，覆盖或插入(依赖key值是否相同）
-    pub fn store_cfg_bit_flags(&mut self, bf: BitCfg) {
+    pub fn store_cfg_bit_flags(&self, bf: BitCfg) {
         self.save_cfg(&BIT_FLAG_CFG_ID, &bf.bits().to_string())
     }
 
     /// 插入配置 OR 更新配置 （取决于给定的key在table是否存在，存在则更新，不存在则插入）
-    fn save_cfg(&mut self, key: &str, value: &str) {
+    fn save_cfg(&self, key: &str, value: &str) {
         self.conn
             .execute(SAVE_INNER_CFG_SQL, params![key, value])
             .expect("Failed to save cfg");
     }
 
     /// 删除配置
-    fn delete_cfg(&mut self, key: &str) {
+    fn delete_cfg(&self, key: &str) {
         self.conn
             .execute(DELETE_INNER_CFG_SQL, params![key])
             .expect("Failed to delete cfg");

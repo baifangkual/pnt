@@ -2,7 +2,7 @@ use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::errors::AppError;
 use crate::app::storage::{Storage, entries, sql_result_map_to_option};
 use chrono::{DateTime, Local};
-use rusqlite::{Result as SqlResult, Row, params};
+use rusqlite::{Connection, Result as SqlResult, Row, params};
 
 /// 模板-插入密码的 Sqlite 语句
 const INSERT_ENTRY_SQL: &str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;
@@ -34,7 +34,7 @@ fn row_map_entry(row: &Row) -> SqlResult<EncryptedEntry> {
 
 impl Storage {
     /// 插入一条密码记录
-    pub fn insert_entry(&mut self, insert_entry: &ValidEntry) {
+    pub fn insert_entry(&self, insert_entry: &ValidEntry) {
         self.conn
             .execute(
                 INSERT_ENTRY_SQL,
@@ -48,7 +48,7 @@ impl Storage {
             .expect("Failed to insert entry");
     }
     /// 更新一条密码记录
-    pub fn update_entry(&mut self, update_entry: &ValidEntry, id: u32) {
+    pub fn update_entry(&self, update_entry: &ValidEntry, id: u32) {
         self.conn
             .execute(
                 UPDATE_ENTRY_SQL,
@@ -64,7 +64,7 @@ impl Storage {
     }
 
     /// 删除一条密码记录
-    pub fn delete_entry(&mut self, entry_id: u32) {
+    pub fn delete_entry(&self, entry_id: u32) {
         self.conn
             .execute(DELETE_ENTRY_SQL, params![entry_id])
             .expect("Failed to delete entry");
@@ -103,7 +103,7 @@ mod tests {
     use crate::app::storage::Storage;
     #[test]
     fn test_db() {
-        let mut db = Storage::open_in_memory().unwrap();
+        let db = Storage::open_in_memory().unwrap();
         let insert_e = ValidEntry {
             about: String::from("test"),
             notes: None,
