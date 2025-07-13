@@ -1,10 +1,7 @@
 use crate::app::cfg::Cfg;
-use crate::app::cli::CliArgs;
-use crate::app::crypto::MainPwdVerifier;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
-use anyhow::Context;
 use std::ops::Deref;
 use std::path::Path;
 

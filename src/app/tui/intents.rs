@@ -1,4 +1,4 @@
-use crate::app::entry::{InputEntry, ValidEntry};
+use crate::app::entry::InputEntry;
 use crate::app::tui::new_dashboard_screen;
 use crate::app::tui::rt::TUIApp;
 use crate::app::tui::screen::Screen;

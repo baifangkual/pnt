@@ -1,8 +1,8 @@
 use crate::app::entry::{EncryptedEntry, ValidEntry};
 use crate::app::errors::AppError;
-use crate::app::storage::{Storage, entries, sql_result_map_to_option};
+use crate::app::storage::{Storage, sql_result_map_to_option};
 use chrono::{DateTime, Local};
-use rusqlite::{Connection, Result as SqlResult, Row, params};
+use rusqlite::{Result as SqlResult, Row, params};
 
 /// 模板-插入密码的 Sqlite 语句
 const INSERT_ENTRY_SQL: &str = r#"INSERT INTO "entry" ("about", "notes", "k", "v") VALUES (?, ?, ?, ?)"#;

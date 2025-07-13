@@ -289,7 +289,7 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
     }
 
     println!("\nmain password hash:\n{mph}\n");
-    let mut conn = Storage::open_in_memory()?;
+    let conn = Storage::open_in_memory()?;
     conn.store_b64_s_mph(&mph);
     // 存储数据文件至指定位置, 该方法不会覆盖文件，位置已有会Err
     conn.db_mem_to_disk(&data_target_path)?;

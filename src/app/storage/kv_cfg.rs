@@ -1,4 +1,3 @@
-use crate::app::cfg::InnerCfg;
 use crate::app::errors::AppError;
 use crate::app::storage::{Storage, sql_result_map_to_option};
 use anyhow::Context;

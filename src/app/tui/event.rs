@@ -1,11 +1,10 @@
 pub mod key_ext;
 
-use super::screen::Screen;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
 use anyhow::{Context, Result};
-use ratatui::crossterm::event::{self, Event as CrosstermEvent, KeyCode};
+use ratatui::crossterm::event::{self, Event as CrosstermEvent};
 use std::{
     sync::mpsc,
     thread,

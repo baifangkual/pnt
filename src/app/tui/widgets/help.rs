@@ -1,9 +1,8 @@
 use crate::app::tui::colors::{CL_L_BLACK, CL_LL_BLACK, CL_WHITE};
-use crate::app::tui::layout::RectExt;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Color, Line, Span, Stylize, Text, Widget};
-use ratatui::widgets::{Block, BorderType, Clear, List, ListItem, Padding, Paragraph};
+use ratatui::prelude::{Color, Line, Stylize, Text, Widget};
+use ratatui::widgets::{Block, BorderType, List, ListItem, Padding};
 use std::sync::LazyLock;
 
 /// 帮助页面实体

@@ -1,10 +1,8 @@
 use crate::app::context::SecurityContext;
-use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
 use crate::app::crypto::{Decrypter, Encrypter};
 use crate::app::errors::AppError;
 use anyhow::anyhow;
 use rusqlite::{Connection as sqliteConnection, Connection, Result as SqlResult};
-use std::ops::Deref;
 use std::path::Path;
 
 pub mod entries;

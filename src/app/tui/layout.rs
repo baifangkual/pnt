@@ -1,5 +1,4 @@
 use ratatui::layout::{Constraint, Layout, Rect};
-use std::rc::Rc;
 
 /// 固定大小-水平中央
 #[inline]
