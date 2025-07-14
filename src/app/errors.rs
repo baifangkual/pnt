@@ -14,8 +14,6 @@ pub enum AppError {
     /// 未校验主密码却到达了需要主密码的请求
     #[error("main password is not verified")]
     MainPwdNotVerified,
-    #[error("cannot get data file path")]
-    CannotGetDataFilePath,
 }
 
 /// 加密解密错误

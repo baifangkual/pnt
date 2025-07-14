@@ -1,5 +1,5 @@
-//! tui 运行时 
-//! 
+//! tui 运行时
+//!
 //! 处理 事件循环主要模块
 
 use super::event::key_ext::KeyEventExt;
@@ -7,23 +7,20 @@ use super::event::{AppEvent, Event};
 use crate::app::context::SecurityContext;
 use crate::app::crypto::build_mpv;
 use crate::app::entry::ValidEntry;
+use crate::app::tui::TUIApp;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::states::Editing;
-use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
-use crate::app::tui::TUIApp;
-use anyhow::{anyhow, Result};
+use crate::app::tui::screen::states::Editing;
+use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::{
-    crossterm, crossterm::event::{KeyCode, KeyEvent}
-    ,
+    crossterm,
+    crossterm::event::{KeyCode, KeyEvent},
 };
 
-
 impl TUIApp {
-    
     /// 返回上一个屏幕，
     /// 当上一个屏幕不存在时，发送 **退出** 事件
     pub fn back_screen(&mut self) {
@@ -54,7 +51,6 @@ impl TUIApp {
 }
 
 impl TUIApp {
-    
     /// 事件处理入口
     pub fn invoke_handle_events(&mut self) -> Result<()> {
         let event = self.events.next()?;
@@ -100,10 +96,9 @@ impl TUIApp {
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
     fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        
         // 每次操作将闲置tick计数清零
         self.tick_adder.reset_idle_tick_count();
-        
+
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
             self.send_app_event(AppEvent::Quit);
@@ -305,16 +300,14 @@ impl TUIApp {
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn invoke_handle_tick(&mut self) {
+        self.tick_adder.idle_tick_increment();
 
-       self.tick_adder.idle_tick_increment();
-
-        if  self.tick_adder.need_re_lock() {
+        if self.tick_adder.need_re_lock() {
             self.re_lock();
         }
         if self.tick_adder.need_close() {
             self.quit_tui_app();
         }
-        
     }
 
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘

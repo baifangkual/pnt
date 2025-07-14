@@ -3,7 +3,7 @@ pub mod key_ext;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use ratatui::crossterm::event::{self, Event as CrosstermEvent};
 use std::{
     sync::mpsc,

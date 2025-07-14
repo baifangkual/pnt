@@ -118,9 +118,7 @@ impl TickAdder {
         // 使其最大不超过 u32max，最大值为u32max
         // auto... 关闭情况下值为u32max
         // 遂idle不会大于auto给定值，即关闭auto行为
-        if self.idle_tick_count != u32::MAX {
-            self.idle_tick_count += 1;
-        }
+        self.idle_tick_count = self.idle_tick_count.saturating_add(1)
     }
     #[inline]
     fn need_re_lock(&self) -> bool {
