@@ -15,44 +15,62 @@ use std::path::{Path, PathBuf};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
-    /// 要通过 about 值模糊查找的 条目
-    #[arg(short = 'f', long = "find", value_name = "ABOUT", help = Self::CLI_HELP_FIND)]
-    find: Option<String>,
     /// 要求使用的数据文件
     #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = Self::CLI_HELP_DATA)]
     data: Option<PathBuf>,
+    /// 要通过 about 值模糊查找的 条目
+    #[arg(short = 'f', long = "find", value_name = "ABOUT", help = Self::CLI_HELP_FIND)]
+    find: Option<String>,
     /// 子命令
     #[command(subcommand)]
     command: Option<SubCmd>,
 }
 
 impl CliArgs {
-    const CLI_HELP_DATA: &'static str = "Use the specified data file,\
-\nif this parameter is not provided,\
-\nUse the default data file (default_data).";
-    const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values";
+    const CLI_HELP_DATA: &'static str = "Use the specified data file,
+if this parameter is not provided,
+Use the default data file (default_data).";
+    const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values.";
 }
 
 /// 子命令定义
 #[derive(Subcommand, Debug)]
 enum SubCmd {
-    /// Initializing pnt data storage location
+    /// 子命令 初始化一个 data file
+    #[command(about = Self::SUB_INIT_HELP)]
     Init,
-    /// Modify the main password in an interactive context
-    #[command(name = "mmp")]
+    /// 子命令 要求修改主密码
+    #[command(name = "mmp", about = Self::SUB_MMP_HELP)]
     ModifyMainPwd,
-    /// Management of configuration related to specific data files
-    ///
-    /// If no configuration parameters are specified for setting,
-    /// it will print the current state of all configurations.
+    /// 子命令 print 或 修改 cfg
+    #[command(about = Self::SUB_CFG_HELP)]
     Cfg(SubCmdCfgArgs),
+}
+
+impl SubCmd {
+    const SUB_INIT_HELP: &'static str = "Initializing data file storage location.
+Default Data file initialization location search sequence:
+.1. The `default_data` value in the configuration file (ENV`PNT_CONF_FILE`)
+.2. The `default_data` value in the configuration file (default config file)
+.3. The value specified by the environment variable `PNT_DEFAULT_DATA_FILE`
+.4. Default path";
+    const SUB_MMP_HELP: &'static str = "Modify the main password in an interactive context.";
+    const SUB_CFG_HELP: &'static str = "Management of configuration related to specific data files.
+If no configuration parameters are specified for setting,
+it will print the current state of all configurations.";
 }
 
 #[derive(Args, Debug)]
 struct SubCmdCfgArgs {
-    /// Setting whether to require the main password immediately at runtime
-    #[arg(long = "modify--need-main-pwd-on-run", value_name = "VALUE")]
+    /// Setting whether to require the main password immediately at runtime.
+    #[arg(long = "modify--need-main-pwd-on-run", value_name = "BOOLEAN")]
     modify_need_main_pwd_on_run: Option<bool>,
+    /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable).
+    #[arg(long = "modify--auto-re-lock-idle-sec", value_name = "SECONDS")]
+    modify_auto_re_lock_idle_sec: Option<u32>,
+    /// Setting how many seconds of inactivity before the TUI automatically closes (set to 0 to disable).
+    #[arg(long = "modify--auto-close-idle-sec", value_name = "SECONDS")]
+    modify_auto_close_idle_sec: Option<u32>,
 }
 
 impl CliArgs {
@@ -71,13 +89,16 @@ impl CliArgs {
         // CONTEXT BUILD =========================
         // =======================================
         let mut cfg = load_cfg()?;
-        let arg_data = self.data.as_ref();
-        // 没有给 -data 就连接默认数据文件
-        let need_load_data_file = arg_data.unwrap_or(&cfg.default_date);
+
+        // 若有 cli 参数 --data 则替换cfg中的
+        if let Some(data) = &self.data {
+            cfg.load_data = data.clone()
+        };
         // 连接数据文件，因为为非显式init，所以任何失败情况该方法内均Err向上回报
-        let conn = assert_data_file_ready(need_load_data_file)?;
+        let conn = assert_data_file_ready(&cfg.load_data)?;
         // 已填充inner配置的cfg
-        cfg.overwrite_inner_cfg(&conn)?;
+        cfg.inner_cfg.overwrite_default(&conn)?;
+
         // pnt 上下文
         let mut context = PntContext::new_with_un_verified(cfg, conn);
         // =======================================
@@ -120,7 +141,6 @@ impl CliArgs {
             return Ok(None);
         } else if let Some(SubCmd::Cfg(args)) = &self.command {
             // 要求修改 inner 配置
-            // dbg!(need_load_data_file.display().to_string());
             // dbg!(&args);
             // 控制是否 list显示配置（没有任何修改需求时）
             let mut no_any_args = true;
@@ -139,10 +159,28 @@ impl CliArgs {
             if let Some(rs_need_mp_on_run) = &args.modify_need_main_pwd_on_run {
                 no_any_args = false;
                 context.cfg.inner_cfg.need_main_pwd_on_run = *rs_need_mp_on_run;
-                context.cfg.store_inner_cfg(&mut context.storage);
+                context.cfg.inner_cfg.save_to_data(&mut context.storage);
                 println!(
                     "{}",
                     "Successfully modified configuration 'need_main_pwd_on_run'".green()
+                );
+            }
+            if let Some(rs_auto_re_lock_idle_sec) = &args.modify_auto_re_lock_idle_sec {
+                no_any_args = false;
+                context.cfg.inner_cfg.auto_re_lock_idle_sec = Some(*rs_auto_re_lock_idle_sec);
+                context.cfg.inner_cfg.save_to_data(&mut context.storage);
+                println!(
+                    "{}",
+                    "Successfully modified configuration 'auto_re_lock_idle_sec'".green()
+                );
+            }
+            if let Some(rs_auto_close_idle_sec) = &args.modify_auto_close_idle_sec {
+                no_any_args = false;
+                context.cfg.inner_cfg.auto_close_idle_sec = Some(*rs_auto_close_idle_sec);
+                context.cfg.inner_cfg.save_to_data(&mut context.storage);
+                println!(
+                    "{}",
+                    "Successfully modified configuration 'auto_close_idle_sec'".green()
                 );
             }
             // ===========================================================
@@ -182,84 +220,29 @@ use crate::app::consts;
 /// 初始化 pnt 数据文件
 ///
 /// 该方法内将根据cli参数及env及配置文件等设置情况
+///
+/// ### 优先级
+///
+/// 明确Cli --data 参数 or -> conf.default_data or -> env -> default
 fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> {
-    println!("{}", "pnt data file initialized...\n".bold().dark_cyan());
-
+    println!("{}", "Data file initialized\n".bold().dark_cyan());
     /*
     // 先从参数 --data 找需要，
-    // 若无，则顺次从环境变量找，
     // 若无，则从可能存在的配置文件中找
+    // 若无，则顺次从环境变量找，
     // 若无，则使用默认值
      */
+
     let data_target_path = if let Some(arg_data_path) = init_arg_target {
         arg_data_path
-    } else if let Some(dp) = crate::app::cfg::env_data_file_path() {
-        let msg = format!(
-            "find env:[{}='{}']\n",
-            consts::ENV_DEFAULT_DATA_FILE_PATH_KEY,
-            dp.display()
-        );
-        println!("{}", msg.grey());
-        dp
     } else {
-        let msg = format!(
-            "not find env:[{}]\ntry find config file...\n",
-            consts::ENV_DEFAULT_DATA_FILE_PATH_KEY
-        );
-        println!("{}", msg.grey());
-        let config_path = if let Some(cp) = crate::app::cfg::env_conf_path() {
-            let msg = format!("find env:[{}='{}']\n", consts::ENV_CONF_PATH_KEY, cp.display());
-            println!("{}", msg.grey());
-            cp
-        } else {
-            let cp = crate::app::cfg::default_conf_path();
-            let msg = format!(
-                "not find env:[{}],\ntry read config default local with: '{}'\n",
-                consts::ENV_CONF_PATH_KEY,
-                cp.display()
-            );
-            println!("{}", msg.grey());
-            cp
-        };
-        // 尝试从磁盘读取配置文件
-        let cfg = crate::app::cfg::try_load_cfg_from_disk(&config_path)?;
-        if let Some(toml_cfg) = cfg {
-            if let Some(df) = toml_cfg.default_data {
-                // 存在配置文件，存在配置
-                let msg = format!(
-                    "config '{}' exists,\nfind: 'default_data'={}\n",
-                    config_path.display(),
-                    df.display()
-                );
-                println!("{}", msg.grey());
-                df
-            } else {
-                let default_data_path = crate::app::cfg::default_data_path();
-                // 存在配置文件，但没有该项配置
-                let msg = format!(
-                    "config '{}' exists, but not set 'default_data',\nwill use default data file path: {}\n",
-                    config_path.display(),
-                    default_data_path.display()
-                );
-                println!("{}", msg.grey());
-                default_data_path
-            }
-        } else {
-            let default_data_path = crate::app::cfg::default_data_path();
-            // none 为文件不存在
-            let msg = format!(
-                "config '{}' not exists,\nuse default data file path: {}\n",
-                config_path.display(),
-                default_data_path.display()
-            );
-            println!("{}", msg.grey());
-            default_data_path
-        }
+        println!("Initialized default data file (default_data)");
+        load_cfg()?.load_data
     };
 
-    dbg!(&data_target_path);
+    // dbg!(&data_target_path);
 
-    let msg = format!("will create data file with: '{}'", data_target_path.display());
+    let msg = format!("\nwill create data file with: '{}'", data_target_path.display());
     println!("{}", msg.bold().cyan());
     println!("\npress Enter to init main password with interactive context or press Ctrl-C to exit");
     let mut buf = String::new();

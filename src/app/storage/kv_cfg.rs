@@ -14,7 +14,6 @@ bitflags! {
 }
 
 impl Storage {
-
     /// 主密码存储名
     const KV_CFG_MAIN_PASS_KEY: &'static str = "mp";
     /// 寻找盐-主密码
@@ -40,7 +39,7 @@ impl Storage {
             Err(AppError::DataCorrupted)
         }
     }
-    
+
     /// auto re-lock idle sec
     const AUTO_RE_LOCK_IDLE_SEC: &'static str = "ars";
     /// 若人为修改db文件导致 FromStr parse失败，则Err报告数据已损坏
@@ -50,12 +49,13 @@ impl Storage {
             .transpose()
             .with_context(|| AppError::DataCorrupted)
     }
-
+    /// 保存 auto_re_lock_idle_sec 配置
+    /// 因为0（不auto）为默认值，遂走delete逻辑
     pub fn store_cfg_auto_re_lock_idle_sec(&self, auto_re_lock_idle_sec: u32) {
         if auto_re_lock_idle_sec == 0 {
             self.delete_cfg(Self::AUTO_RE_LOCK_IDLE_SEC);
         } else {
-        self.save_cfg(Self::AUTO_RE_LOCK_IDLE_SEC, &auto_re_lock_idle_sec.to_string())
+            self.save_cfg(Self::AUTO_RE_LOCK_IDLE_SEC, &auto_re_lock_idle_sec.to_string());
         }
     }
 
@@ -68,9 +68,14 @@ impl Storage {
             .transpose()
             .with_context(|| AppError::DataCorrupted)
     }
-
+    /// 保存 auto_close_idle_sec 配置
+    /// 因为0（不auto）为默认值，遂走delete逻辑
     pub fn store_cfg_auto_close_idle_sec(&self, auto_close_idle_sec: u32) {
-        self.save_cfg(Self::AUTO_CLOSE_APP_IDLE_SEC, &auto_close_idle_sec.to_string())
+        if auto_close_idle_sec == 0 {
+            self.delete_cfg(Self::AUTO_CLOSE_APP_IDLE_SEC)
+        } else {
+            self.save_cfg(Self::AUTO_CLOSE_APP_IDLE_SEC, &auto_close_idle_sec.to_string())
+        }
     }
 
     /// bit flag key
@@ -99,7 +104,7 @@ impl Storage {
     // ===============================================================
     // SQL ===========================================================
     // ===============================================================
-    
+
     /// 模板-查找内部配置 sql
     const SELECT_INNER_CFG_SQL: &'static str = r#"SELECT "v" FROM "cfg" WHERE "k"=?"#;
 
@@ -109,8 +114,7 @@ impl Storage {
     #[allow(unused)]
     /// 模板-删除内部配置 sql
     const DELETE_INNER_CFG_SQL: &'static str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
-    
-    
+
     /// 插入配置 OR 更新配置 （取决于给定的key在table是否存在，存在则更新，不存在则插入）
     fn save_cfg(&self, key: &str, value: &str) {
         self.conn
