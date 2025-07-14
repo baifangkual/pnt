@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 /// 运行时使用的实际 cfg
 #[derive(Debug)]
 pub struct Cfg {
-    /// 存储各密码的sqlite-db路径, 默认在 app data
+    /// pnt data file - 运行时或可被参数替换，否则从配置文件或env找路径
     pub load_data: PathBuf,
     /// 内部配置，从 data file 中读取
     pub inner_cfg: InnerCfg,

@@ -1,5 +1,5 @@
 use crate::app::cfg::load_cfg;
-use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
+use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, APP_NAME};
 use crate::app::context::{DataFileState, PntContext};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier, build_mpv};
 use crate::app::errors::AppError;
@@ -16,59 +16,71 @@ use std::path::{Path, PathBuf};
 #[command(version, about, long_about = None)]
 pub struct CliArgs {
     /// 要求使用的数据文件
-    #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = Self::CLI_HELP_DATA)]
+    #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = Self::CLI_HELP_DATA
+    )]
     data: Option<PathBuf>,
     /// 要通过 about 值模糊查找的 条目
     #[arg(short = 'f', long = "find", value_name = "ABOUT", help = Self::CLI_HELP_FIND)]
     find: Option<String>,
     /// 子命令
     #[command(subcommand)]
-    command: Option<SubCmd>,
+    sub_command: Option<SubCmd>,
 }
 
 impl CliArgs {
     const CLI_HELP_DATA: &'static str = "Use the specified data file,
 if this parameter is not provided,
-Use the default data file (default_data).";
-    const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values.";
+Use the default data file (default_data)";
+    const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values";
 }
 
 /// 子命令定义
 #[derive(Subcommand, Debug)]
 enum SubCmd {
+
+    /// Print the default data file location (default_data)
+    #[command(name = "default")]
+    Default,
     /// 子命令 初始化一个 data file
-    #[command(about = Self::SUB_INIT_HELP)]
+    #[command(name = "init",
+    about = Self::SUB_INIT_HELP_HEAD,
+    long_about = Self::SUB_INIT_HELP)]
     Init,
-    /// 子命令 要求修改主密码
-    #[command(name = "mmp", about = Self::SUB_MMP_HELP)]
+    /// Modify the main password in an interactive context
+    #[command(name = "mmp",
+    long_flag = "modify-main-pwd")]
     ModifyMainPwd,
     /// 子命令 print 或 修改 cfg
-    #[command(about = Self::SUB_CFG_HELP)]
+    #[command(name = "cfg",
+    long_flag = "data-file-cfg",
+    about = Self::SUB_CFG_HELP_HEAD,
+    long_about = Self::SUB_CFG_HELP)]
     Cfg(SubCmdCfgArgs),
 }
 
 impl SubCmd {
+    const SUB_INIT_HELP_HEAD: &'static str = "Initializing data file storage location";
     const SUB_INIT_HELP: &'static str = "Initializing data file storage location.
-Default Data file initialization location search sequence:
+\nDefault Data file initialization location search sequence:
 .1. The `default_data` value in the configuration file (ENV`PNT_CONF_FILE`)
 .2. The `default_data` value in the configuration file (default config file)
 .3. The value specified by the environment variable `PNT_DEFAULT_DATA_FILE`
 .4. Default path";
-    const SUB_MMP_HELP: &'static str = "Modify the main password in an interactive context.";
+    const SUB_CFG_HELP_HEAD: &'static str = "Management of configuration related to specific data files";
     const SUB_CFG_HELP: &'static str = "Management of configuration related to specific data files.
-If no configuration parameters are specified for setting,
+\nIf no configuration parameters are specified for setting,
 it will print the current state of all configurations.";
 }
 
 #[derive(Args, Debug)]
 struct SubCmdCfgArgs {
-    /// Setting whether to require the main password immediately at runtime.
+    /// Setting whether to require the main password immediately at runtime
     #[arg(long = "modify--need-main-pwd-on-run", value_name = "BOOLEAN")]
     modify_need_main_pwd_on_run: Option<bool>,
-    /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable).
+    /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable)
     #[arg(long = "modify--auto-re-lock-idle-sec", value_name = "SECONDS")]
     modify_auto_re_lock_idle_sec: Option<u32>,
-    /// Setting how many seconds of inactivity before the TUI automatically closes (set to 0 to disable).
+    /// Setting how many seconds of inactivity before the TUI automatically closes (set to 0 to disable)
     #[arg(long = "modify--auto-close-idle-sec", value_name = "SECONDS")]
     modify_auto_close_idle_sec: Option<u32>,
 }
@@ -78,8 +90,15 @@ impl CliArgs {
     /// 若Ok(Some(context))则表明要求TUI运行，
     /// 若OK(None) 则表明成功cli运行结束，程序成功退出
     pub fn run(&self) -> anyhow::Result<Option<PntContext>> {
+
+        // sub-cmd: default
+        if let Some(SubCmd::Default) = &self.sub_command {
+            println!("Default Data file: {}", load_cfg()?.load_data.display());
+            return Ok(None);
+        }
+
         // 看看参数要求
-        if let Some(SubCmd::Init) = &self.command {
+        if let Some(SubCmd::Init) = &self.sub_command {
             // 显式要求 init
             handle_pnt_data_init(self.data.clone())?;
             return Ok(None);
@@ -105,7 +124,7 @@ impl CliArgs {
         // CONTEXT BUILD =========================
         // =======================================
 
-        if let Some(SubCmd::ModifyMainPwd) = &self.command {
+        if let Some(SubCmd::ModifyMainPwd) = &self.sub_command {
             // 要求修改主密码...
             println!("Data file: '{}'", context.storage.path().unwrap());
             println!(
@@ -139,7 +158,7 @@ impl CliArgs {
             // 当前线程卡在这，等待数据库文件内容更新返回 =====
 
             return Ok(None);
-        } else if let Some(SubCmd::Cfg(args)) = &self.command {
+        } else if let Some(SubCmd::Cfg(args)) = &self.sub_command {
             // 要求修改 inner 配置
             // dbg!(&args);
             // 控制是否 list显示配置（没有任何修改需求时）
@@ -215,8 +234,6 @@ impl CliArgs {
     }
 }
 
-use crate::app::consts;
-
 /// 初始化 pnt 数据文件
 ///
 /// 该方法内将根据cli参数及env及配置文件等设置情况
@@ -233,11 +250,11 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
     // 若无，则使用默认值
      */
 
-    let data_target_path = if let Some(arg_data_path) = init_arg_target {
-        arg_data_path
+    let (data_target_path, target_on_cli_arg) = if let Some(arg_data_path) = init_arg_target {
+        (arg_data_path, true)
     } else {
         println!("Initialized default data file (default_data)");
-        load_cfg()?.load_data
+        (load_cfg()?.load_data, false)
     };
 
     // dbg!(&data_target_path);
@@ -262,7 +279,7 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
             std::fs::remove_file(&data_target_path)?;
         } else {
             return Err(anyhow!(
-                "file '{}' already exists,\ncannot create pnt data file",
+                "file '{}' already exists,\ncannot create data file",
                 data_target_path.display().to_string()
             ));
         }
@@ -275,6 +292,13 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
     conn.db_mem_to_disk(&data_target_path)?;
     let msg = format!("data file created: {}", data_target_path.display());
     println!("{}", msg.bold().cyan());
+
+    if target_on_cli_arg {
+        println!("`{} --data {}` to use data file.", APP_NAME, data_target_path.display())
+    } else {
+        println!("`{}` to use default data file.", APP_NAME)
+    }
+
     println!("{}", "\nsuccessfully created data file".green());
     Ok(())
 }
