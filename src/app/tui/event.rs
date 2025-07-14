@@ -36,8 +36,6 @@ pub enum AppEvent {
     EnterScreenIntent(EnterScreenIntent), // 仅描述意图要进入的页面
     TurnOnFindMode,
     TurnOffFindMode,
-    CursorUp,
-    CursorDown,
     EntryInsert(ValidEntry),       // 插入必要全局刷新 vec，因为插入到库前还不知道id
     EntryUpdate(ValidEntry, u32),  // u32 为 id
     EntryRemove(u32),              // u32 为 id

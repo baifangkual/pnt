@@ -74,8 +74,6 @@ impl TUIApp {
     /// APP Event 处理
     fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
         match app_event {
-            AppEvent::CursorUp => self.cursor_up(),
-            AppEvent::CursorDown => self.cursor_down(),
             AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
             AppEvent::EntryInsert(v_e) => self.insert_entry(&v_e),
             AppEvent::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
@@ -166,12 +164,12 @@ impl TUIApp {
                         }
                         // 上移
                         if key_event._is_k() || key_event._is_up() {
-                            self.send_app_event(AppEvent::CursorUp);
+                            state.cursor_up();
                             return Ok(());
                         }
                         // 下移
                         if key_event._is_down() || key_event._is_j() {
-                            self.send_app_event(AppEvent::CursorDown);
+                            state.cursor_down();
                             return Ok(());
                         }
                         // 顶部 底部
@@ -236,19 +234,19 @@ impl TUIApp {
                 if state.current_editing_type() != Editing::Notes {
                     // 上移
                     if key_event._is_up() {
-                        self.send_app_event(AppEvent::CursorUp);
+                        state.cursor_up();
                         return Ok(());
                     }
                     // 下移
                     if key_event._is_down() {
-                        self.send_app_event(AppEvent::CursorDown);
+                        state.cursor_down();
                         return Ok(());
                     }
                 }
 
                 // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
                 if key_event._is_tab() {
-                    self.send_app_event(AppEvent::CursorDown);
+                    state.cursor_down();
                     return Ok(());
                 }
                 // 保存
@@ -360,7 +358,7 @@ impl TUIApp {
             // 不为 desc 的 响应 enter 到下一行
             if Editing::Notes != state.current_editing_type() {
                 if let KeyCode::Enter = key_event.code {
-                    self.send_app_event(AppEvent::CursorDown);
+                    state.cursor_down();
                     return Ok(());
                 }
             }
