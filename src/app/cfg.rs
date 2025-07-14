@@ -1,5 +1,5 @@
 use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_KEY, ENV_DEFAULT_DATA_FILE_PATH_KEY};
-use crate::app::storage::{kv_cfg::BitCfg, Storage};
+use crate::app::storage::{Storage, kv_cfg::BitCfg};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fmt::Display;

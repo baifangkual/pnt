@@ -4,12 +4,12 @@ pub(crate) mod yn;
 use crate::app::entry::InputEntry;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::yn::YNState;
-use states::DashboardState;
+use states::HomePageState;
 
 /// 当前屏幕
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
-    DashboardV1(DashboardState), // 全局浏览窗口
+    HomePageV1(HomePageState), // 全局浏览窗口
     Help,                     // f1 help
     Details(InputEntry, u32), // 某详情, u32 为 id
     Edit(EditingState),       // 创建窗口
@@ -22,11 +22,11 @@ pub enum Screen {
 }
 
 impl Screen {
-    /// 表达该屏幕是否为最上级的dashboard
+    /// 表达该屏幕是否为最上级的home_page
     ///
-    /// > 该方法给多个可能实现的 dashboard 做准备
-    pub fn is_dashboard(&self) -> bool {
-        matches!(self, Screen::DashboardV1(..))
+    /// > 该方法给多个可能实现的 home_page 做准备
+    pub fn is_home_page(&self) -> bool {
+        matches!(self, Screen::HomePageV1(..))
     }
 
     /// 新建编辑页面
@@ -38,5 +38,3 @@ impl Screen {
         Screen::Edit(Default::default())
     }
 }
-
-

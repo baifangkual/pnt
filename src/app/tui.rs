@@ -10,10 +10,10 @@ mod widgets;
 use crate::app::cfg::InnerCfg;
 use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;
-use crate::app::tui::intents::EnterScreenIntent::ToDashBoardV1;
+use crate::app::tui::intents::EnterScreenIntent::ToHomePageV1;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{DashboardV1, NeedMainPasswd};
-use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
+use crate::app::tui::screen::Screen::{HomePageV1, NeedMainPasswd};
+use crate::app::tui::screen::states::{HomePageState, NeedMainPwdState};
 use ratatui::DefaultTerminal;
 
 /// tui 运行 模式
@@ -65,9 +65,9 @@ impl TUIApp {
 fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
     let screen = if pnt_context.is_need_mp_on_run() {
-        NeedMainPasswd(NeedMainPwdState::new(ToDashBoardV1))
+        NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1))
     } else {
-        new_dashboard_screen(&pnt_context)
+        new_home_page_screen(&pnt_context)
     };
     TUIApp {
         running: true,
@@ -80,14 +80,11 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
     }
 }
 
-
-
 struct TickAdder {
     idle_tick_count: u32,
     auto_re_lock_idle_sec: u32,
     auto_close_idle_sec: u32,
 }
-
 
 impl TickAdder {
     fn new(inner_cfg: &InnerCfg) -> Self {
@@ -128,11 +125,10 @@ impl TickAdder {
     fn need_close(&self) -> bool {
         self.idle_tick_count > self.auto_close_idle_sec
     }
-
 }
 
 /// tui 新建主页 主页面
-fn new_dashboard_screen(context: &PntContext) -> Screen {
+fn new_home_page_screen(context: &PntContext) -> Screen {
     let vec = context.storage.select_all_entry();
-    DashboardV1(DashboardState::new(vec))
+    HomePageV1(HomePageState::new(vec))
 }

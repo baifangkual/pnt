@@ -3,7 +3,7 @@ pub mod key_ext;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::EnterScreenIntent;
-use anyhow::{Result};
+use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as CrosstermEvent};
 use std::{
     sync::mpsc,
@@ -41,7 +41,7 @@ pub enum AppEvent {
     EntryInsert(ValidEntry),       // 插入必要全局刷新 vec，因为插入到库前还不知道id
     EntryUpdate(ValidEntry, u32),  // u32 为 id
     EntryRemove(u32),              // u32 为 id
-    FlashVecItems(Option<String>), // 在dashboard 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
+    FlashVecItems(Option<String>), // 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
     MainPwdVerifyFailed,
     MainPwdVerifySuccess(SecurityContext),
     Quit,

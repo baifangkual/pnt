@@ -1,9 +1,8 @@
-
 use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
-use crate::app::tui::{layout, TUIApp};
 use crate::app::tui::screen::Screen;
-use crate::app::tui::widgets::dashboard::DashboardWidget;
 use crate::app::tui::widgets::help;
+use crate::app::tui::widgets::home_page::HomePageV1Widget;
+use crate::app::tui::{TUIApp, layout};
 use ratatui::layout::Alignment;
 use ratatui::prelude::{Constraint, Layout};
 use ratatui::widgets::Paragraph;
@@ -61,13 +60,13 @@ impl Widget for &mut TUIApp {
 
         // 渲染当前屏幕
         match &mut self.screen {
-            Screen::DashboardV1(state) => {
-                let dash_widget = DashboardWidget;
+            Screen::HomePageV1(state) => {
+                let dash_widget = HomePageV1Widget;
                 dash_widget.render(middle, buf, state)
             }
             Screen::Help => {
                 let rect = layout::centered_percent(90, 90, middle);
-                help::HelpPage::HELP_PAGE_DASHBOARD.render(rect, buf)
+                help::HelpPage::HELP_HOME_PAGE.render(rect, buf)
             }
             Screen::Details(entry, _) => {
                 let rect = layout::centered_percent(90, 90, middle);

@@ -10,7 +10,7 @@ use crate::app::entry::ValidEntry;
 use crate::app::tui::TUIApp;
 use crate::app::tui::intents::EnterScreenIntent;
 use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::Screen::{DashboardV1, Details, Edit, Help, NeedMainPasswd, YNOption};
+use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
@@ -127,8 +127,8 @@ impl TUIApp {
                 }
             }
             // 仪表盘
-            DashboardV1(state) => {
-                // dashboard find
+            HomePageV1(state) => {
+                // home_page find
                 if !state.find_mode() {
                     if let KeyCode::Char('f' | 'F') = key_event.code {
                         self.send_app_event(AppEvent::TurnOnFindMode);
@@ -157,9 +157,9 @@ impl TUIApp {
                             self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                             return Ok(());
                         }
-                        // delete 但是dashboard 的光标？
-                        // 任何删除都应确保删除页面上一级为dashboard
-                        // 即非dashboard接收到删除事件时应确保关闭当前并打开删除
+                        // delete 但是home_page 的光标？
+                        // 任何删除都应确保删除页面上一级为home_page
+                        // 即非home_page接收到删除事件时应确保关闭当前并打开删除
                         if key_event._is_d() {
                             self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
                             return Ok(());
@@ -276,11 +276,11 @@ impl TUIApp {
 
     /// 按下 esc 的 处理器
     ///
-    /// * dashboard find 模式下 退出 find 模式
-    /// * dashboard find 输入框有值则清理值并重新查
+    /// * home_page find 模式下 退出 find 模式
+    /// * home_page find 输入框有值则清理值并重新查
     /// * 其他情况回退屏幕，无屏幕则发送退出事件
     pub fn handle_key_esc_event(&mut self) -> Result<()> {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             if state.find_mode() {
                 self.send_app_event(AppEvent::TurnOffFindMode);
             } else if !state.current_find_input().is_empty() {
@@ -317,7 +317,7 @@ impl TUIApp {
         if self.pnt.is_verified() {
             self.pnt.security_context = None;
             // 屏幕回退
-            while !self.screen.is_dashboard() {
+            while !self.screen.is_home_page() {
                 self.back_screen();
             }
         }
@@ -325,7 +325,7 @@ impl TUIApp {
 
     /// 处理光标向上事件
     fn cursor_up(&mut self) {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             state.cursor_up();
         } else if let Edit(state) = &mut self.screen {
             state.cursor_up();
@@ -334,7 +334,7 @@ impl TUIApp {
 
     /// 处理光标向下事件
     fn cursor_down(&mut self) {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             state.cursor_down();
         } else if let Edit(state) = &mut self.screen {
             state.cursor_down();
@@ -366,7 +366,7 @@ impl TUIApp {
                 _ => {}
             }
             Ok(())
-        } else if let DashboardV1(state) = &mut self.screen {
+        } else if let HomePageV1(state) = &mut self.screen {
             // let c_event = CEvent::Key(key_event); // 临时构建 由 key向上整个 CEvent以匹配handle_event方法签名
             match key_event.code {
                 KeyCode::Enter => self.send_app_event(AppEvent::TurnOffFindMode),
@@ -393,11 +393,11 @@ impl TUIApp {
         self.send_app_event(AppEvent::FlashVecItems(None));
     }
 
-    /// 当前页面为 dashboard 时 刷新 dashboard 的 vec 从库里重新拿
-    /// 当不为 dashboard时 Err
+    /// 当前页面为 home_page 时 刷新 home_page 的 vec 从库里重新拿
+    /// 当不为 home_page时 Err
     /// 该方法会更新高亮行位置
     fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             let v_new = if let Some(f) = find {
                 self.pnt.storage.select_entry_by_about_like(&f)
             } else {
@@ -406,7 +406,7 @@ impl TUIApp {
             state.reset_entries(v_new);
             Ok(())
         } else {
-            Err(anyhow!("current screen is not dashboard screen, cannot flash"))
+            Err(anyhow!("current screen is not home_page screen, cannot flash"))
         }
     }
     /// 向 db 删除一个 entry，并更新 store_entry_count - 1
@@ -418,17 +418,17 @@ impl TUIApp {
 
     /// 开启 find mode
     fn turn_on_find_mode(&mut self) -> Result<()> {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             state.set_find_mode(true);
             Ok(())
         } else {
-            Err(anyhow!("not Dashboard screen, no find mode"))
+            Err(anyhow!("not home_page screen, no find mode"))
         }
     }
 
     /// 关闭 find mode
     fn turn_off_find_mode(&mut self) -> Result<()> {
-        if let DashboardV1(state) = &mut self.screen {
+        if let HomePageV1(state) = &mut self.screen {
             state.set_find_mode(false);
             // 获取 find_input 值，刷新vec
             if !state.current_find_input().is_empty() {
@@ -442,7 +442,7 @@ impl TUIApp {
             }
             Ok(())
         } else {
-            Err(anyhow!("not Dashboard screen, no find mode"))
+            Err(anyhow!("not home_page screen, no find mode"))
         }
     }
 

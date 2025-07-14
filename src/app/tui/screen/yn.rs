@@ -1,9 +1,9 @@
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry};
+use crate::app::tui::TUIApp;
 use crate::app::tui::colors::{CL_BLACK, CL_D_RED, CL_DD_RED, CL_DDD_RED, CL_L_BLACK, CL_WHITE};
 use crate::app::tui::event::AppEvent;
 use ratatui::prelude::Color;
-use crate::app::tui::TUIApp;
 
 /// 二分类枚举
 #[derive(Debug, Clone, Copy)]
@@ -127,7 +127,7 @@ impl YNState {
             // 发送删除事件
             tui.send_app_event(AppEvent::EntryRemove(e_id));
             // 响应该事件时 ，当前页面一定为 tips，所以回退到上一级页面（即召唤delete tips页面的页面)
-            while !tui.screen.is_dashboard() {
+            while !tui.screen.is_home_page() {
                 tui.back_screen();
             }
             Ok(())
@@ -159,7 +159,7 @@ impl YNState {
                 tui.send_app_event(AppEvent::EntryInsert(valid));
             }
             // 响应该事件时 ，当前页面一定为 tips，所以回退到上一级页面（即召唤delete tips页面的页面)
-            while !tui.screen.is_dashboard() {
+            while !tui.screen.is_home_page() {
                 tui.back_screen();
             }
             Ok(())

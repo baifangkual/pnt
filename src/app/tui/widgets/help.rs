@@ -48,8 +48,8 @@ impl<'a, const N: usize> Widget for &HelpPage<'a, N> {
 
 impl HelpPage<'static, 15> {
     // todo 后续应修改为 不同页面不同 help 项
-    pub const HELP_PAGE_DASHBOARD: HelpPage<'static, 15> = HelpPage::dashboard();
-    const fn dashboard() -> Self {
+    pub const HELP_HOME_PAGE: HelpPage<'static, 15> = HelpPage::home_page();
+    const fn home_page() -> Self {
         Self {
             tips: [
                 HelpShowItem {

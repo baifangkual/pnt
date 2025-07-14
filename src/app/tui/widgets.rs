@@ -9,9 +9,9 @@ use ratatui::widgets::{Block, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use tui_textarea::TextArea;
 
-pub mod dashboard;
 mod editing;
 pub mod help;
+pub mod home_page;
 mod yn;
 
 pub trait TextAreaExt {

@@ -1,6 +1,6 @@
 use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE};
 use crate::app::tui::layout::RectExt;
-use crate::app::tui::screen::states::DashboardState;
+use crate::app::tui::screen::states::HomePageState;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation};
@@ -33,10 +33,10 @@ fn truncate_text(text: &str, max_width: usize) -> String {
     result
 }
 
-pub struct DashboardWidget;
+pub struct HomePageV1Widget;
 
-impl StatefulWidget for DashboardWidget {
-    type State = DashboardState;
+impl StatefulWidget for HomePageV1Widget {
+    type State = HomePageState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let [l_5, area90_center, _] = Layout::horizontal([

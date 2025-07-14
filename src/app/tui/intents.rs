@@ -3,8 +3,8 @@ use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Details, Edit, Help, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::yn::YNState;
+use crate::app::tui::{TUIApp, new_home_page_screen};
 use anyhow::Context;
-use crate::app::tui::{new_dashboard_screen, TUIApp};
 
 /// 进入屏幕的意图
 /// 该实体的出现是为了修复部分屏幕需显示已解密实体，但还未校验主密码
@@ -13,7 +13,7 @@ use crate::app::tui::{new_dashboard_screen, TUIApp};
 #[derive(Debug, Clone)]
 pub enum EnterScreenIntent {
     ToHelp,
-    ToDashBoardV1,
+    ToHomePageV1,
     ToDetail(u32),
     ToEditing(Option<u32>), // 有id为更新，无id为编辑
     ToDeleteYNOption(u32),
@@ -24,7 +24,7 @@ impl EnterScreenIntent {
     /// 表达该 屏幕 在进入前是否需要 主密码
     pub fn is_before_enter_need_main_pwd(&self) -> bool {
         match self {
-            EnterScreenIntent::ToHelp | EnterScreenIntent::ToDashBoardV1 => false,
+            EnterScreenIntent::ToHelp | EnterScreenIntent::ToHomePageV1 => false,
             _ => true,
         }
     }
@@ -55,7 +55,7 @@ impl EnterScreenIntent {
                     Ok(YNOption(YNState::new_delete_tip(encrypted_entry)))
                 }
                 EnterScreenIntent::ToSaveYNOption(ve, e_id) => Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id))),
-                EnterScreenIntent::ToDashBoardV1 => Ok(new_dashboard_screen(&tui.pnt)),
+                EnterScreenIntent::ToHomePageV1 => Ok(new_home_page_screen(&tui.pnt)),
                 EnterScreenIntent::ToHelp => Ok(Help),
             }
         }

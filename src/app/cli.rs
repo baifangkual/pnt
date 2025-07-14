@@ -37,7 +37,6 @@ Use the default data file (default_data)";
 /// 子命令定义
 #[derive(Subcommand, Debug)]
 enum SubCmd {
-
     /// Print the default data file location (default_data)
     #[command(name = "default")]
     Default,
@@ -47,8 +46,7 @@ enum SubCmd {
     long_about = Self::SUB_INIT_HELP)]
     Init,
     /// Modify the main password in an interactive context
-    #[command(name = "mmp",
-    long_flag = "modify-main-pwd")]
+    #[command(name = "mmp", long_flag = "modify-main-pwd")]
     ModifyMainPwd,
     /// 子命令 print 或 修改 cfg
     #[command(name = "cfg",
@@ -90,7 +88,6 @@ impl CliArgs {
     /// 若Ok(Some(context))则表明要求TUI运行，
     /// 若OK(None) 则表明成功cli运行结束，程序成功退出
     pub fn run(&self) -> anyhow::Result<Option<PntContext>> {
-
         // sub-cmd: default
         if let Some(SubCmd::Default) = &self.sub_command {
             println!("Default Data file: {}", load_cfg()?.load_data.display());
