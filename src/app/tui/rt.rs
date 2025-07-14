@@ -59,7 +59,7 @@ impl TUIApp {
             Event::Tick => self.invoke_handle_tick(),
             // 后端Crossterm事件
             Event::Crossterm(event) => match event {
-                // 仅 按下
+                // 仅 按下, 这里或许过于严格了，或许放开仅 Press 情况
                 CEvent::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                     self.invoke_current_screen_handle_key_press_event(key_event)?
                 }
@@ -172,6 +172,16 @@ impl TUIApp {
                         // 下移
                         if key_event._is_down() || key_event._is_j() {
                             self.send_app_event(AppEvent::CursorDown);
+                            return Ok(());
+                        }
+                        // 顶部 底部
+                        if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
+                            state.cursor_mut_ref().select_first();
+                            return Ok(());
+                        }
+                        // 顶部 底部
+                        if let KeyCode::Char('G') | KeyCode::End = key_event.code {
+                            state.cursor_mut_ref().select_last();
                             return Ok(());
                         }
                     }
