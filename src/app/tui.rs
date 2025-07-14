@@ -7,13 +7,14 @@ mod screen;
 mod ui;
 mod widgets;
 
-use ratatui::DefaultTerminal;
+use crate::app::cfg::InnerCfg;
 use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToDashBoardV1;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{DashboardV1, NeedMainPasswd};
 use crate::app::tui::screen::states::{DashboardState, NeedMainPwdState};
+use ratatui::DefaultTerminal;
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
@@ -39,7 +40,7 @@ pub struct TUIApp {
     /// current store entry count
     store_entry_count: u32,
     /// 闲置tick计数，tick每秒一次
-    idle_tick_count: u32,
+    tick_adder: TickAdder,
 }
 
 impl TUIApp {
@@ -74,16 +75,66 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
         screen,
         back_screen: Vec::with_capacity(10),
         store_entry_count: pnt_context.storage.select_entry_count(),
+        tick_adder: TickAdder::new(&pnt_context.cfg.inner_cfg),
         pnt: pnt_context,
-        idle_tick_count: 0
     }
 }
 
+
+
+struct TickAdder {
+    idle_tick_count: u32,
+    auto_re_lock_idle_sec: u32,
+    auto_close_idle_sec: u32,
+}
+
+
+impl TickAdder {
+    fn new(inner_cfg: &InnerCfg) -> Self {
+        // 0表示关闭，所以需要过滤掉0，设置为u32::MAX
+        let auto_re_lk = inner_cfg
+            .auto_re_lock_idle_sec
+            .filter(|&sec| sec != 0)
+            .unwrap_or(u32::MAX);
+        // 0表示关闭，所以需要过滤掉0，设置为u32::MAX
+        let auto_close = inner_cfg
+            .auto_close_idle_sec
+            .filter(|&sec| sec != 0)
+            .unwrap_or(u32::MAX);
+        Self {
+            idle_tick_count: 0,
+            auto_re_lock_idle_sec: auto_re_lk,
+            auto_close_idle_sec: auto_close,
+        }
+    }
+
+    #[inline]
+    fn reset_idle_tick_count(&mut self) {
+        self.idle_tick_count = 0;
+    }
+
+    #[inline]
+    fn idle_tick_increment(&mut self) {
+        // 使其最大不超过 u32max，最大值为u32max
+        // auto... 关闭情况下值为u32max
+        // 遂idle不会大于auto给定值，即关闭auto行为
+        if self.idle_tick_count != u32::MAX {
+            self.idle_tick_count += 1;
+        }
+    }
+    #[inline]
+    fn need_re_lock(&self) -> bool {
+        self.idle_tick_count > self.auto_re_lock_idle_sec
+    }
+    #[inline]
+    fn need_close(&self) -> bool {
+        self.idle_tick_count > self.auto_close_idle_sec
+    }
+
+}
 
 /// tui 新建主页 主页面
 fn new_dashboard_screen(context: &PntContext) -> Screen {
     let vec = context.storage.select_all_entry();
     DashboardV1(DashboardState::new(vec))
 }
-
-

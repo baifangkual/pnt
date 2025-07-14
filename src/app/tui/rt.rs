@@ -24,14 +24,6 @@ use ratatui::{
 
 impl TUIApp {
     
-    fn idle_tick_increment(&mut self) {
-        self.idle_tick_count += 1;
-    }
-    fn idle_tick_reset(&mut self) {
-        self.idle_tick_count = 0;
-    }
-    
-    
     /// 返回上一个屏幕，
     /// 当上一个屏幕不存在时，发送 **退出** 事件
     pub fn back_screen(&mut self) {
@@ -43,28 +35,19 @@ impl TUIApp {
         }
     }
 
-    /// 切换屏幕，push_old_screen 为 true 表示将换下来的屏幕压入back栈中
-    fn change_current_screen(&mut self, new_screen: Screen, push_old_screen: bool) -> Result<()> {
-        if push_old_screen {
-            let old_scr = std::mem::replace(&mut self.screen, new_screen);
-            self.back_screen.push(old_scr);
-            Ok(())
-        } else {
-            self.screen = new_screen;
-            Ok(())
-        }
-    }
-
     /// 处理需进入屏幕的需求
     fn handle_enter_screen_indent(&mut self, new_screen_intent: EnterScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
         if let NeedMainPasswd(_) = &self.screen {
-            Ok(self.change_current_screen(new_screen, false)?)
+            self.screen = new_screen; // NeedMainPasswd 屏幕直接切换，不入栈
         } else {
-            Ok(self.change_current_screen(new_screen, true)?)
+            let old_scr = std::mem::replace(&mut self.screen, new_screen);
+            self.back_screen.push(old_scr);
         }
+        Ok(())
     }
 
+    #[inline]
     pub fn send_app_event(&self, event: AppEvent) {
         self.events.send(event);
     }
@@ -119,7 +102,7 @@ impl TUIApp {
     fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
         
         // 每次操作将闲置tick计数清零
-        self.idle_tick_reset();
+        self.tick_adder.reset_idle_tick_count();
         
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
@@ -322,9 +305,15 @@ impl TUIApp {
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn invoke_handle_tick(&mut self) {
-        // 可用判定当前包含被解密的字段的窗口打开的时间，
-        // 超过一定阈值则发送关闭子窗口的事件
-        self.idle_tick_increment();
+
+       self.tick_adder.idle_tick_increment();
+
+        if  self.tick_adder.need_re_lock() {
+            self.re_lock();
+        }
+        if self.tick_adder.need_close() {
+            self.quit_tui_app();
+        }
         
     }
 

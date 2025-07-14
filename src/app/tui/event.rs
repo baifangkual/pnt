@@ -82,6 +82,7 @@ impl EventHandler {
     /// problem with the underlying terminal.
     ///
     /// 读取一个事件，该方法阻塞直到事件可用
+    #[inline]
     pub fn next(&self) -> Result<Event> {
         Ok(self.receiver.recv()?)
     }
@@ -124,15 +125,16 @@ impl EventThread {
                 self.send(Event::Tick);
             }
             // poll for crossterm events, ensuring that we don't block the tick interval
-            if event::poll(timeout).context("failed to poll for crossterm events")? {
+            if event::poll(timeout)? {
                 // 该子线程消费 终端键盘事件并向 tui 更新线程发送键盘事件
-                let event = event::read().context("failed to read crossterm event")?;
+                let event = event::read()?;
                 self.send(Event::Crossterm(event));
             }
         }
     }
 
     /// Sends an event to the receiver.
+    #[inline]
     fn send(&self, event: Event) {
         // Ignores the result because shutting down the app drops the receiver, which causes the send
         // operation to fail. This is expected behavior and should not panic.
