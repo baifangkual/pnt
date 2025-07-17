@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_DDD_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_DDD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::help;
 use crate::app::tui::widgets::home_page::HomePageV1Widget;
@@ -13,15 +13,12 @@ use ratatui::{
     widgets::{Block, StatefulWidget, Widget},
 };
 
-
-
 impl Widget for &mut TUIApp {
     /// 渲染函数入口
     ///
     /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [middle, bottom] =
-            Layout::vertical([ Constraint::Fill(0), Constraint::Length(1)]).areas(area);
+        let [middle, bottom] = Layout::vertical([Constraint::Fill(0), Constraint::Length(1)]).areas(area);
 
         // 主要内容背景
         Block::new().bg(CL_BLACK).render(middle, buf);
@@ -67,16 +64,18 @@ impl Widget for &mut TUIApp {
                     Screen::HomePageV1(..) => help::HelpPage::home_page().render(rect, buf, list_cursor),
                     Screen::Details(..) => help::HelpPage::detail().render(rect, buf, list_cursor),
                     Screen::Edit(..) => help::HelpPage::editing().render(rect, buf, list_cursor),
-                    _ => ()
+                    _ => (),
                 }
             }
             Screen::Details(entry, _) => {
-                self.hot_msg.set_if_not_always("󰌌 <ESC>|<Q> quit-detail , <D> delete , <L> quit-detail and re-lock");
+                self.hot_msg
+                    .set_if_not_always("󰌌 <ESC>|<Q> quit-detail , <D> delete , <L> quit-detail and re-lock");
                 let rect = layout::centered_percent(90, 90, middle);
                 entry.render(rect, buf);
             }
             Screen::Edit(state) => {
-                self.hot_msg.set_if_not_always("󰌌 <TAB> next , ↓↑←→ move , <CTRL+S> save , <ESC> quit-edit");
+                self.hot_msg
+                    .set_if_not_always("󰌌 <TAB> next , ↓↑←→ move , <CTRL+S> save , <ESC> quit-edit");
                 let rect = layout::centered_percent(90, 90, middle);
                 state.render(rect, buf);
             }
@@ -93,13 +92,11 @@ impl Widget for &mut TUIApp {
 
         // fixed 在match后渲染hot_msg，防止match内修改hot_msg后当前帧不刷新，而是下一帧刷新的问题
         // to do 后可作为当前screen 提示信息显示在此...
-        let hot_tip_msg = Paragraph::new(self.hot_msg.msg())
-            .alignment(self.hot_msg.msg_alignment());
+        let hot_tip_msg = Paragraph::new(self.hot_msg.msg()).alignment(self.hot_msg.msg_alignment());
         if self.hot_msg.is_temp_msg() {
             hot_tip_msg.fg(CL_DDD_WHITE).render(bc, buf)
         } else {
             hot_tip_msg.fg(CL_DD_WHITE).render(bc, buf)
         }
-
     }
 }

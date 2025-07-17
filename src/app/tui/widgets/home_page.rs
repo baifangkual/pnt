@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE, CL_L_BLACK};
+use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE};
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::HomePageState;
 use ratatui::layout::{Constraint, Layout, Rect};

@@ -97,7 +97,7 @@ impl HotMsg {
             self.set_always_msg(center_always_msg, Alignment::Center);
         }
     }
-    
+
     /// 清理临时和永久消息
     fn clear(&mut self) {
         self.temp_msg = None;

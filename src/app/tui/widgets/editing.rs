@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_DD_WHITE, CL_L_BLACK, CL_WHITE};
+use crate::app::tui::colors::CL_WHITE;
 use crate::app::tui::screen::states::EditingState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};

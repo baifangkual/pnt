@@ -1,9 +1,9 @@
 use crate::app::entry::InputEntry;
-use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
-use crate::app::tui::screen::yn::YNState;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Details, Edit, NeedMainPasswd, YNOption};
-use crate::app::tui::{new_home_page_screen, TUIApp};
+use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use crate::app::tui::screen::yn::YNState;
+use crate::app::tui::{TUIApp, new_home_page_screen};
 use anyhow::Context;
 
 /// 进入屏幕的意图

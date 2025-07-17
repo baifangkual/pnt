@@ -18,27 +18,23 @@ pub struct HelpPage<'a, const N: usize> {
 impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
     type State = ListState;
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-
         let block = Block::bordered()
             .title("help")
             .fg(CL_WHITE)
             .border_type(BorderType::Plain)
             .padding(Padding::proportional(1));
-            // .border_set(ratatui::symbols::border::EMPTY);
+        // .border_set(ratatui::symbols::border::EMPTY);
 
         let inner_area = block.inner(area);
         block.render(area, buf);
 
-        let [ l, r] = Layout::horizontal([
-            Constraint::Percentage(20),
-            Constraint::Percentage(80),
-        ]).areas(inner_area);
+        let [l, r] = Layout::horizontal([Constraint::Percentage(20), Constraint::Percentage(80)]).areas(inner_area);
 
         // to do 光标二分
         let tips_len = self.key_maps.len();
         let mut left_k = Vec::with_capacity(tips_len);
         let mut right_v = Vec::with_capacity(tips_len);
-        for (i, KeyMapInfo {key_map, note}) in self.key_maps.iter().enumerate() {
+        for KeyMapInfo { key_map, note } in self.key_maps.iter() {
             let k = ListItem::new(*key_map).fg(Color::Yellow).bold();
             let v = ListItem::new(*note).fg(CL_D_WHITE);
             left_k.push(k);
@@ -47,17 +43,15 @@ impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
 
         const SELECTED_STYLE: Style = Style::new().bg(CL_L_BLACK).add_modifier(Modifier::BOLD);
 
-        let l_list = List::new(left_k)
-            .highlight_style(SELECTED_STYLE);
-        let r_list = List::new(right_v)
-            .highlight_style(SELECTED_STYLE);
+        let l_list = List::new(left_k).highlight_style(SELECTED_STYLE);
+        let r_list = List::new(right_v).highlight_style(SELECTED_STYLE);
 
         StatefulWidget::render(l_list, l, buf, state);
         StatefulWidget::render(r_list, r, buf, state);
     }
 }
 
-impl HelpPage<'static, 9>{
+impl HelpPage<'static, 9> {
     pub const fn editing() -> Self {
         Self {
             key_maps: [
@@ -97,7 +91,7 @@ impl HelpPage<'static, 9>{
                     key_map: "<CTRL+S>",
                     note: "save",
                 },
-            ]
+            ],
         }
     }
 }
@@ -118,11 +112,9 @@ impl HelpPage<'static, 3> {
                     key_map: "<L>",
                     note: "quit-detail and re-lock",
                 },
-            ]
+            ],
         }
-
     }
-
 }
 
 impl HelpPage<'static, 13> {

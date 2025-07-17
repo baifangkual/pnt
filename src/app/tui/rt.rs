@@ -15,11 +15,11 @@ use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
+use ratatui::prelude::Alignment;
 use ratatui::{
     crossterm,
     crossterm::event::{KeyCode, KeyEvent},
 };
-use ratatui::prelude::Alignment;
 
 impl TUIApp {
     /// 返回上一个屏幕，
@@ -144,7 +144,6 @@ impl TUIApp {
             }
             // 仪表盘
             HomePageV1(state) => {
-
                 // f1 按下 进入 帮助页面
                 if key_event._is_f1() {
                     self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
@@ -219,7 +218,6 @@ impl TUIApp {
             }
             // 详情页
             Details(_, e_id) => {
-
                 // f1 按下 进入 帮助页面
                 if key_event._is_f1() {
                     self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
@@ -262,7 +260,6 @@ impl TUIApp {
                 }
             }
             Edit(state) => {
-
                 // f1 按下 进入 帮助页面
                 if key_event._is_f1() {
                     self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
@@ -297,7 +294,8 @@ impl TUIApp {
                         self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     } else {
                         // 验证 to do 未通过验证应给予提示
-                        self.hot_msg.set_msg(" Some field is required", Some(3), Some(Alignment::Center));
+                        self.hot_msg
+                            .set_msg(" Some field is required", Some(3), Some(Alignment::Center));
                     }
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
@@ -374,7 +372,8 @@ impl TUIApp {
                 self.back_screen();
             }
             if self.idle_tick.need_re_lock() {
-                self.hot_msg.set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5), Some(Alignment::Center));
+                self.hot_msg
+                    .set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5), Some(Alignment::Center));
             }
         }
     }

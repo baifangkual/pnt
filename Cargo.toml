@@ -1,6 +1,6 @@
 [package]
 name = "pnt"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["baifangkual <baifangkuai@live.com>"]
 edition = "2024"
 license = "MIT"
