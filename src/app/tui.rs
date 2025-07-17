@@ -8,6 +8,7 @@ mod ui;
 mod widgets;
 
 use crate::app::cfg::InnerCfg;
+use crate::app::consts::APP_NAME;
 use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToHomePageV1;
@@ -22,7 +23,12 @@ pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
     let running = new_runtime(pnt);
     let result = running.run_main_loop(terminal);
     ratatui::restore();
-    result
+    let app_after_run = result?;
+    // 因tick到期退出的，stdout告知
+    if app_after_run.idle_tick.need_close() {
+        println!("{} app auto closed with idle seconds", APP_NAME)
+    }
+    Ok(())
 }
 
 /// TUI Application.
@@ -45,7 +51,6 @@ pub struct TUIApp {
     hot_msg: HotMsg,
 }
 
-
 struct HotMsg {
     temp_msg: Option<String>,
     /// temp_msg 存活时间 sec，响应tick，自减，为0则清除之
@@ -60,7 +65,7 @@ impl HotMsg {
             always_msg: String::new(),
         }
     }
-    
+
     /// 每次tick调用之，若temp存活时间到了，即将其清除
     fn tick(&mut self) {
         if self.temp_msg.is_some() {
@@ -100,11 +105,14 @@ impl HotMsg {
     fn msg(&self) -> &str {
         self.temp_msg.as_ref().unwrap_or(&self.always_msg)
     }
+    fn is_temp_msg(&self) -> bool {
+        self.temp_msg.is_some()
+    }
 }
 
 impl TUIApp {
     /// TUI程序主循环
-    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<()> {
+    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<TUIApp> {
         while self.running {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             match self.invoke_handle_events() {
@@ -116,7 +124,7 @@ impl TUIApp {
                 }
             }
         }
-        Ok(())
+        Ok(self)
     }
 }
 

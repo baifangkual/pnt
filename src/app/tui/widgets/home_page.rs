@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE, CL_L_BLACK};
 use crate::app::tui::layout::RectExt;
 use crate::app::tui::screen::states::HomePageState;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -59,6 +59,8 @@ impl StatefulWidget for HomePageV1Widget {
         let rect_query = q.h_centered_percent(80);
         // inner
         let rect_query_inner = find_input_block.inner(rect_query);
+        // 搜索框输入部分的bg
+        // Block::new().bg(CL_L_BLACK).render(rect_query_inner, buf);
         // lr
         let [icon, query_line_rect] =
             Layout::horizontal([Constraint::Length(3), Constraint::Fill(0)]).areas(rect_query_inner);

@@ -27,6 +27,7 @@ impl TUIApp {
         let pop_or = self.back_screen.pop();
         if let Some(p) = pop_or {
             self.screen = p;
+            self.hot_msg.clear(); // 不同屏幕不同 hot_msg
         } else {
             self.send_app_event(AppEvent::Quit)
         }
@@ -272,12 +273,16 @@ impl TUIApp {
                     return Ok(());
                 }
                 // 保存
-                if key_event._is_ctrl_s() && state.current_input_validate() {
-                    // 验证 todo 未通过验证应给予提示
-                    let e_id = state.current_e_id();
-                    // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
-                    let input_entry = state.current_input_entry();
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
+                if key_event._is_ctrl_s() {
+                    if state.current_input_validate() {
+                        let e_id = state.current_e_id();
+                        // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
+                        let input_entry = state.current_input_entry();
+                        self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
+                    } else {
+                        // 验证 to do 未通过验证应给予提示
+                        self.hot_msg.set_msg(" Some field is required", Some(3));
+                    }
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
@@ -352,24 +357,9 @@ impl TUIApp {
             while !self.screen.is_home_page() {
                 self.back_screen();
             }
-        }
-    }
-
-    /// 处理光标向上事件
-    fn cursor_up(&mut self) {
-        if let HomePageV1(state) = &mut self.screen {
-            state.cursor_up();
-        } else if let Edit(state) = &mut self.screen {
-            state.cursor_up();
-        }
-    }
-
-    /// 处理光标向下事件
-    fn cursor_down(&mut self) {
-        if let HomePageV1(state) = &mut self.screen {
-            state.cursor_down();
-        } else if let Edit(state) = &mut self.screen {
-            state.cursor_down();
+            if self.idle_tick.need_re_lock() {
+                self.hot_msg.set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5));
+            }
         }
     }
 

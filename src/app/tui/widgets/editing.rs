@@ -1,4 +1,4 @@
-use crate::app::tui::colors::CL_WHITE;
+use crate::app::tui::colors::{CL_DD_WHITE, CL_L_BLACK, CL_WHITE};
 use crate::app::tui::screen::states::EditingState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
@@ -17,6 +17,12 @@ impl Widget for &EditingState {
             ratatui::layout::Constraint::Length(1), // 模糊的按键提示
         ])
         .areas(area);
+
+        Block::new().bg(CL_L_BLACK).render(areas[4], buf);
+        ratatui::widgets::Paragraph::new("<Tab> next | ↓↑←→ move | <Ctrl>+S save")
+            .centered()
+            .fg(CL_DD_WHITE)
+            .render(areas[4], buf);
 
         let curr_editing = self.current_editing_type();
         let all_textarea = self.all_textarea();

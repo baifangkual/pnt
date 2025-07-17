@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_DDD_WHITE};
 use crate::app::tui::screen::Screen;
 use crate::app::tui::widgets::help;
 use crate::app::tui::widgets::home_page::HomePageV1Widget;
@@ -34,8 +34,15 @@ impl Widget for &mut TUIApp {
             Layout::horizontal([Constraint::Length(10), Constraint::Fill(0), Constraint::Length(7)]).areas(bottom);
 
         // bc 填充颜色
-        // todo 后可作为当前screen 提示信息显示在此...
         Block::new().bg(CL_L_BLACK).render(bc, buf);
+        // to do 后可作为当前screen 提示信息显示在此...
+        let hot_tip_msg = Paragraph::new(self.hot_msg.msg())
+            .centered();
+        if self.hot_msg.is_temp_msg() {
+            hot_tip_msg.fg(CL_DDD_WHITE).render(bc, buf)
+        } else { 
+            hot_tip_msg.fg(CL_DD_WHITE).render(bc, buf)
+        }
 
         // mp状态图标
         if self.pnt.is_verified() {
