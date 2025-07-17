@@ -5,14 +5,14 @@ use ratatui::prelude::{Color, Constraint, Modifier, StatefulWidget, Style, Styli
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Padding};
 
 /// 帮助页面实体
-pub struct HelpShowItem<'a> {
+pub struct KeyMapInfo<'a> {
     pub key_map: &'a str,
     pub note: &'a str,
 }
 
 /// 帮助页面
 pub struct HelpPage<'a, const N: usize> {
-    pub tips: [HelpShowItem<'a>; N],
+    pub key_maps: [KeyMapInfo<'a>; N],
 }
 
 impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
@@ -35,10 +35,10 @@ impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
         ]).areas(inner_area);
 
         // to do 光标二分
-        let tips_len = self.tips.len();
+        let tips_len = self.key_maps.len();
         let mut left_k = Vec::with_capacity(tips_len);
         let mut right_v = Vec::with_capacity(tips_len);
-        for (i, HelpShowItem {key_map, note}) in self.tips.iter().enumerate() {
+        for (i, KeyMapInfo {key_map, note}) in self.key_maps.iter().enumerate() {
             let k = ListItem::new(*key_map).fg(Color::Yellow).bold();
             let v = ListItem::new(*note).fg(CL_D_WHITE);
             left_k.push(k);
@@ -57,78 +57,128 @@ impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
     }
 }
 
-    // todo 后续应修改为 不同页面不同 help 项
-impl HelpPage<'static, 17> {
-    pub const HELP_HOME_PAGE: HelpPage<'static, 17> = HelpPage::home_page();
-    const fn home_page() -> Self {
+impl HelpPage<'static, 9>{
+    pub const fn editing() -> Self {
         Self {
-            tips: [
-                HelpShowItem {
-                    key_map: "<F1>",
-                    note: "help",
+            key_maps: [
+                KeyMapInfo {
+                    key_map: "<↓>",
+                    note: "select next input-area | cursor move down",
                 },
-                HelpShowItem {
-                    key_map: "f",
+                KeyMapInfo {
+                    key_map: "<↑>",
+                    note: "select prev input-area | cursor move up",
+                },
+                KeyMapInfo {
+                    key_map: "<←>",
+                    note: "cursor move left",
+                },
+                KeyMapInfo {
+                    key_map: "<→>",
+                    note: "cursor move right",
+                },
+                KeyMapInfo {
+                    key_map: "<ESC>",
+                    note: "quit edit",
+                },
+                KeyMapInfo {
+                    key_map: "<CTRL+C>",
+                    note: "quit app",
+                },
+                KeyMapInfo {
+                    key_map: "<ENTER>",
+                    note: "select next input-area | new line",
+                },
+                KeyMapInfo {
+                    key_map: "<TAB>",
+                    note: "select next input-area",
+                },
+                KeyMapInfo {
+                    key_map: "<CTRL+S>",
+                    note: "save",
+                },
+            ]
+        }
+    }
+}
+
+impl HelpPage<'static, 3> {
+    pub const fn detail() -> Self {
+        Self {
+            key_maps: [
+                KeyMapInfo {
+                    key_map: "<ESC>|<Q>",
+                    note: "quit-detail",
+                },
+                KeyMapInfo {
+                    key_map: "<D>",
+                    note: "delete",
+                },
+                KeyMapInfo {
+                    key_map: "<L>",
+                    note: "quit-detail and re-lock",
+                },
+            ]
+        }
+
+    }
+
+}
+
+impl HelpPage<'static, 13> {
+    pub const fn home_page() -> Self {
+        Self {
+            key_maps: [
+                KeyMapInfo {
+                    key_map: "<F>",
                     note: "find",
                 },
-                HelpShowItem {
-                    key_map: "j | <DOWN>",
+                KeyMapInfo {
+                    key_map: "<↓>|<J>",
                     note: "down",
                 },
-                HelpShowItem {
-                    key_map: "k | <UP>",
+                KeyMapInfo {
+                    key_map: "<↑>|<K>",
                     note: "up",
                 },
-                HelpShowItem {
-                    key_map: "g",
+                KeyMapInfo {
+                    key_map: "<g>",
                     note: "first",
                 },
-                HelpShowItem {
-                    key_map: "G",
+                KeyMapInfo {
+                    key_map: "<G>",
                     note: "last",
                 },
-                HelpShowItem {
-                    key_map: "<Ctrl> c",
-                    note: "quit-app",
+                KeyMapInfo {
+                    key_map: "<CTRL+C>|<Q>",
+                    note: "quit app",
                 },
-                HelpShowItem {
-                    key_map: "q",
-                    note: "back screen | quit-app",
-                },
-                HelpShowItem {
+                KeyMapInfo {
                     key_map: "<ESC>",
-                    note: "back screen | [edit] quit-edit | quit-app | [find] find",
+                    note: "quit app | [find] find | quit find",
                 },
-                HelpShowItem {
-                    key_map: "<Enter>",
+                KeyMapInfo {
+                    key_map: "<ENTER>",
                     note: "detail current | [find] find",
                 },
-                HelpShowItem {
-                    key_map: "o",
+                KeyMapInfo {
+                    key_map: "<O>",
                     note: "detail current",
                 },
-                HelpShowItem {
-                    key_map: "i",
+                KeyMapInfo {
+                    key_map: "<I>",
                     note: "create new",
                 },
-                HelpShowItem {
-                    key_map: "e",
+                KeyMapInfo {
+                    key_map: "<E>",
                     note: "edit current",
                 },
-                HelpShowItem {
-                    key_map: "<Ctrl> s",
-                    note: "[edit] save edit",
-                },
-                HelpShowItem {
-                    key_map: "d",
+                KeyMapInfo {
+                    key_map: "<D>",
                     note: "delete current",
                 },
-                HelpShowItem {
-                    key_map: "<Tab>",
-                    note: "[edit] next textarea",
-                },
-                HelpShowItem {
-                    key_map: "l",
+                KeyMapInfo {
+                    key_map: "<L>",
                     note: "re-lock",
                 },
             ],

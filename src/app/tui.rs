@@ -8,7 +8,7 @@ mod ui;
 mod widgets;
 
 use crate::app::cfg::InnerCfg;
-use crate::app::consts::APP_NAME;
+use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
 use crate::app::tui::event::EventHandler;
 use crate::app::tui::intents::EnterScreenIntent::ToHomePageV1;
@@ -16,6 +16,7 @@ use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{HomePageV1, NeedMainPasswd};
 use crate::app::tui::screen::states::{HomePageState, NeedMainPwdState};
 use ratatui::DefaultTerminal;
+use ratatui::prelude::Alignment;
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
@@ -53,16 +54,20 @@ pub struct TUIApp {
 
 struct HotMsg {
     temp_msg: Option<String>,
+    temp_msg_alignment: Alignment,
     /// temp_msg 存活时间 sec，响应tick，自减，为0则清除之
     temp_msg_live_countdown: u8,
     always_msg: String,
+    always_msg_alignment: Alignment,
 }
 impl HotMsg {
     fn new() -> Self {
         Self {
             temp_msg: None,
+            temp_msg_alignment: Alignment::Center,
             temp_msg_live_countdown: 0,
             always_msg: String::new(),
+            always_msg_alignment: Alignment::Center,
         }
     }
 
@@ -76,26 +81,37 @@ impl HotMsg {
         }
     }
     /// 设置消息，若给定 live_countdown 则为设置临时消息，
-    /// 若无，则设置永久消息
-    pub fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>) {
+    /// 若无，则设置永久消息,
+    /// 若align给定明确值，则将对应msg的alignment设定为对应值，否则msg的align为当前alignment
+    fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>, align: Option<Alignment>) {
         if let Some(l) = live_countdown {
-            self.set_temp_msg(msg, l);
+            self.set_temp_msg(msg, l, align.unwrap_or(self.temp_msg_alignment));
         } else {
-            self.set_always_msg(msg);
+            self.set_always_msg(msg, align.unwrap_or(self.always_msg_alignment));
         }
     }
+    /// 若当前hot_msg没有always_msg，设置居中的always_msg
+    #[inline]
+    fn set_if_not_always(&mut self, center_always_msg: &str) {
+        if self.always_msg.is_empty() {
+            self.set_always_msg(center_always_msg, Alignment::Center);
+        }
+    }
+    
     /// 清理临时和永久消息
-    pub fn clear(&mut self) {
+    fn clear(&mut self) {
         self.temp_msg = None;
         self.clear_always_msg()
     }
     /// 设置临时消息，存活一定tick时间
-    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8) {
+    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8, align: Alignment) {
         self.temp_msg = Some(temp_msg.to_string());
         self.temp_msg_live_countdown = live_countdown;
+        self.temp_msg_alignment = align;
     }
-    fn set_always_msg(&mut self, always_msg: &str) {
+    fn set_always_msg(&mut self, always_msg: &str, align: Alignment) {
         self.always_msg = always_msg.to_string();
+        self.always_msg_alignment = align;
     }
     fn clear_always_msg(&mut self) {
         self.always_msg.clear();
@@ -105,6 +121,16 @@ impl HotMsg {
     fn msg(&self) -> &str {
         self.temp_msg.as_ref().unwrap_or(&self.always_msg)
     }
+    /// 返回当前的调用 msg 返回的 msg 的 alignment
+    fn msg_alignment(&self) -> Alignment {
+        if self.is_temp_msg() {
+            self.temp_msg_alignment
+        } else {
+            self.always_msg_alignment
+        }
+    }
+    /// 返回当前调用 msg 方法时返回的 msg 类型，若temp_msg不为空，
+    /// 则返回的 msg 为 temp_msg，即该方法返回 true，否则false
     fn is_temp_msg(&self) -> bool {
         self.temp_msg.is_some()
     }
@@ -131,11 +157,29 @@ impl TUIApp {
 /// 新建 tui
 fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
-    let screen = if pnt_context.is_need_mp_on_run() {
-        NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1))
+    let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
+        let scr = NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1));
+        let mut hm = HotMsg::new();
+        hm.set_msg(
+            &format!(
+                "input main password to enter screen | {} {} ",
+                APP_NAME_AND_VERSION, "<F1> Help"
+            ),
+            Some(255),
+            Some(Alignment::Right),
+        );
+        (scr, hm)
     } else {
-        new_home_page_screen(&pnt_context)
+        let scr = new_home_page_screen(&pnt_context);
+        let mut hm = HotMsg::new();
+        hm.set_msg(
+            &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
+            Some(5),
+            Some(Alignment::Right),
+        );
+        (scr, hm)
     };
+
     TUIApp {
         running: true,
         events: EventHandler::new(),
@@ -144,7 +188,7 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
         store_entry_count: pnt_context.storage.select_entry_count(),
         idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
         pnt: pnt_context,
-        hot_msg: HotMsg::new(),
+        hot_msg,
     }
 }
 

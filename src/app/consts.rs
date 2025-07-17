@@ -4,6 +4,7 @@ pub const ENV_CONF_PATH_KEY: &str = "PNT_CONF_FILE";
 pub const ENV_DEFAULT_DATA_FILE_PATH_KEY: &str = "PNT_DEFAULT_DATA_FILE";
 /// app name
 pub const APP_NAME: &str = clap::crate_name!();
+pub const APP_NAME_AND_VERSION: &str = concat!(clap::crate_name!(), " v", clap::crate_version!());
 /// pnt 加密数据文件名
 pub const DATA_FILE_NAME: &str = "pntdata";
 /// pnt 配置文件名

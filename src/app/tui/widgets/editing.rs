@@ -9,20 +9,13 @@ impl Widget for &EditingState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let areas: [Rect; 5] = Layout::vertical([
+        let areas: [Rect; 4] = Layout::vertical([
             ratatui::layout::Constraint::Length(3),
             ratatui::layout::Constraint::Length(3),
             ratatui::layout::Constraint::Length(3),
-            ratatui::layout::Constraint::Fill(0),   // notes
-            ratatui::layout::Constraint::Length(1), // 模糊的按键提示
+            ratatui::layout::Constraint::Fill(0), // notes
         ])
         .areas(area);
-
-        Block::new().bg(CL_L_BLACK).render(areas[4], buf);
-        ratatui::widgets::Paragraph::new("<Tab> next | ↓↑←→ move | <Ctrl>+S save")
-            .centered()
-            .fg(CL_DD_WHITE)
-            .render(areas[4], buf);
 
         let curr_editing = self.current_editing_type();
         let all_textarea = self.all_textarea();

@@ -19,6 +19,7 @@ use ratatui::{
     crossterm,
     crossterm::event::{KeyCode, KeyEvent},
 };
+use ratatui::prelude::Alignment;
 
 impl TUIApp {
     /// 返回上一个屏幕，
@@ -42,6 +43,7 @@ impl TUIApp {
             let old_scr = std::mem::replace(&mut self.screen, new_screen);
             self.back_screen.push(old_scr);
         }
+        self.hot_msg.clear();
         Ok(())
     }
 
@@ -108,13 +110,6 @@ impl TUIApp {
             self.handle_key_esc_event()?;
             return Ok(());
         }
-        // f1 按下 进入 帮助页面
-        if key_event._is_f1() {
-            if !self.screen.is_help() {
-                self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
-            }
-            return Ok(());
-        }
 
         // 不同屏幕不同按键响应，包装为不同的app事件
         // 走到此，则 ctrl + c ，quit， f1 已被处理，
@@ -149,6 +144,13 @@ impl TUIApp {
             }
             // 仪表盘
             HomePageV1(state) => {
+
+                // f1 按下 进入 帮助页面
+                if key_event._is_f1() {
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                    return Ok(());
+                }
+
                 // home_page find
                 if !state.find_mode() {
                     if let KeyCode::Char('f' | 'F') = key_event.code {
@@ -217,6 +219,13 @@ impl TUIApp {
             }
             // 详情页
             Details(_, e_id) => {
+
+                // f1 按下 进入 帮助页面
+                if key_event._is_f1() {
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                    return Ok(());
+                }
+
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
                     return Ok(());
@@ -253,6 +262,13 @@ impl TUIApp {
                 }
             }
             Edit(state) => {
+
+                // f1 按下 进入 帮助页面
+                if key_event._is_f1() {
+                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                    return Ok(());
+                }
+
                 // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
                 if state.current_editing_type() != Editing::Notes {
                     // 上移
@@ -281,7 +297,7 @@ impl TUIApp {
                         self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     } else {
                         // 验证 to do 未通过验证应给予提示
-                        self.hot_msg.set_msg(" Some field is required", Some(3));
+                        self.hot_msg.set_msg(" Some field is required", Some(3), Some(Alignment::Center));
                     }
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
@@ -358,7 +374,7 @@ impl TUIApp {
                 self.back_screen();
             }
             if self.idle_tick.need_re_lock() {
-                self.hot_msg.set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5));
+                self.hot_msg.set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5), Some(Alignment::Center));
             }
         }
     }
