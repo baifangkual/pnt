@@ -1,6 +1,7 @@
 pub(crate) mod states;
 pub(crate) mod yn;
 
+use ratatui::widgets::ListState;
 use crate::app::entry::InputEntry;
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::yn::YNState;
@@ -10,7 +11,7 @@ use states::HomePageState;
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
     HomePageV1(HomePageState), // 全局浏览窗口
-    Help,                     // f1 help
+    Help(ListState),           // f1 help, list state 为行光标状态
     Details(InputEntry, u32), // 某详情, u32 为 id
     Edit(EditingState),       // 创建窗口
     // Updating (EditingState), // 已有条目编辑窗口
@@ -28,6 +29,10 @@ impl Screen {
     pub fn is_home_page(&self) -> bool {
         matches!(self, Screen::HomePageV1(..))
     }
+    
+    pub fn is_help(&self) -> bool {
+        matches!(self, Screen::Help(..))
+    }
 
     /// 新建编辑页面
     pub fn new_edit_updating(u_input: InputEntry, e_id: u32) -> Self {
@@ -36,5 +41,10 @@ impl Screen {
     /// 新建新建页面
     pub fn new_edit_creating() -> Self {
         Screen::Edit(Default::default())
+    }
+    
+    
+    pub fn new_help() -> Self {
+        Screen::Help(ListState::default())
     }
 }

@@ -64,9 +64,19 @@ impl Widget for &mut TUIApp {
                 let dash_widget = HomePageV1Widget;
                 dash_widget.render(middle, buf, state)
             }
-            Screen::Help => {
+            Screen::Help(list_cursor) => {
+                // todo 不同页面不同help信息
                 let rect = layout::centered_percent(90, 90, middle);
-                help::HelpPage::HELP_HOME_PAGE.render(rect, buf)
+                let help_who = self.back_screen.last().unwrap(); // 一定有，遂直接unwrap
+                match help_who {
+                    Screen::HomePageV1(..) => {}
+                    Screen::Details(..) => {}
+                    Screen::Edit(..) => {}
+                    Screen::YNOption(..) => {}
+                    Screen::NeedMainPasswd(..) => {}
+                    _ => ()
+                }
+                help::HelpPage::HELP_HOME_PAGE.render(rect, buf, list_cursor)
             }
             Screen::Details(entry, _) => {
                 let rect = layout::centered_percent(90, 90, middle);

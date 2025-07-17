@@ -40,7 +40,66 @@ pub struct TUIApp {
     /// current store entry count
     store_entry_count: u32,
     /// 闲置tick计数，tick每秒一次
-    tick_adder: TickAdder,
+    idle_tick: IdleTick,
+    /// hot msg (tui界面底部bar显示临时信息
+    hot_msg: HotMsg,
+}
+
+
+struct HotMsg {
+    temp_msg: Option<String>,
+    /// temp_msg 存活时间 sec，响应tick，自减，为0则清除之
+    temp_msg_live_countdown: u8,
+    always_msg: String,
+}
+impl HotMsg {
+    fn new() -> Self {
+        Self {
+            temp_msg: None,
+            temp_msg_live_countdown: 0,
+            always_msg: String::new(),
+        }
+    }
+    
+    /// 每次tick调用之，若temp存活时间到了，即将其清除
+    fn tick(&mut self) {
+        if self.temp_msg.is_some() {
+            self.temp_msg_live_countdown = self.temp_msg_live_countdown.saturating_sub(1);
+            if self.temp_msg_live_countdown == 0 {
+                self.temp_msg = None;
+            }
+        }
+    }
+    /// 设置消息，若给定 live_countdown 则为设置临时消息，
+    /// 若无，则设置永久消息
+    pub fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>) {
+        if let Some(l) = live_countdown {
+            self.set_temp_msg(msg, l);
+        } else {
+            self.set_always_msg(msg);
+        }
+    }
+    /// 清理临时和永久消息
+    pub fn clear(&mut self) {
+        self.temp_msg = None;
+        self.clear_always_msg()
+    }
+    /// 设置临时消息，存活一定tick时间
+    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8) {
+        self.temp_msg = Some(temp_msg.to_string());
+        self.temp_msg_live_countdown = live_countdown;
+    }
+    fn set_always_msg(&mut self, always_msg: &str) {
+        self.always_msg = always_msg.to_string();
+    }
+    fn clear_always_msg(&mut self) {
+        self.always_msg.clear();
+    }
+    /// 返回当前 msg，temp msg 优先于 always msg，
+    /// 若当前无temp msg，则返回的为always_msg的
+    fn msg(&self) -> &str {
+        self.temp_msg.as_ref().unwrap_or(&self.always_msg)
+    }
 }
 
 impl TUIApp {
@@ -75,18 +134,19 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
         screen,
         back_screen: Vec::with_capacity(10),
         store_entry_count: pnt_context.storage.select_entry_count(),
-        tick_adder: TickAdder::new(&pnt_context.cfg.inner_cfg),
+        idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
         pnt: pnt_context,
+        hot_msg: HotMsg::new(),
     }
 }
 
-struct TickAdder {
+struct IdleTick {
     idle_tick_count: u32,
     auto_re_lock_idle_sec: u32,
     auto_close_idle_sec: u32,
 }
 
-impl TickAdder {
+impl IdleTick {
     fn new(inner_cfg: &InnerCfg) -> Self {
         // 0表示关闭，所以需要过滤掉0，设置为u32::MAX
         let auto_re_lk = inner_cfg

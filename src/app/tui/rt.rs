@@ -95,7 +95,7 @@ impl TUIApp {
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
     fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // 每次操作将闲置tick计数清零
-        self.tick_adder.reset_idle_tick_count();
+        self.idle_tick.reset_idle_tick_count();
 
         // 任何页面按 ctrl + c 都退出
         if key_event._is_ctrl_c() {
@@ -109,7 +109,9 @@ impl TUIApp {
         }
         // f1 按下 进入 帮助页面
         if key_event._is_f1() {
-            self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+            if !self.screen.is_help() {
+                self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+            }
             return Ok(());
         }
 
@@ -118,9 +120,29 @@ impl TUIApp {
         // 遂下无
         match &mut self.screen {
             // help 页面
-            Help => {
+            Help(state) => {
                 if key_event._is_q_ignore_case() {
                     self.back_screen();
+                    return Ok(());
+                }
+                // 上移
+                if key_event._is_k() || key_event._is_up() {
+                    state.select_previous();
+                    return Ok(());
+                }
+                // 下移
+                if key_event._is_down() || key_event._is_j() {
+                    state.select_next();
+                    return Ok(());
+                }
+                // 顶部 底部
+                if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
+                    state.select_first();
+                    return Ok(());
+                }
+                // 顶部 底部
+                if let KeyCode::Char('G') | KeyCode::End = key_event.code {
+                    state.select_last();
                     return Ok(());
                 }
             }
@@ -308,14 +330,16 @@ impl TUIApp {
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn invoke_handle_tick(&mut self) {
-        self.tick_adder.idle_tick_increment();
+        self.idle_tick.idle_tick_increment();
 
-        if self.tick_adder.need_re_lock() {
+        if self.idle_tick.need_re_lock() {
             self.re_lock();
         }
-        if self.tick_adder.need_close() {
+        if self.idle_tick.need_close() {
             self.quit_tui_app();
         }
+
+        self.hot_msg.tick()
     }
 
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘
