@@ -3,13 +3,13 @@
 //! 处理 事件循环主要模块
 
 use super::event::key_ext::KeyEventExt;
-use super::event::{AppEvent, Event};
+use super::event::{Action, Event};
 use crate::app::context::SecurityContext;
 use crate::app::crypto::build_mpv;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::TUIApp;
-use crate::app::tui::intents::EnterScreenIntent;
-use crate::app::tui::intents::EnterScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
+use crate::app::tui::intents::ScreenIntent;
+use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
 use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::Editing;
 use anyhow::{Result, anyhow};
@@ -30,12 +30,12 @@ impl TUIApp {
             self.screen = p;
             self.hot_msg.clear(); // 不同屏幕不同 hot_msg
         } else {
-            self.send_app_event(AppEvent::Quit)
+            self.send_app_event(Action::Quit)
         }
     }
 
     /// 处理需进入屏幕的需求
-    fn handle_enter_screen_indent(&mut self, new_screen_intent: EnterScreenIntent) -> Result<()> {
+    fn handle_enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
         if let NeedMainPasswd(_) = &self.screen {
             self.screen = new_screen; // NeedMainPasswd 屏幕直接切换，不入栈
@@ -48,7 +48,7 @@ impl TUIApp {
     }
 
     #[inline]
-    pub fn send_app_event(&self, event: AppEvent) {
+    pub fn send_app_event(&self, event: Action) {
         self.events.send(event);
     }
 }
@@ -59,36 +59,34 @@ impl TUIApp {
         let event = self.events.next()?;
         match event {
             // tick 事件
-            Event::Tick => self.invoke_handle_tick(),
+            Event::Tick => self.tick(),
             // 后端Crossterm事件
             Event::Crossterm(event) => match event {
                 // 仅 按下, 这里或许过于严格了，或许放开仅 Press 情况
                 CEvent::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.invoke_current_screen_handle_key_press_event(key_event)?
+                    self.handle_key_press_event(key_event)?
                 }
                 _ => {}
             },
             // 封装的app 事件
-            Event::App(app_event) => self.invoke_handle_app_event(app_event)?,
+            Event::App(app_event) => self.handle_action(app_event)?,
         }
         Ok(())
     }
 
     /// APP Event 处理
-    fn invoke_handle_app_event(&mut self, app_event: AppEvent) -> Result<()> {
-        match app_event {
-            AppEvent::EnterScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
-            AppEvent::EntryInsert(v_e) => self.insert_entry(&v_e),
-            AppEvent::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
-            AppEvent::EntryRemove(e_id) => self.remove_entry(e_id),
-            AppEvent::FlashVecItems(f) => self.do_flash_vec(f)?,
-            AppEvent::TurnOnFindMode => self.turn_on_find_mode()?,
-            AppEvent::TurnOffFindMode => self.turn_off_find_mode()?,
-            AppEvent::MainPwdVerifySuccess(sec_context) => {
-                self.hold_security_context_and_switch_to_target_screen(sec_context)?
-            }
-            AppEvent::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
-            AppEvent::Quit => self.quit_tui_app(),
+    fn handle_action(&mut self, action: Action) -> Result<()> {
+        match action {
+            Action::ScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
+            Action::EntryInsert(v_e) => self.insert_entry(&v_e),
+            Action::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
+            Action::EntryRemove(e_id) => self.remove_entry(e_id),
+            Action::FlashVecItems(f) => self.flash_vec(f)?,
+            Action::TurnOnFindMode => self.turn_on_find_mode()?,
+            Action::TurnOffFindMode => self.turn_off_find_mode()?,
+            Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
+            Action::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
+            Action::Quit => self.quit_tui_app(),
         }
         Ok(())
     }
@@ -96,17 +94,17 @@ impl TUIApp {
     /// Handles the key events and updates the state of [`TUIApp`].
     /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
     /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
-    fn invoke_current_screen_handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
         // 每次操作将闲置tick计数清零
         self.idle_tick.reset_idle_tick_count();
 
         // 任何页面按 ctrl + c 都退出
-        if key_event._is_ctrl_c() {
-            self.send_app_event(AppEvent::Quit);
+        if key_event.is_ctrl_char('c') {
+            self.send_app_event(Action::Quit);
             return Ok(());
         }
         // 按下 esc 的事件，将当前屏幕返回上一个屏幕，若当前为最后一个屏幕，则发送quit事件
-        if key_event._is_esc() {
+        if key_event.is_esc() {
             self.handle_key_esc_event()?;
             return Ok(());
         }
@@ -117,17 +115,17 @@ impl TUIApp {
         match &mut self.screen {
             // help 页面
             Help(state) => {
-                if key_event._is_q_ignore_case() {
+                if key_event.is_char('q') {
                     self.back_screen();
                     return Ok(());
                 }
                 // 上移
-                if key_event._is_k() || key_event._is_up() {
+                if key_event.is_char('k') || key_event.is_up() {
                     state.select_previous();
                     return Ok(());
                 }
                 // 下移
-                if key_event._is_down() || key_event._is_j() {
+                if key_event.is_down() || key_event.is_char('j') {
                     state.select_next();
                     return Ok(());
                 }
@@ -145,23 +143,23 @@ impl TUIApp {
             // 仪表盘
             HomePageV1(state) => {
                 // f1 按下 进入 帮助页面
-                if key_event._is_f1() {
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                if key_event.is_f1() {
+                    self.send_app_event(Action::ScreenIntent(ToHelp));
                     return Ok(());
                 }
 
                 // home_page find
                 if !state.find_mode() {
-                    if let KeyCode::Char('f' | 'F') = key_event.code {
-                        self.send_app_event(AppEvent::TurnOnFindMode);
+                    if key_event.is_char('f') {
+                        self.send_app_event(Action::TurnOnFindMode);
                         return Ok(());
                     }
                     // 响应 按下 l 丢弃 securityContext以重新锁定
-                    if let KeyCode::Char('l' | 'L') = key_event.code {
+                    if key_event.is_char('l') {
                         self.re_lock();
                         return Ok(()); // mut 借用返回
                     }
-                    if key_event._is_q_ignore_case() {
+                    if key_event.is_char('q') {
                         self.back_screen();
                         return Ok(());
                     }
@@ -170,29 +168,29 @@ impl TUIApp {
                     if let Some(c_ptr) = state.cursor_selected() {
                         let curr_ptr_e_id = state.entries()[c_ptr].id;
                         // open
-                        if key_event._is_o_ignore_case() || key_event._is_enter() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDetail(curr_ptr_e_id)));
+                        if key_event.is_char('o') || key_event.is_enter() {
+                            self.send_app_event(Action::ScreenIntent(ToDetail(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // edit
-                        if key_event._is_e_ignore_case() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(Some(curr_ptr_e_id))));
+                        if key_event.is_char('e') {
+                            self.send_app_event(Action::ScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                             return Ok(());
                         }
                         // delete 但是home_page 的光标？
                         // 任何删除都应确保删除页面上一级为home_page
                         // 即非home_page接收到删除事件时应确保关闭当前并打开删除
-                        if key_event._is_d() {
-                            self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
+                        if key_event.is_char('d') {
+                            self.send_app_event(Action::ScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
                             return Ok(());
                         }
                         // 上移
-                        if key_event._is_k() || key_event._is_up() {
+                        if key_event.is_char('k') || key_event.is_up() {
                             state.cursor_up();
                             return Ok(());
                         }
                         // 下移
-                        if key_event._is_down() || key_event._is_j() {
+                        if key_event.is_down() || key_event.is_char('j') {
                             state.cursor_down();
                             return Ok(());
                         }
@@ -208,39 +206,39 @@ impl TUIApp {
                         }
                     }
                     // 任意光标位置都可以新建
-                    if key_event._is_i_ignore_case() {
-                        self.send_app_event(AppEvent::EnterScreenIntent(ToEditing(None)));
+                    if key_event.is_char('a') {
+                        self.send_app_event(Action::ScreenIntent(ToEditing(None)));
                         return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                     }
                 } else {
-                    self.do_editing_key_event(key_event)?;
+                    self.handle_editing_key_event(key_event)?;
                 }
             }
             // 详情页
             Details(_, e_id) => {
                 // f1 按下 进入 帮助页面
-                if key_event._is_f1() {
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                if key_event.is_f1() {
+                    self.send_app_event(Action::ScreenIntent(ToHelp));
                     return Ok(());
                 }
 
-                if key_event._is_q_ignore_case() {
+                if key_event.is_char('q') {
                     self.back_screen();
                     return Ok(());
                 }
-                if key_event._is_d() {
+                if key_event.is_char('d') {
                     let de_id = *e_id;
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToDeleteYNOption(de_id)));
+                    self.send_app_event(Action::ScreenIntent(ToDeleteYNOption(de_id)));
                     return Ok(());
                 }
-                if let KeyCode::Char('l' | 'L') = key_event.code {
+                if key_event.is_char('l') {
                     self.re_lock();
                     return Ok(()); // mut 借用返回
                 }
             }
             // 弹窗页面
             YNOption(option_yn) => {
-                if key_event._is_q_ignore_case() {
+                if key_event.is_char('q') {
                     self.back_screen();
                     return Ok(());
                 }
@@ -261,37 +259,37 @@ impl TUIApp {
             }
             Edit(state) => {
                 // f1 按下 进入 帮助页面
-                if key_event._is_f1() {
-                    self.send_app_event(AppEvent::EnterScreenIntent(ToHelp));
+                if key_event.is_f1() {
+                    self.send_app_event(Action::ScreenIntent(ToHelp));
                     return Ok(());
                 }
 
                 // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
                 if state.current_editing_type() != Editing::Notes {
                     // 上移
-                    if key_event._is_up() {
+                    if key_event.is_up() {
                         state.cursor_up();
                         return Ok(());
                     }
                     // 下移
-                    if key_event._is_down() {
+                    if key_event.is_down() {
                         state.cursor_down();
                         return Ok(());
                     }
                 }
 
                 // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
-                if key_event._is_tab() {
+                if key_event.is_tab() {
                     state.cursor_down();
                     return Ok(());
                 }
                 // 保存
-                if key_event._is_ctrl_s() {
+                if key_event.is_ctrl_char('s') {
                     if state.current_input_validate() {
                         let e_id = state.current_e_id();
                         // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
                         let input_entry = state.current_input_entry();
-                        self.send_app_event(AppEvent::EnterScreenIntent(ToSaveYNOption(input_entry, e_id)));
+                        self.send_app_event(Action::ScreenIntent(ToSaveYNOption(input_entry, e_id)));
                     } else {
                         // 验证 to do 未通过验证应给予提示
                         self.hot_msg
@@ -300,24 +298,24 @@ impl TUIApp {
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 编辑窗口变化
-                self.do_editing_key_event(key_event)?;
+                self.handle_editing_key_event(key_event)?;
             }
             // 需要主密码
             NeedMainPasswd(state) => {
-                if key_event._is_enter() {
-                    let verifier = build_mpv(&self.pnt.storage)?;
+                if key_event.is_enter() {
+                    let verifier = build_mpv(&self.context.storage)?;
                     let mp_input = state.mp_input();
                     if verifier.verify(mp_input)? {
                         // 验证通过，发送 true 事件
                         let security_context = verifier.load_security_context(mp_input)?;
-                        self.send_app_event(AppEvent::MainPwdVerifySuccess(security_context))
+                        self.send_app_event(Action::MainPwdVerifySuccess(security_context))
                     } else {
-                        self.send_app_event(AppEvent::MainPwdVerifyFailed)
+                        self.send_app_event(Action::MainPwdVerifyFailed)
                     }
                     return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
                 }
                 // 密码编辑窗口变化
-                self.do_editing_key_event(key_event)?;
+                self.handle_editing_key_event(key_event)?;
             }
         }
         Ok(())
@@ -331,10 +329,10 @@ impl TUIApp {
     pub fn handle_key_esc_event(&mut self) -> Result<()> {
         if let HomePageV1(state) = &mut self.screen {
             if state.find_mode() {
-                self.send_app_event(AppEvent::TurnOffFindMode);
+                self.send_app_event(Action::TurnOffFindMode);
             } else if !state.current_find_input().is_empty() {
                 state.clear_find_input();
-                self.send_app_event(AppEvent::FlashVecItems(None))
+                self.send_app_event(Action::FlashVecItems(None))
             } else {
                 self.back_screen();
             }
@@ -348,7 +346,7 @@ impl TUIApp {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn invoke_handle_tick(&mut self) {
+    pub fn tick(&mut self) {
         self.idle_tick.idle_tick_increment();
 
         if self.idle_tick.need_re_lock() {
@@ -365,15 +363,15 @@ impl TUIApp {
     ///
     /// 若并非unlock状态，则什么也不做
     fn re_lock(&mut self) {
-        if self.pnt.is_verified() {
-            self.pnt.security_context = None;
+        if self.context.is_verified() {
+            self.context.security_context = None;
             // 屏幕回退
             while !self.screen.is_home_page() {
                 self.back_screen();
             }
             if self.idle_tick.need_re_lock() {
                 self.hot_msg
-                    .set_msg("󰌾 AUTO RE-LOCK (idle)", Some(5), Some(Alignment::Center));
+                    .set_msg("󰌾 AUTO RELOCK (idle)", Some(5), Some(Alignment::Center));
             }
         }
     }
@@ -382,7 +380,7 @@ impl TUIApp {
         self.running = false;
     }
 
-    fn do_editing_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    fn handle_editing_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         if let Edit(state) = &mut self.screen {
             // 不为 desc 的 响应 enter 到下一行
             if Editing::Notes != state.current_editing_type() {
@@ -406,7 +404,7 @@ impl TUIApp {
         } else if let HomePageV1(state) = &mut self.screen {
             // let c_event = CEvent::Key(key_event); // 临时构建 由 key向上整个 CEvent以匹配handle_event方法签名
             match key_event.code {
-                KeyCode::Enter => self.send_app_event(AppEvent::TurnOffFindMode),
+                KeyCode::Enter => self.send_app_event(Action::TurnOffFindMode),
                 _ => {
                     // 返回bool表示是否修改了，暂时用不到
                     let _ = state.find_textarea().input(key_event);
@@ -418,39 +416,37 @@ impl TUIApp {
         }
     }
 
+    /// 向 db 删除一个 entry，并更新 store_entry_count - 1
+    fn remove_entry(&mut self, e_id: u32) {
+        self.context.storage.delete_entry(e_id);
+        self.send_app_event(Action::FlashVecItems(None));
+    }
     /// 向 db 添加一个 entry，并更新 store_entry_count + 1
     fn insert_entry(&mut self, e: &ValidEntry) {
-        self.pnt.storage.insert_entry(e);
-        self.send_app_event(AppEvent::FlashVecItems(None));
-        self.store_entry_count += 1;
+        self.context.storage.insert_entry(e);
+        self.send_app_event(Action::FlashVecItems(None));
     }
 
     fn update_entry(&mut self, e: &ValidEntry, e_id: u32) {
-        self.pnt.storage.update_entry(e, e_id);
-        self.send_app_event(AppEvent::FlashVecItems(None));
+        self.context.storage.update_entry(e, e_id);
+        self.send_app_event(Action::FlashVecItems(None));
     }
 
     /// 当前页面为 home_page 时 刷新 home_page 的 vec 从库里重新拿
     /// 当不为 home_page时 Err
     /// 该方法会更新高亮行位置
-    fn do_flash_vec(&mut self, find: Option<String>) -> Result<()> {
+    fn flash_vec(&mut self, find: Option<String>) -> Result<()> {
         if let HomePageV1(state) = &mut self.screen {
             let v_new = if let Some(f) = find {
-                self.pnt.storage.select_entry_by_about_like(&f)
+                self.context.storage.select_entry_by_about_like(&f)
             } else {
-                self.pnt.storage.select_all_entry()
+                self.context.storage.select_all_entry()
             };
             state.reset_entries(v_new);
             Ok(())
         } else {
             Err(anyhow!("current screen is not home_page screen, cannot flash"))
         }
-    }
-    /// 向 db 删除一个 entry，并更新 store_entry_count - 1
-    fn remove_entry(&mut self, e_id: u32) {
-        self.pnt.storage.delete_entry(e_id);
-        self.send_app_event(AppEvent::FlashVecItems(None));
-        self.store_entry_count -= 1;
     }
 
     /// 开启 find mode
@@ -470,11 +466,11 @@ impl TUIApp {
             // 获取 find_input 值，刷新vec
             if !state.current_find_input().is_empty() {
                 let f = state.current_find_input().into();
-                self.send_app_event(AppEvent::FlashVecItems(Some(f)));
+                self.send_app_event(Action::FlashVecItems(Some(f)));
             } else {
                 // 为空则全查
                 // state.entries =  self.pnt.storage.select_all_entry();
-                self.send_app_event(AppEvent::FlashVecItems(None));
+                self.send_app_event(Action::FlashVecItems(None));
                 // 刷新光标位置
             }
             Ok(())
@@ -486,9 +482,9 @@ impl TUIApp {
     /// 这是验证通过的事件处理终端方法
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,
     /// 并将当前屏幕切换为目标屏幕
-    fn hold_security_context_and_switch_to_target_screen(&mut self, security_context: SecurityContext) -> Result<()> {
+    fn hold_security_context(&mut self, security_context: SecurityContext) -> Result<()> {
         if let NeedMainPasswd(state) = &mut self.screen {
-            self.pnt.security_context = Some(security_context);
+            self.context.security_context = Some(security_context);
             let intent = state.take_target_screen()?;
             self.handle_enter_screen_indent(intent)?;
             Ok(())

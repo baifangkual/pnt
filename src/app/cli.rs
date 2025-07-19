@@ -1,4 +1,4 @@
-use crate::app::cfg::load_cfg;
+use crate::app::cfg::{InnerCfg, load_cfg};
 use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, APP_NAME};
 use crate::app::context::{DataFileState, PntContext};
 use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier, build_mpv};
@@ -76,8 +76,8 @@ struct SubCmdCfgArgs {
     #[arg(long = "modify--need-main-pwd-on-run", value_name = "BOOLEAN")]
     modify_need_main_pwd_on_run: Option<bool>,
     /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable)
-    #[arg(long = "modify--auto-re-lock-idle-sec", value_name = "SECONDS")]
-    modify_auto_re_lock_idle_sec: Option<u32>,
+    #[arg(long = "modify--auto-relock-idle-sec", value_name = "SECONDS")]
+    modify_auto_relock_idle_sec: Option<u32>,
     /// Setting how many seconds of inactivity before the TUI automatically closes (set to 0 to disable)
     #[arg(long = "modify--auto-close-idle-sec", value_name = "SECONDS")]
     modify_auto_close_idle_sec: Option<u32>,
@@ -177,17 +177,19 @@ impl CliArgs {
                 context.cfg.inner_cfg.need_main_pwd_on_run = *rs_need_mp_on_run;
                 context.cfg.inner_cfg.save_to_data(&mut context.storage);
                 println!(
-                    "{}",
-                    "Successfully modified configuration 'need_main_pwd_on_run'".green()
+                    "{} '{}'",
+                    "Successfully modified configuration".green(),
+                    InnerCfg::NEED_MAIN_PWD_ON_RUN
                 );
             }
-            if let Some(rs_auto_re_lock_idle_sec) = &args.modify_auto_re_lock_idle_sec {
+            if let Some(rs_auto_re_lock_idle_sec) = &args.modify_auto_relock_idle_sec {
                 no_any_args = false;
-                context.cfg.inner_cfg.auto_re_lock_idle_sec = Some(*rs_auto_re_lock_idle_sec);
+                context.cfg.inner_cfg.auto_relock_idle_sec = Some(*rs_auto_re_lock_idle_sec);
                 context.cfg.inner_cfg.save_to_data(&mut context.storage);
                 println!(
-                    "{}",
-                    "Successfully modified configuration 'auto_re_lock_idle_sec'".green()
+                    "{} '{}'",
+                    "Successfully modified configuration".green(),
+                    InnerCfg::AUTO_RELOCK_IDLE_SEC
                 );
             }
             if let Some(rs_auto_close_idle_sec) = &args.modify_auto_close_idle_sec {
@@ -195,8 +197,9 @@ impl CliArgs {
                 context.cfg.inner_cfg.auto_close_idle_sec = Some(*rs_auto_close_idle_sec);
                 context.cfg.inner_cfg.save_to_data(&mut context.storage);
                 println!(
-                    "{}",
-                    "Successfully modified configuration 'auto_close_idle_sec'".green()
+                    "{} '{}'",
+                    "Successfully modified configuration".green(),
+                    InnerCfg::AUTO_CLOSE_IDLE_SEC
                 );
             }
             // ===========================================================
@@ -221,7 +224,7 @@ impl CliArgs {
                 .select_entry_by_about_like(find)
                 .into_iter()
                 .enumerate()
-                .for_each(|(i, entry)| println!("{:>3}: {}", i + 1, entry.about));
+                .for_each(|(i, entry)| println!("{:>4}: {}", i + 1, entry.about));
             // find 后不需要 tui 运行，返回NONE 要求结束进程
             return Ok(None);
         }

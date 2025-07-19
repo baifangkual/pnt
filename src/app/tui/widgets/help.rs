@@ -158,7 +158,7 @@ impl HelpPage<'static, 13> {
                     note: "detail current",
                 },
                 KeyMapInfo {
-                    key_map: "<I>",
+                    key_map: "<A>",
                     note: "create new",
                 },
                 KeyMapInfo {

@@ -2,7 +2,7 @@ use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry};
 use crate::app::tui::TUIApp;
 use crate::app::tui::colors::{CL_BLACK, CL_D_RED, CL_DD_RED, CL_DDD_RED, CL_L_BLACK, CL_WHITE};
-use crate::app::tui::event::AppEvent;
+use crate::app::tui::event::Action;
 use ratatui::prelude::Color;
 
 /// 二分类枚举
@@ -125,7 +125,7 @@ impl YNState {
         let mut yn = Self::new(tip_title, tip_desc, Theme::THEME_DELETE);
         yn.set_y_call(Box::new(move |tui| {
             // 发送删除事件
-            tui.send_app_event(AppEvent::EntryRemove(e_id));
+            tui.send_app_event(Action::EntryRemove(e_id));
             // 响应该事件时 ，当前页面一定为 tips，所以回退到上一级页面（即召唤delete tips页面的页面)
             while !tui.screen.is_home_page() {
                 tui.back_screen();
@@ -152,11 +152,11 @@ impl YNState {
         );
         let mut yn = Self::new(tip_title, tip_desc, Theme::THEME_SAVE);
         yn.set_y_call(Box::new(move |tui| {
-            let valid = tui.pnt.try_encrypter()?.encrypt(&ie)?;
+            let valid = tui.context.try_encrypter()?.encrypt(&ie)?;
             if let Some(e_id) = e_id {
-                tui.send_app_event(AppEvent::EntryUpdate(valid, e_id))
+                tui.send_app_event(Action::EntryUpdate(valid, e_id))
             } else {
-                tui.send_app_event(AppEvent::EntryInsert(valid));
+                tui.send_app_event(Action::EntryInsert(valid));
             }
             // 响应该事件时 ，当前页面一定为 tips，所以回退到上一级页面（即召唤delete tips页面的页面)
             while !tui.screen.is_home_page() {

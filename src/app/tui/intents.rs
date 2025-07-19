@@ -1,9 +1,9 @@
 use crate::app::entry::InputEntry;
+use crate::app::tui::TUIApp;
 use crate::app::tui::screen::Screen;
 use crate::app::tui::screen::Screen::{Details, Edit, NeedMainPasswd, YNOption};
 use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
 use crate::app::tui::screen::yn::YNState;
-use crate::app::tui::{TUIApp, new_home_page_screen};
 use anyhow::Context;
 
 /// 进入屏幕的意图
@@ -11,7 +11,7 @@ use anyhow::Context;
 /// 导致SecurityContext还未生成，从而无法描述要进入的页面的问题
 /// 这些行为变体只携带 entryId
 #[derive(Debug, Clone)]
-pub enum EnterScreenIntent {
+pub enum ScreenIntent {
     ToHelp,
     ToHomePageV1,
     ToDetail(u32),
@@ -20,43 +20,55 @@ pub enum EnterScreenIntent {
     ToSaveYNOption(InputEntry, Option<u32>), // 保存提示页面
 }
 
-impl EnterScreenIntent {
+impl ScreenIntent {
     /// 表达该 屏幕 在进入前是否需要 主密码
     pub fn is_before_enter_need_main_pwd(&self) -> bool {
         match self {
-            EnterScreenIntent::ToHelp | EnterScreenIntent::ToHomePageV1 => false,
+            ScreenIntent::ToHelp | ScreenIntent::ToHomePageV1 => false,
             _ => true,
         }
     }
 }
 
-impl EnterScreenIntent {
+impl ScreenIntent {
     pub fn handle_intent(&self, tui: &TUIApp) -> anyhow::Result<Screen> {
-        if !tui.pnt.is_verified() && self.is_before_enter_need_main_pwd() {
+        if !tui.context.is_verified() && self.is_before_enter_need_main_pwd() {
             // 未有主密码则进入需要密码的页面
             Ok(NeedMainPasswd(NeedMainPwdState::new(self.clone())))
         } else {
             // 已有securityContext，直接发送进入事件
             match &self {
-                EnterScreenIntent::ToDetail(e_id) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
-                    let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
+                ScreenIntent::ToDetail(e_id) => {
+                    let encrypted_entry = tui
+                        .context
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
+                    let entry = encrypted_entry.decrypt(tui.context.try_encrypter()?)?;
                     Ok(Details(entry, *e_id))
                 }
                 // 有id为编辑页面
-                EnterScreenIntent::ToEditing(Some(e_id)) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
-                    let entry = encrypted_entry.decrypt(tui.pnt.try_encrypter()?)?;
+                ScreenIntent::ToEditing(Some(e_id)) => {
+                    let encrypted_entry = tui
+                        .context
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
+                    let entry = encrypted_entry.decrypt(tui.context.try_encrypter()?)?;
                     Ok(Edit(EditingState::new_updating(entry, *e_id)))
                 }
-                EnterScreenIntent::ToEditing(None) => Ok(Edit(EditingState::new_creating())),
-                EnterScreenIntent::ToDeleteYNOption(e_id) => {
-                    let encrypted_entry = tui.pnt.storage.select_entry_by_id(*e_id).context("not found entry")?;
+                ScreenIntent::ToEditing(None) => Ok(Edit(EditingState::new_creating())),
+                ScreenIntent::ToDeleteYNOption(e_id) => {
+                    let encrypted_entry = tui
+                        .context
+                        .storage
+                        .select_entry_by_id(*e_id)
+                        .context("not found entry")?;
                     Ok(YNOption(YNState::new_delete_tip(encrypted_entry)))
                 }
-                EnterScreenIntent::ToSaveYNOption(ve, e_id) => Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id))),
-                EnterScreenIntent::ToHomePageV1 => Ok(new_home_page_screen(&tui.pnt)),
-                EnterScreenIntent::ToHelp => Ok(Screen::new_help()),
+                ScreenIntent::ToSaveYNOption(ve, e_id) => Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id))),
+                ScreenIntent::ToHomePageV1 => Ok(Screen::new_home_page1(&tui.context)),
+                ScreenIntent::ToHelp => Ok(Screen::new_help()),
             }
         }
     }

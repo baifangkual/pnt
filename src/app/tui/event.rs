@@ -2,9 +2,9 @@ pub mod key_ext;
 
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
-use crate::app::tui::intents::EnterScreenIntent;
+use crate::app::tui::intents::ScreenIntent;
 use anyhow::Result;
-use ratatui::crossterm::event::{self, Event as CrosstermEvent};
+use ratatui::crossterm::event::{self, Event as CEvent};
 use std::{
     sync::mpsc,
     thread,
@@ -22,18 +22,16 @@ pub enum Event {
     /// Crossterm events.
     ///
     /// These events are emitted by the terminal.
-    Crossterm(CrosstermEvent),
+    Crossterm(CEvent),
     /// Application events.
     ///
     /// Use this event to emit custom events that are specific to your application.
-    App(AppEvent),
+    App(Action),
 }
 
-/// Application events.
-///
-/// You can extend this enum with your own custom events.
-pub enum AppEvent {
-    EnterScreenIntent(EnterScreenIntent), // 仅描述意图要进入的页面
+/// app 的 行为
+pub enum Action {
+    ScreenIntent(ScreenIntent), // 仅描述意图要进入的页面
     TurnOnFindMode,
     TurnOffFindMode,
     EntryInsert(ValidEntry),       // 插入必要全局刷新 vec，因为插入到库前还不知道id
@@ -41,7 +39,7 @@ pub enum AppEvent {
     EntryRemove(u32),              // u32 为 id
     FlashVecItems(Option<String>), // 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
     MainPwdVerifyFailed,
-    MainPwdVerifySuccess(SecurityContext),
+    MainPwdVerifySuccess(SecurityContext), // 主密码校验成功时会载荷 securityContext
     Quit,
 }
 
@@ -89,7 +87,7 @@ impl EventHandler {
     ///
     /// This is useful for sending events to the event handler which will be processed by the next
     /// iteration of the application's event loop.
-    pub fn send(&self, app_event: AppEvent) {
+    pub fn send(&self, app_event: Action) {
         // 忽略发送错误，程序关闭时线程drop接收者，这会返回Err，正常情况
         // 不使用 let _ 会有烦人提示
         let _ = self.sender.send(Event::App(app_event));

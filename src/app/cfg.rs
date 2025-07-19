@@ -1,6 +1,6 @@
 use crate::app::consts::{APP_NAME, CONF_FILE_NAME, DATA_FILE_NAME, ENV_CONF_PATH_KEY, ENV_DEFAULT_DATA_FILE_PATH_KEY};
 use crate::app::storage::{Storage, kv_cfg::BitCfg};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::env;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -18,18 +18,25 @@ pub struct Cfg {
 pub struct InnerCfg {
     /// 在运行的时候立即要求主密码
     pub need_main_pwd_on_run: bool,
-    pub auto_re_lock_idle_sec: Option<u32>,
+    pub auto_relock_idle_sec: Option<u32>,
     pub auto_close_idle_sec: Option<u32>,
 }
 
 impl InnerCfg {
+    /// 配置名常量
+    pub const NEED_MAIN_PWD_ON_RUN: &'static str = "need_main_pwd_on_run";
+    /// 配置名常量
+    pub const AUTO_RELOCK_IDLE_SEC: &'static str = "auto_relock_idle_sec";
+    /// 配置名常量
+    pub const AUTO_CLOSE_IDLE_SEC: &'static str = "auto_close_idle_sec";
+
     /// 将配置文件的 inner_cfg 覆盖
     pub fn overwrite_default(&mut self, storage: &Storage) -> anyhow::Result<()> {
         let bf_or = storage.query_cfg_bit_flags()?;
         if let Some(bf) = bf_or {
             self.need_main_pwd_on_run = bf.contains(BitCfg::NEED_MAIN_PWD_ON_RUN);
         }
-        self.auto_re_lock_idle_sec = storage.query_cfg_auto_re_lock_idle_sec()?;
+        self.auto_relock_idle_sec = storage.query_cfg_auto_re_lock_idle_sec()?;
         self.auto_close_idle_sec = storage.query_cfg_auto_close_idle_sec()?;
         Ok(())
     }
@@ -44,16 +51,26 @@ impl InnerCfg {
         }
         // store
         storage.store_cfg_bit_flags(bf);
-        storage.store_cfg_auto_re_lock_idle_sec(self.auto_re_lock_idle_sec.unwrap_or(0));
+        storage.store_cfg_auto_re_lock_idle_sec(self.auto_relock_idle_sec.unwrap_or(0));
         storage.store_cfg_auto_close_idle_sec(self.auto_close_idle_sec.unwrap_or(0));
     }
 }
 
 impl Display for InnerCfg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "need_main_pwd_on_run = {}", self.need_main_pwd_on_run)?;
-        writeln!(f, "auto_re_lock_idle_sec = {}", self.auto_re_lock_idle_sec.unwrap_or(0))?;
-        writeln!(f, "auto_close_idle_sec = {}", self.auto_close_idle_sec.unwrap_or(0))?;
+        writeln!(f, "{} = {}", Self::NEED_MAIN_PWD_ON_RUN, self.need_main_pwd_on_run)?;
+        writeln!(
+            f,
+            "{} = {}",
+            Self::AUTO_RELOCK_IDLE_SEC,
+            self.auto_relock_idle_sec.unwrap_or(0)
+        )?;
+        writeln!(
+            f,
+            "{} = {}",
+            Self::AUTO_CLOSE_IDLE_SEC,
+            self.auto_close_idle_sec.unwrap_or(0)
+        )?;
         Ok(())
     }
 }
@@ -63,7 +80,7 @@ impl Default for InnerCfg {
     fn default() -> Self {
         Self {
             need_main_pwd_on_run: true,
-            auto_re_lock_idle_sec: None,
+            auto_relock_idle_sec: None,
             auto_close_idle_sec: None,
         }
     }
@@ -123,7 +140,7 @@ impl From<TomlCfg> for Cfg {
 }
 
 /// app 配置文件
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[derive(Deserialize, Debug, Eq, PartialEq)]
 pub(super) struct TomlCfg {
     /// 存储各密码的sqlite-db路径, 默认在 app data，为防止toml的 " 转义，win路径反斜杠路径应使用 ' 符号
     pub(super) default_data: Option<PathBuf>,

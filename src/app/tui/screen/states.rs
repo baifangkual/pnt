@@ -2,7 +2,7 @@ use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::crypto::Encrypter;
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::InvalidPassword;
-use crate::app::tui::intents::EnterScreenIntent;
+use crate::app::tui::intents::ScreenIntent;
 use crate::app::tui::widgets::{TextAreaExt, new_input_textarea};
 use anyhow::{Context, anyhow};
 use ratatui::buffer::Buffer;
@@ -17,12 +17,6 @@ pub struct EditingState {
     input_textarea: [TextArea<'static>; 4],
     /// 正在编辑的条目id，若为None，则表示正在编辑的条目为新建条目
     e_id: Option<u32>,
-}
-
-impl Default for EditingState {
-    fn default() -> Self {
-        EditingState::new_creating()
-    }
 }
 
 impl EditingState {
@@ -246,11 +240,6 @@ impl HomePageState {
         entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
     }
 
-    /// 更新光标坐标
-    fn update_cursor(&mut self, index: Option<usize>) {
-        self.cursor.select(index);
-    }
-
     /// 光标指向的 元素 在 vec 的 index
     pub fn cursor_selected(&self) -> Option<usize> {
         self.cursor.selected()
@@ -271,9 +260,9 @@ impl HomePageState {
     pub fn cursor_down(&mut self) {
         if let Some(p) = self.cursor_selected() {
             if p >= self.entry_count() - 1 {
-                self.update_cursor(Some(0))
+                self.cursor.select(Some(0))
             } else {
-                self.cursor_mut_ref().select_next();
+                self.cursor.select_next();
             }
         }
     }
@@ -281,9 +270,9 @@ impl HomePageState {
     pub fn cursor_up(&mut self) {
         if let Some(p) = self.cursor_selected() {
             if p == 0 {
-                self.update_cursor(Some(self.entry_count() - 1))
+                self.cursor.select(Some(self.entry_count() - 1))
             } else {
-                self.cursor_mut_ref().select_previous();
+                self.cursor.select_previous();
             }
         }
     }
@@ -308,10 +297,10 @@ impl HomePageState {
         self.entries = entries;
         if !self.entries().is_empty() {
             if self.cursor_selected().is_none() {
-                self.update_cursor(Some(0))
+                self.cursor.select(Some(0))
             }
         } else {
-            self.update_cursor(None);
+            self.cursor.select(None);
         }
     }
 }
@@ -320,11 +309,11 @@ impl HomePageState {
 #[derive(Debug)]
 pub struct NeedMainPwdState {
     pub mp_input: String,
-    pub enter_screen_intent: Option<EnterScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
+    pub enter_screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
 }
 impl NeedMainPwdState {
-    pub fn new(enter_screen_intent: EnterScreenIntent) -> Self {
+    pub fn new(enter_screen_intent: ScreenIntent) -> Self {
         Self {
             mp_input: String::new(),
             enter_screen_intent: Some(enter_screen_intent),
@@ -332,7 +321,7 @@ impl NeedMainPwdState {
         }
     }
 
-    pub fn take_target_screen(&mut self) -> anyhow::Result<EnterScreenIntent> {
+    pub fn take_target_screen(&mut self) -> anyhow::Result<ScreenIntent> {
         self.enter_screen_intent
             .take()
             .context("'NeedMainPwdState' not found target screen")

@@ -4,19 +4,25 @@ mod intents;
 mod layout;
 mod rt;
 mod screen;
-mod ui;
 mod widgets;
 
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
+use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_DDD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
 use crate::app::tui::event::EventHandler;
-use crate::app::tui::intents::EnterScreenIntent::ToHomePageV1;
+use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{HomePageV1, NeedMainPasswd};
-use crate::app::tui::screen::states::{HomePageState, NeedMainPwdState};
+use crate::app::tui::screen::Screen::NeedMainPasswd;
+use crate::app::tui::screen::states::NeedMainPwdState;
+use crate::app::tui::widgets::help;
+use crate::app::tui::widgets::home_page::HomePageV1Widget;
 use ratatui::DefaultTerminal;
-use ratatui::prelude::Alignment;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::prelude::StatefulWidget;
+use ratatui::prelude::{Alignment, Stylize, Widget};
+use ratatui::widgets::{Block, Paragraph};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
@@ -32,6 +38,103 @@ pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
     Ok(())
 }
 
+impl Widget for &mut TUIApp {
+    /// 渲染函数入口
+    ///
+    /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let [middle, bottom] = Layout::vertical([Constraint::Fill(0), Constraint::Length(1)]).areas(area);
+
+        // 主要内容背景
+        Block::new().bg(CL_BLACK).render(middle, buf);
+
+        // 对bottom 横条横向切分
+        let [bl, bc, br] =
+            Layout::horizontal([Constraint::Length(10), Constraint::Fill(0), Constraint::Length(12)]).areas(bottom);
+
+        // bc 填充颜色
+        Block::new().bg(CL_L_BLACK).render(bc, buf);
+
+        // mp状态图标
+        if self.context.is_verified() {
+            Paragraph::new("󰌾 UNLOCK")
+                .fg(CL_WHITE)
+                .bg(CL_RED)
+                .alignment(Alignment::Center)
+                .render(bl, buf);
+        } else {
+            Paragraph::new("󰌾 LOCK")
+                .fg(CL_WHITE)
+                .bg(CL_LL_BLACK)
+                .alignment(Alignment::Center)
+                .render(bl, buf);
+        }
+
+        // 渲染当前屏幕
+        match &mut self.screen {
+            Screen::HomePageV1(state) => {
+                self.state_info.clear();
+                let cur = if let Some(i) = state.cursor_selected() {
+                    i + 1
+                } else {
+                    0
+                };
+                self.state_info.push_str(&format!(" {}/{}", cur, state.entry_count()));
+                let dash_widget = HomePageV1Widget;
+                dash_widget.render(middle, buf, state)
+            }
+            Screen::Help(list_cursor) => {
+                self.hot_msg.set_if_no_always("󰌌 <ESC>|<Q> quit-help");
+                let rect = layout::centered_percent(90, 90, middle);
+                let help_who = self.back_screen.last().unwrap(); // 一定有，遂直接unwrap
+                match help_who {
+                    Screen::HomePageV1(..) => help::HelpPage::home_page().render(rect, buf, list_cursor),
+                    Screen::Details(..) => help::HelpPage::detail().render(rect, buf, list_cursor),
+                    Screen::Edit(..) => help::HelpPage::editing().render(rect, buf, list_cursor),
+                    _ => (),
+                }
+            }
+            Screen::Details(entry, _) => {
+                self.hot_msg
+                    .set_if_no_always("󰌌 <ESC>|<Q> quit-detail , <D> delete , <L> quit-detail and re-lock");
+                let rect = layout::centered_percent(90, 90, middle);
+                entry.render(rect, buf);
+            }
+            Screen::Edit(state) => {
+                self.hot_msg
+                    .set_if_no_always("󰌌 <TAB> next input box , ↓↑←→ move , <CTRL+S> save , <ESC> quit-edit");
+                let rect = layout::centered_percent(90, 90, middle);
+                state.render(rect, buf);
+            }
+            Screen::YNOption(option_yn) => {
+                self.hot_msg.set_if_no_always("󰌌 <ENTER>|<Y> Yes , <ESC>|<N> No");
+                let rect = layout::centered_percent(70, 50, middle);
+                option_yn.render(rect, buf);
+            }
+            Screen::NeedMainPasswd(state) => {
+                let rect = layout::centered_fixed(50, 5, middle);
+                state.render(rect, buf);
+            }
+        }
+
+        // 总体页面右下角区域，显示信息
+        Paragraph::new(self.state_info.as_str())
+            .fg(CL_WHITE)
+            .bg(CL_LL_BLACK)
+            .alignment(Alignment::Center)
+            .render(br, buf);
+
+        // fixed 在match后渲染hot_msg，防止match内修改hot_msg后当前帧不刷新，而是下一帧刷新的问题
+        // to do 后可作为当前screen 提示信息显示在此...
+        let hot_tip_msg = Paragraph::new(self.hot_msg.msg()).alignment(self.hot_msg.msg_alignment());
+        if self.hot_msg.is_temp_msg() {
+            hot_tip_msg.fg(CL_DDD_WHITE).render(bc, buf)
+        } else {
+            hot_tip_msg.fg(CL_DD_WHITE).render(bc, buf)
+        }
+    }
+}
+
 /// TUI Application.
 pub struct TUIApp {
     /// Is the application running?
@@ -41,14 +144,14 @@ pub struct TUIApp {
     /// 上一个页面
     back_screen: Vec<Screen>,
     /// context
-    pnt: PntContext,
+    context: PntContext,
     /// Event handler.
     events: EventHandler,
-    /// current store entry count
-    store_entry_count: u32,
     /// 闲置tick计数，tick每秒一次
     idle_tick: IdleTick,
-    /// hot msg (tui界面底部bar显示临时信息
+    /// 简单的 state info 信息，供页面渲染层显示，该字段面向渲染
+    state_info: String,
+    /// hot msg (tui界面底部bar显示临时信息，该字段面向渲染
     hot_msg: HotMsg,
 }
 
@@ -92,7 +195,7 @@ impl HotMsg {
     }
     /// 若当前hot_msg没有always_msg，设置居中的always_msg
     #[inline]
-    fn set_if_not_always(&mut self, center_always_msg: &str) {
+    fn set_if_no_always(&mut self, center_always_msg: &str) {
         if self.always_msg.is_empty() {
             self.set_always_msg(center_always_msg, Alignment::Center);
         }
@@ -145,7 +248,7 @@ impl TUIApp {
                 Ok(_) => (),
                 Err(e) => {
                     self.quit_tui_app(); // 标记关闭状态, 下次main loop响应
-                    self.pnt.storage.close(); // 有错误关闭数据库连接并退出当前方法
+                    self.context.storage.close(); // 有错误关闭数据库连接并退出当前方法
                     return Err(e);
                 }
             }
@@ -167,16 +270,16 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
             ),
             Some(255),
             Some(Alignment::Right),
-        );
+        ); // tui 启动时显示一次的提示
         (scr, hm)
     } else {
-        let scr = new_home_page_screen(&pnt_context);
+        let scr = Screen::new_home_page1(&pnt_context);
         let mut hm = HotMsg::new();
         hm.set_msg(
             &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
             Some(5),
             Some(Alignment::Right),
-        );
+        ); // tui 启动时显示一次的提示
         (scr, hm)
     };
 
@@ -185,16 +288,16 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
         events: EventHandler::new(),
         screen,
         back_screen: Vec::with_capacity(10),
-        store_entry_count: pnt_context.storage.select_entry_count(),
         idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
-        pnt: pnt_context,
+        context: pnt_context,
+        state_info: String::new(),
         hot_msg,
     }
 }
 
 struct IdleTick {
     idle_tick_count: u32,
-    auto_re_lock_idle_sec: u32,
+    auto_relock_idle_sec: u32,
     auto_close_idle_sec: u32,
 }
 
@@ -202,7 +305,7 @@ impl IdleTick {
     fn new(inner_cfg: &InnerCfg) -> Self {
         // 0表示关闭，所以需要过滤掉0，设置为u32::MAX
         let auto_re_lk = inner_cfg
-            .auto_re_lock_idle_sec
+            .auto_relock_idle_sec
             .filter(|&sec| sec != 0)
             .unwrap_or(u32::MAX);
         // 0表示关闭，所以需要过滤掉0，设置为u32::MAX
@@ -212,7 +315,7 @@ impl IdleTick {
             .unwrap_or(u32::MAX);
         Self {
             idle_tick_count: 0,
-            auto_re_lock_idle_sec: auto_re_lk,
+            auto_relock_idle_sec: auto_re_lk,
             auto_close_idle_sec: auto_close,
         }
     }
@@ -231,16 +334,10 @@ impl IdleTick {
     }
     #[inline]
     fn need_re_lock(&self) -> bool {
-        self.idle_tick_count > self.auto_re_lock_idle_sec
+        self.idle_tick_count > self.auto_relock_idle_sec
     }
     #[inline]
     fn need_close(&self) -> bool {
         self.idle_tick_count > self.auto_close_idle_sec
     }
-}
-
-/// tui 新建主页 主页面
-fn new_home_page_screen(context: &PntContext) -> Screen {
-    let vec = context.storage.select_all_entry();
-    HomePageV1(HomePageState::new(vec))
 }
