@@ -5,12 +5,12 @@ use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::ScreenIntent;
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as CEvent};
+use ratatui::prelude::Alignment;
 use std::{
     sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
-use ratatui::prelude::Alignment;
 
 /// The frequency at which tick events are emitted.
 /// 每秒一次
@@ -54,7 +54,6 @@ pub enum Action {
     EntryRemove(u32),
     /// 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
     FlashVecItems(Option<String>),
-    MainPwdVerifyFailed,
     /// 主密码校验成功时会载荷 securityContext
     MainPwdVerifySuccess(SecurityContext),
     /// tui程序退出
@@ -63,21 +62,21 @@ pub enum Action {
 
 /// Terminal event handler.
 #[derive(Debug)]
-pub struct EventHandler {
+pub struct EventQueue {
     /// Event sender channel.
     sender: mpsc::Sender<Event>,
     /// Event receiver channel.
     receiver: mpsc::Receiver<Event>,
 }
 
-impl Default for EventHandler {
+impl Default for EventQueue {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EventHandler {
-    /// Constructs a new instance of [`EventHandler`] and spawns a new thread to handle events.
+impl EventQueue {
+    /// Constructs a new instance of [`EventQueue`] and spawns a new thread to handle events.
     pub fn new() -> Self {
         let (sender, receiver) = mpsc::channel();
         let actor = EventThread::new(sender.clone());

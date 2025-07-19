@@ -3,7 +3,7 @@ pub(crate) mod yn;
 
 use crate::app::context::PntContext;
 use crate::app::entry::InputEntry;
-use crate::app::tui::screen::states::{EditingState, NeedMainPwdState};
+use crate::app::tui::screen::states::{EditingState, VerifyMPHState};
 use crate::app::tui::screen::yn::YNState;
 use ratatui::widgets::ListState;
 use states::HomePageState;
@@ -21,7 +21,7 @@ pub enum Screen {
     /// y/n 弹窗
     YNOption(YNState),
     /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
-    NeedMainPasswd(NeedMainPwdState),
+    InputMainPwd(VerifyMPHState),
 }
 
 impl Screen {

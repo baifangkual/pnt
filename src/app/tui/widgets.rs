@@ -1,7 +1,7 @@
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::entry::InputEntry;
 use crate::app::tui::colors::{CL_RED, CL_WHITE};
-use crate::app::tui::screen::states::NeedMainPwdState;
+use crate::app::tui::screen::states::VerifyMPHState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
 use ratatui::prelude::{Layout, Line, Modifier, Style, Stylize, Widget};
@@ -75,7 +75,7 @@ impl Widget for &InputEntry {
     }
 }
 
-impl Widget for &NeedMainPwdState {
+impl Widget for &VerifyMPHState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 

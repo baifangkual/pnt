@@ -382,7 +382,7 @@ fn assert_data_file_ready(data_file_path: &Path) -> anyhow::Result<Storage> {
 /// 当失败到一定次数时 释放 storage 对文件的连接资源并退出进程，
 /// 该方法要么返回，要么因stdin错误返回Err
 fn await_verifier_main_pwd(mut context: PntContext) -> anyhow::Result<PntContext> {
-    let verifier = build_mpv(&context.storage)?;
+    let verifier = context.mpv()?;
     // 后续可设定该值为inner配置项，且重试大于一定次数可选操作... 比如删除库文件？
     for n in 0..ALLOC_INVALID_MAIN_PASS_MAX {
         let mp = loop_read_stdin_ascii_passwd(None)?;

@@ -308,20 +308,21 @@ impl HomePageState {
 
 /// 主密码输入界面状态
 #[derive(Debug)]
-pub struct NeedMainPwdState {
+pub struct VerifyMPHState {
     pub mp_input: String,
     pub enter_screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
     verifier: MainPwdVerifier,
 }
-impl NeedMainPwdState {
-    pub fn new(enter_screen_intent: ScreenIntent, context: &PntContext) -> Self {
-        Self {
+impl VerifyMPHState {
+    pub fn new(enter_screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
+        let r = Self {
             mp_input: String::new(),
             enter_screen_intent: Some(enter_screen_intent),
             retry_count: 0,
-            verifier: context.mpv(),
-        }
+            verifier: context.mpv()?,
+        };
+        Ok(r)
     }
 
     pub fn take_target_screen(&mut self) -> anyhow::Result<ScreenIntent> {
@@ -330,26 +331,16 @@ impl NeedMainPwdState {
             .context("'NeedMainPwdState' not found target screen")
     }
 
-    // /// 校验当前输入，返回布尔值 true 通过，反之未通过
-    // ///
-    // /// # Panics
-    // ///
-    // /// 当数据文件中主密码hash被人为修改导致无法构建有效主密码hash时
-    // pub fn verify_current_input(&self) -> bool {
-    //     self.verifier.verify(&self.mp_input).unwrap()
-    // }
-
-    /// 尝试构建 security_context，返回Option Some表示当前输入密码通过校验，
-    /// 若为None表示当前输入未通过校验
+    /// 尝试构建 security_context，返回 Ok Some 表示当前输入密码通过校验，
+    /// 若为 Ok None 表示当前输入未通过校验
     /// 
-    /// # Panics
-    /// 
-    /// 当数据文件中主密码hash被人为修改导致无法构建有效主密码hash时
-    pub fn try_build_security_context(&self) -> Option<SecurityContext> {
-        if self.verifier.verify(&self.mp_input).unwrap() {
-            Some(self.verifier.load_security_context(&self.mp_input).unwrap())
+    /// 若为 Err 表示在校验主密码过程或构建security_context过程发生错误
+    pub fn try_build_security_context(&self) -> anyhow::Result<Option<SecurityContext>> {
+        let imp = &self.mp_input;
+        if self.verifier.verify(imp)? {
+            Ok(Some(self.verifier.load_security_context(imp)?))
         } else {
-            None
+            Ok(None)
         }
     }
 

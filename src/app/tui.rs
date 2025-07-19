@@ -1,21 +1,21 @@
 mod colors;
+mod components;
 mod event;
 mod intents;
 mod layout;
 mod rt;
 mod screen;
 mod widgets;
-mod component;
 
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
 use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_DDD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
-use crate::app::tui::event::EventHandler;
+use crate::app::tui::event::EventQueue;
 use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
 use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::NeedMainPasswd;
-use crate::app::tui::screen::states::NeedMainPwdState;
+use crate::app::tui::screen::Screen::InputMainPwd;
+use crate::app::tui::screen::states::VerifyMPHState;
 use crate::app::tui::widgets::help;
 use crate::app::tui::widgets::home_page::HomePageV1Widget;
 use ratatui::DefaultTerminal;
@@ -27,14 +27,14 @@ use ratatui::widgets::{Block, Paragraph};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
+    let running = new_runtime(pnt)?;
     let terminal = ratatui::init();
-    let running = new_runtime(pnt);
     let result = running.run_main_loop(terminal);
     ratatui::restore();
     let app_after_run = result?;
     // 因tick到期退出的，stdout告知
     if app_after_run.idle_tick.need_close() {
-        println!("{} app auto closed with idle seconds", APP_NAME)
+        println!("{} auto closed with idle seconds", APP_NAME)
     }
     Ok(())
 }
@@ -74,15 +74,18 @@ impl Widget for &mut TUIApp {
         // 渲染当前屏幕
         match &mut self.screen {
             Screen::HomePageV1(state) => {
+                let dash_widget = HomePageV1Widget;
+                dash_widget.render(middle, buf, state);
                 self.state_info.clear();
+                // fixed: ratatui的ListState在未定义select时其值为uxx::MAX，增1溢出导致dev时panic
+                // 遂应当在其stateful的渲染render完成后再读取其，便会有有效值了
+                // 遂该块代码应在 dash_widget.render(middle, buf, state) 之后即可
                 let cur = if let Some(i) = state.cursor_selected() {
                     i + 1
                 } else {
                     0
                 };
                 self.state_info.push_str(&format!(" {}/{}", cur, state.entry_count()));
-                let dash_widget = HomePageV1Widget;
-                dash_widget.render(middle, buf, state)
             }
             Screen::Help(list_cursor) => {
                 self.hot_msg.set_if_no_always("󰌌 <ESC>|<Q> quit-help");
@@ -112,7 +115,7 @@ impl Widget for &mut TUIApp {
                 let rect = layout::centered_percent(70, 50, middle);
                 option_yn.render(rect, buf);
             }
-            Screen::NeedMainPasswd(state) => {
+            Screen::InputMainPwd(state) => {
                 let rect = layout::centered_fixed(50, 5, middle);
                 state.render(rect, buf);
             }
@@ -147,7 +150,7 @@ pub struct TUIApp {
     /// context
     context: PntContext,
     /// Event handler.
-    events: EventHandler,
+    events: EventQueue,
     /// 闲置tick计数，tick每秒一次
     idle_tick: IdleTick,
     /// 简单的 state info 信息，供页面渲染层显示，该字段面向渲染
@@ -259,10 +262,10 @@ impl TUIApp {
 }
 
 /// 新建 tui
-fn new_runtime(pnt_context: PntContext) -> TUIApp {
+fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
     // tui 情况下 处理 要求立即密码的情况
     let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
-        let scr = NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1, &pnt_context));
+        let scr = InputMainPwd(VerifyMPHState::new(ToHomePageV1, &pnt_context)?);
         let mut hm = HotMsg::new();
         hm.set_msg(
             &format!(
@@ -284,16 +287,17 @@ fn new_runtime(pnt_context: PntContext) -> TUIApp {
         (scr, hm)
     };
 
-    TUIApp {
+    let app = TUIApp {
         running: true,
-        events: EventHandler::new(),
+        events: EventQueue::new(),
         screen,
         back_screen: Vec::with_capacity(10),
         idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
         context: pnt_context,
         state_info: String::new(),
         hot_msg,
-    }
+    };
+    Ok(app)
 }
 
 struct IdleTick {

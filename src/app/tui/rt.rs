@@ -5,20 +5,18 @@
 use super::event::key_ext::KeyEventExt;
 use super::event::{Action, Event};
 use crate::app::context::SecurityContext;
-use crate::app::crypto::build_mpv;
 use crate::app::entry::ValidEntry;
-use crate::app::tui::TUIApp;
+use crate::app::tui::components::EventHandler;
 use crate::app::tui::intents::ScreenIntent;
-use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, NeedMainPasswd, YNOption};
-use crate::app::tui::screen::states::Editing;
-use anyhow::{Result, anyhow};
+use crate::app::tui::screen::Screen::{HomePageV1, InputMainPwd};
+use crate::app::tui::TUIApp;
+use anyhow::{anyhow, Result};
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::prelude::Alignment;
 use ratatui::{
     crossterm,
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::KeyEvent,
 };
 
 impl TUIApp {
@@ -37,7 +35,7 @@ impl TUIApp {
     /// 处理需进入屏幕的需求
     fn handle_enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
-        if let NeedMainPasswd(_) = &self.screen {
+        if let InputMainPwd(_) = &self.screen {
             self.screen = new_screen; // NeedMainPasswd 屏幕直接切换，不入栈
         } else {
             let old_scr = std::mem::replace(&mut self.screen, new_screen);
@@ -69,7 +67,7 @@ impl TUIApp {
                 _ => {}
             },
             // 封装的app 事件
-            Event::App(app_event) => self.handle_action(app_event)?,
+            Event::App(action) => self.handle_action(action)?,
         }
         Ok(())
     }
@@ -85,7 +83,6 @@ impl TUIApp {
             Action::TurnOnFindMode => self.turn_on_find_mode()?,
             Action::TurnOffFindMode => self.turn_off_find_mode()?,
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
-            Action::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
             Action::Quit => self.quit_tui_app(),
             Action::BackScreen => self.back_screen(),
             Action::RELOCK => self.re_lock(),
@@ -122,215 +119,10 @@ impl TUIApp {
             return Ok(());
         }
 
-        // 不同屏幕不同按键响应，包装为不同的app事件
-        // 走到此，则 ctrl + c ，quit， f1 已被处理，
-        // 遂下无
-        match &mut self.screen {
-            // help 页面
-            Help(state) => {
-                if key_event.is_char('q') {
-                    self.back_screen();
-                    return Ok(());
-                }
-                // 上移
-                if key_event.is_char('k') || key_event.is_up() {
-                    state.select_previous();
-                    return Ok(());
-                }
-                // 下移
-                if key_event.is_down() || key_event.is_char('j') {
-                    state.select_next();
-                    return Ok(());
-                }
-                // 顶部 底部
-                if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
-                    state.select_first();
-                    return Ok(());
-                }
-                // 顶部 底部
-                if let KeyCode::Char('G') | KeyCode::End = key_event.code {
-                    state.select_last();
-                    return Ok(());
-                }
-            }
-            // 仪表盘
-            HomePageV1(state) => {
-                // f1 按下 进入 帮助页面
-                if key_event.is_f1() {
-                    self.send_app_event(Action::ScreenIntent(ToHelp));
-                    return Ok(());
-                }
-
-                // home_page find
-                if !state.find_mode() {
-                    if key_event.is_char('f') {
-                        self.send_app_event(Action::TurnOnFindMode);
-                        return Ok(());
-                    }
-                    // 响应 按下 l 丢弃 securityContext以重新锁定
-                    if key_event.is_char('l') {
-                        self.re_lock();
-                        return Ok(()); // mut 借用返回
-                    }
-                    if key_event.is_char('q') {
-                        self.back_screen();
-                        return Ok(());
-                    }
-                    // 可进入 查看，编辑，删除tip，新建 页面
-                    // 若当前光标无所指，则只能 创建
-                    if let Some(c_ptr) = state.cursor_selected() {
-                        let curr_ptr_e_id = state.entries()[c_ptr].id;
-                        // open
-                        if key_event.is_char('o') || key_event.is_enter() {
-                            self.send_app_event(Action::ScreenIntent(ToDetail(curr_ptr_e_id)));
-                            return Ok(());
-                        }
-                        // edit
-                        if key_event.is_char('e') {
-                            self.send_app_event(Action::ScreenIntent(ToEditing(Some(curr_ptr_e_id))));
-                            return Ok(());
-                        }
-                        // delete 但是home_page 的光标？
-                        // 任何删除都应确保删除页面上一级为home_page
-                        // 即非home_page接收到删除事件时应确保关闭当前并打开删除
-                        if key_event.is_char('d') {
-                            self.send_app_event(Action::ScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
-                            return Ok(());
-                        }
-                        // 上移
-                        if key_event.is_char('k') || key_event.is_up() {
-                            state.cursor_up();
-                            return Ok(());
-                        }
-                        // 下移
-                        if key_event.is_down() || key_event.is_char('j') {
-                            state.cursor_down();
-                            return Ok(());
-                        }
-                        // 顶部 底部
-                        if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
-                            state.cursor_mut_ref().select_first();
-                            return Ok(());
-                        }
-                        // 顶部 底部
-                        if let KeyCode::Char('G') | KeyCode::End = key_event.code {
-                            state.cursor_mut_ref().select_last();
-                            return Ok(());
-                        }
-                    }
-                    // 任意光标位置都可以新建
-                    if key_event.is_char('a') {
-                        self.send_app_event(Action::ScreenIntent(ToEditing(None)));
-                        return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
-                    }
-                } else {
-                    self.handle_editing_key_event(key_event)?;
-                }
-            }
-            // 详情页
-            Details(_, e_id) => {
-                // f1 按下 进入 帮助页面
-                if key_event.is_f1() {
-                    self.send_app_event(Action::ScreenIntent(ToHelp));
-                    return Ok(());
-                }
-
-                if key_event.is_char('q') {
-                    self.back_screen();
-                    return Ok(());
-                }
-                if key_event.is_char('d') {
-                    let de_id = *e_id;
-                    self.send_app_event(Action::ScreenIntent(ToDeleteYNOption(de_id)));
-                    return Ok(());
-                }
-                if key_event.is_char('l') {
-                    self.re_lock();
-                    return Ok(()); // mut 借用返回
-                }
-            }
-            // 弹窗页面
-            YNOption(option_yn) => {
-                if key_event.is_char('q') {
-                    self.back_screen();
-                    return Ok(());
-                }
-                if let KeyCode::Char('y' | 'Y') | KeyCode::Enter = key_event.code {
-                    return if let Some(y_call) = option_yn.take_y_call() {
-                        y_call(self)
-                    } else {
-                        Err(anyhow!("not found y-call"))
-                    };
-                }
-                if let KeyCode::Char('n' | 'N') = key_event.code {
-                    return if let Some(n_call) = option_yn.take_n_call() {
-                        n_call(self)
-                    } else {
-                        Err(anyhow!("not found n-call"))
-                    };
-                }
-            }
-            Edit(state) => {
-                // f1 按下 进入 帮助页面
-                if key_event.is_f1() {
-                    self.send_app_event(Action::ScreenIntent(ToHelp));
-                    return Ok(());
-                }
-
-                // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
-                if state.current_editing_type() != Editing::Notes {
-                    // 上移
-                    if key_event.is_up() {
-                        state.cursor_up();
-                        return Ok(());
-                    }
-                    // 下移
-                    if key_event.is_down() {
-                        state.cursor_down();
-                        return Ok(());
-                    }
-                }
-
-                // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
-                if key_event.is_tab() {
-                    state.cursor_down();
-                    return Ok(());
-                }
-                // 保存
-                if key_event.is_ctrl_char('s') {
-                    if state.current_input_validate() {
-                        let e_id = state.current_e_id();
-                        // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
-                        let input_entry = state.current_input_entry();
-                        self.send_app_event(Action::ScreenIntent(ToSaveYNOption(input_entry, e_id)));
-                    } else {
-                        // 验证 to do 未通过验证应给予提示
-                        self.hot_msg
-                            .set_msg(" Some field is required", Some(3), Some(Alignment::Center));
-                    }
-                    return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
-                }
-                // 编辑窗口变化
-                self.handle_editing_key_event(key_event)?;
-            }
-            // 需要主密码
-            NeedMainPasswd(state) => {
-                if key_event.is_enter() {
-                    let verifier = build_mpv(&self.context.storage)?;
-                    let mp_input = state.mp_input();
-                    if verifier.verify(mp_input)? {
-                        // 验证通过，发送 true 事件
-                        let security_context = verifier.load_security_context(mp_input)?;
-                        self.send_app_event(Action::MainPwdVerifySuccess(security_context))
-                    } else {
-                        self.send_app_event(Action::MainPwdVerifyFailed)
-                    }
-                    return Ok(()); // fixed 拦截按键事件，下不处理，防止意外输入
-                }
-                // 密码编辑窗口变化
-                self.handle_editing_key_event(key_event)?;
-            }
+        if let Some(action) = self.screen.handle_key_press_event(key_event)?{
+            self.handle_action(action)?;
         }
+
         Ok(())
     }
 
@@ -391,42 +183,6 @@ impl TUIApp {
 
     pub fn quit_tui_app(&mut self) {
         self.running = false;
-    }
-
-    fn handle_editing_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        if let Edit(state) = &mut self.screen {
-            // 不为 desc 的 响应 enter 到下一行
-            if Editing::Notes != state.current_editing_type() {
-                if let KeyCode::Enter = key_event.code {
-                    state.cursor_down();
-                    return Ok(());
-                }
-            }
-            // do editing...
-            let _ = state.current_editing_string_mut().input(key_event);
-            Ok(())
-        } else if let NeedMainPasswd(state) = &mut self.screen {
-            match key_event.code {
-                KeyCode::Backspace => {
-                    state.mp_input.pop();
-                }
-                KeyCode::Char(value) => state.mp_input.push(value),
-                _ => {}
-            }
-            Ok(())
-        } else if let HomePageV1(state) = &mut self.screen {
-            // let c_event = CEvent::Key(key_event); // 临时构建 由 key向上整个 CEvent以匹配handle_event方法签名
-            match key_event.code {
-                KeyCode::Enter => self.send_app_event(Action::TurnOffFindMode),
-                _ => {
-                    // 返回bool表示是否修改了，暂时用不到
-                    let _ = state.find_textarea().input(key_event);
-                }
-            }
-            Ok(())
-        } else {
-            Err(anyhow!("current screen is no do_editing event"))
-        }
     }
 
     /// 向 db 删除一个 entry，并更新 store_entry_count - 1
@@ -496,7 +252,7 @@ impl TUIApp {
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,
     /// 并将当前屏幕切换为目标屏幕
     fn hold_security_context(&mut self, security_context: SecurityContext) -> Result<()> {
-        if let NeedMainPasswd(state) = &mut self.screen {
+        if let InputMainPwd(state) = &mut self.screen {
             self.context.security_context = Some(security_context);
             let intent = state.take_target_screen()?;
             self.handle_enter_screen_indent(intent)?;
@@ -506,12 +262,4 @@ impl TUIApp {
         }
     }
 
-    /// 验证失败的事件，自增或err
-    fn mp_retry_increment_or_err(&mut self) -> Result<()> {
-        if let NeedMainPasswd(state) = &mut self.screen {
-            state.increment_retry_count()
-        } else {
-            Err(anyhow!("current is not NeedMainPasswd screen"))
-        }
-    }
 }

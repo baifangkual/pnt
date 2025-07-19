@@ -1,71 +1,79 @@
 //! 组件，构成tui元素，能够响应事件
 
-use anyhow::anyhow;
+use crate::app::tui::event::key_ext::KeyEventExt;
 use crate::app::tui::event::Action;
+use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
+use crate::app::tui::screen::states::Editing;
+use crate::app::tui::screen::Screen;
+use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, InputMainPwd, YNOption};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Alignment;
-use crate::app::crypto::build_mpv;
-use crate::app::tui::event::key_ext::KeyEventExt;
-use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, NeedMainPasswd, YNOption};
-use crate::app::tui::screen::states::Editing;
 
-pub trait Component {
+pub trait EventHandler {
     /// 响应 key 按下事件，要求self的可变引用，即对事件的响应可能改变自身状态，
     /// 方法返回 Option<Action>，即响应可能产出对应行为要求
-    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> Option<Action>;
+    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> anyhow::Result<Option<Action>>;
 }
 
-impl Component for Screen {
+#[inline]
+fn ok_action(action: Action) -> anyhow::Result<Option<Action>> {
+    Ok(Some(action))
+}
+#[inline]
+fn ok_none() -> anyhow::Result<Option<Action>> {
+    Ok(None)
+}
+
+impl EventHandler for Screen {
     
-    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> Option<Action> {
+    
+    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> anyhow::Result<Option<Action>> {
         match self {
             // help 页面
-            Help(state) => {
+            Help(list_cursor) => {
                 if key_event.is_char('q') {
-                    return Some(Action::BackScreen);
+                    return ok_action(Action::BackScreen);
                 }
                 // 上移
                 if key_event.is_char('k') || key_event.is_up() {
-                    state.select_previous();
-                    return None;
+                    list_cursor.select_previous();
+                    return ok_none();
                 }
                 // 下移
                 if key_event.is_down() || key_event.is_char('j') {
-                    state.select_next();
-                    return None;
+                    list_cursor.select_next();
+                    return ok_none();
                 }
                 // 顶部 底部
                 if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
-                    state.select_first();
-                    return None;
+                    list_cursor.select_first();
+                    return ok_none();
                 }
                 // 顶部 底部
                 if let KeyCode::Char('G') | KeyCode::End = key_event.code {
-                    state.select_last();
-                    return None;
+                    list_cursor.select_last();
+                    return ok_none();
                 }
-                return None;
+                return ok_none();
             }
             // 仪表盘
             HomePageV1(state) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
-                    return Some(Action::ScreenIntent(ToHelp));
+                    return ok_action(Action::ScreenIntent(ToHelp));
                 }
 
                 // home_page find
                 if !state.find_mode() {
                     if key_event.is_char('f') {
-                        return Some(Action::TurnOnFindMode);
+                        return ok_action(Action::TurnOnFindMode);
                     }
                     // 响应 按下 l 丢弃 securityContext以重新锁定
                     if key_event.is_char('l') {
-                        return Some(Action::RELOCK);
+                        return ok_action(Action::RELOCK);
                     }
                     if key_event.is_char('q') {
-                        return Some(Action::BackScreen);
+                        return ok_action(Action::BackScreen);
                     }
                     // 可进入 查看，编辑，删除tip，新建 页面
                     // 若当前光标无所指，则只能 创建
@@ -73,51 +81,51 @@ impl Component for Screen {
                         let curr_ptr_e_id = state.entries()[c_ptr].id;
                         // open
                         if key_event.is_char('o') || key_event.is_enter() {
-                            return Some(Action::ScreenIntent(ToDetail(curr_ptr_e_id)));
+                            return ok_action(Action::ScreenIntent(ToDetail(curr_ptr_e_id)));
                         }
                         // edit
                         if key_event.is_char('e') {
-                            return Some(Action::ScreenIntent(ToEditing(Some(curr_ptr_e_id))));
+                            return ok_action(Action::ScreenIntent(ToEditing(Some(curr_ptr_e_id))));
                         }
                         // delete 但是home_page 的光标？
                         // 任何删除都应确保删除页面上一级为home_page
                         // 即非home_page接收到删除事件时应确保关闭当前并打开删除
                         if key_event.is_char('d') {
-                            return Some(Action::ScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
+                            return ok_action(Action::ScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
                         }
                         // 上移
                         if key_event.is_char('k') || key_event.is_up() {
                             state.cursor_up();
-                            return None;
+                            return ok_none();
                         }
                         // 下移
                         if key_event.is_down() || key_event.is_char('j') {
                             state.cursor_down();
-                            return None;
+                            return ok_none();
                         }
                         // 顶部 底部
                         if let KeyCode::Char('g') | KeyCode::Home = key_event.code {
                             state.cursor_mut_ref().select_first();
-                            return None;
+                            return ok_none();
                         }
                         // 顶部 底部
                         if let KeyCode::Char('G') | KeyCode::End = key_event.code {
                             state.cursor_mut_ref().select_last();
-                            return None;
+                            return ok_none();
                         }
                     }
                     // 任意光标位置都可以新建
                     if key_event.is_char('a') {
-                        return Some(Action::ScreenIntent(ToEditing(None)));
+                        return ok_action(Action::ScreenIntent(ToEditing(None)));
                     }
-                    None
+                    ok_none()
                 } else {
                     match key_event.code {
-                        KeyCode::Enter => Some(Action::TurnOffFindMode),
+                        KeyCode::Enter => ok_action(Action::TurnOffFindMode),
                         _ => {
                             // 返回bool表示是否修改了，暂时用不到
                             let _ = state.find_textarea().input(key_event);
-                            None
+                            ok_none()
                         }
                     }
                 }
@@ -126,46 +134,46 @@ impl Component for Screen {
             Details(_, e_id) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
-                    return Some(Action::ScreenIntent(ToHelp));
+                    return ok_action(Action::ScreenIntent(ToHelp));
                 }
 
                 if key_event.is_char('q') {
-                    return Some(Action::BackScreen);
+                    return ok_action(Action::BackScreen);
                 }
                 if key_event.is_char('d') {
                     let de_id = *e_id;
-                    return Some(Action::ScreenIntent(ToDeleteYNOption(de_id)));
+                    return ok_action(Action::ScreenIntent(ToDeleteYNOption(de_id)));
                 }
                 if key_event.is_char('l') {
-                  return Some(Action::RELOCK);
+                  return ok_action(Action::RELOCK);
                 }
-                None
+                ok_none()
             }
             // 弹窗页面
             YNOption(option_yn) => {
                 if key_event.is_char('q') {
-                    return Some(Action::BackScreen);
+                    return ok_action(Action::BackScreen);
                 }
                 if let KeyCode::Char('y' | 'Y') | KeyCode::Enter = key_event.code {
                     return if let Some(y_call) = option_yn.take_y_call() {
-                        Some(Action::OptionYNTuiCallback(y_call))
+                        ok_action(Action::OptionYNTuiCallback(y_call))
                     } else {
                         unreachable!("选项必须设定y_callback")
                     };
                 }
                 if let KeyCode::Char('n' | 'N') = key_event.code {
                     return if let Some(n_call) = option_yn.take_n_call() {
-                        Some(Action::OptionYNTuiCallback(n_call))
+                        ok_action(Action::OptionYNTuiCallback(n_call))
                     } else {
                         unreachable!("选项必须设定n_callback")
                     };
                 }
-                None
+                ok_none()
             }
             Edit(state) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
-                    return Some(Action::ScreenIntent(ToHelp));
+                    return ok_action(Action::ScreenIntent(ToHelp));
                 }
 
                 // 如果当前不为 notes编辑，则可响应 up/ down 按键上下
@@ -173,19 +181,19 @@ impl Component for Screen {
                     // 上移
                     if key_event.is_up() {
                         state.cursor_up();
-                        return None;
+                        return ok_none();
                     }
                     // 下移
                     if key_event.is_down() {
                         state.cursor_down();
-                        return None;
+                        return ok_none();
                     }
                 }
 
                 // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
                 if key_event.is_tab() {
                     state.cursor_down();
-                    return None;
+                    return ok_none();
                 }
                 // 保存
                 if key_event.is_ctrl_char('s') {
@@ -193,10 +201,10 @@ impl Component for Screen {
                         let e_id = state.current_e_id();
                         // 该处已修改：该处不加密，只有 save tip 页面 按下 y 才触发 加密并保存
                         let input_entry = state.current_input_entry();
-                        Some(Action::ScreenIntent(ToSaveYNOption(input_entry, e_id)))
+                        ok_action(Action::ScreenIntent(ToSaveYNOption(input_entry, e_id)))
                     } else {
                         // 验证 to do 未通过验证应给予提示
-                        Some(Action::SetTuiHotMsg(" Some field is required".into(), Some(3), Some(Alignment::Center)))
+                        ok_action(Action::SetTuiHotMsg(" Some field is required".into(), Some(3), Some(Alignment::Center)))
                     }
                 }
                 // 编辑窗口变化
@@ -204,20 +212,21 @@ impl Component for Screen {
                 if Editing::Notes != state.current_editing_type() {
                     if let KeyCode::Enter = key_event.code {
                         state.cursor_down();
-                        return None;
+                        return ok_none();
                     }
                 }
                 // do editing...
                 let _ = state.current_editing_string_mut().input(key_event);
-                None
+                ok_none()
             }
             // 需要主密码
-            NeedMainPasswd(state) => {
+            InputMainPwd(state) => {
                 if key_event.is_enter() {
-                    if let Some(security_context) = state.try_build_security_context() {
-                        return Some(Action::MainPwdVerifySuccess(security_context))
-                    } else { 
-                        return Some(Action::MainPwdVerifyFailed)
+                    return if let Some(security_context) = state.try_build_security_context()? {
+                        ok_action(Action::MainPwdVerifySuccess(security_context))
+                    } else {
+                        state.increment_retry_count()?;
+                        ok_none()
                     }
                 }
                 // 密码编辑窗口变化
@@ -228,7 +237,7 @@ impl Component for Screen {
                     KeyCode::Char(value) => state.mp_input.push(value),
                     _ => {}
                 }
-               None
+               ok_none()
             }
         }
     }

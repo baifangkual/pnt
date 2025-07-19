@@ -61,8 +61,8 @@ impl PntContext {
     /// # Panics
     ///
     /// 当 data file 被人为修改导致主密码hash找不到或被篡改结构导致无法定位salt等时
-    pub fn mpv(&self) -> MainPwdVerifier {
-        build_mpv(&self.storage).context("Failed to build MainPasswordVerifier").unwrap()
+    pub fn mpv(&self) -> anyhow::Result<MainPwdVerifier> {
+        build_mpv(&self.storage)
     }
 
     /// 检查是否已验证主密码
