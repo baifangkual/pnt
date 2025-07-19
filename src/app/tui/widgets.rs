@@ -1,7 +1,9 @@
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::entry::InputEntry;
 use crate::app::tui::colors::{CL_RED, CL_WHITE};
-use crate::app::tui::screen::states::VerifyMPHState;
+use crate::app::tui::components::states::VerifyMPHState;
+use crate::app::tui::components::yn::YNState;
+use crate::app::tui::layout;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
 use ratatui::prelude::{Layout, Line, Modifier, Style, Stylize, Widget};
@@ -12,7 +14,64 @@ use tui_textarea::TextArea;
 mod editing;
 pub mod help;
 pub mod home_page;
-mod yn;
+
+/// 选项页面渲染
+impl Widget for &YNState {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        Clear.render(area, buf);
+        let block = Block::new().bg(self.theme.cl_global_bg).padding(Padding::uniform(1));
+
+        let inner_area = block.inner(area);
+
+        block.render(area, buf);
+
+        let [r_title, _, r_desc, _, r_bottom] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(0),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ])
+        .areas(inner_area);
+
+        Paragraph::new(
+            Line::from(format!(" [] {} ", self.title.as_str()))
+                .fg(self.theme.cl_title_fg)
+                .bg(self.theme.cl_title_bg),
+        )
+        .alignment(Alignment::Center)
+        .render(r_title, buf);
+
+        // desc 部分
+        let box_desc = Block::new().bg(self.theme.cl_desc_bg).padding(Padding::proportional(1));
+        Paragraph::new(self.desc.as_str())
+            .block(box_desc)
+            .wrap(Wrap { trim: false })
+            .alignment(Alignment::Left)
+            .fg(self.theme.cl_desc_fg)
+            .render(r_desc, buf);
+
+        // 底部左右二分
+        let rc_bottom_lr = layout::horizontal_split2(r_bottom);
+        // 底部 YN
+        Paragraph::new(
+            Line::from("[ (Y)es ]")
+                .centered()
+                .bg(self.theme.cl_y_bg)
+                .fg(self.theme.cl_y_fg),
+        )
+        .alignment(Alignment::Center)
+        .render(rc_bottom_lr[0], buf);
+        Paragraph::new(
+            Line::from("[ (N)o ]")
+                .centered()
+                .bg(self.theme.cl_n_bg)
+                .fg(self.theme.cl_n_fg),
+        )
+        .alignment(Alignment::Center)
+        .render(rc_bottom_lr[1], buf);
+    }
+}
 
 pub trait TextAreaExt {
     /// 设置 textarea 所谓 “激活状态”
@@ -43,6 +102,7 @@ pub fn new_input_textarea(place_holder_text: Option<&str>, activate_state: bool)
     textarea
 }
 
+/// inputEntry直接的 渲染逻辑
 impl Widget for &InputEntry {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let block = Block::bordered().border_type(ratatui::widgets::BorderType::Plain);
@@ -75,6 +135,7 @@ impl Widget for &InputEntry {
     }
 }
 
+/// 输入密码页的渲染逻辑
 impl Widget for &VerifyMPHState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);

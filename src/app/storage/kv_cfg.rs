@@ -7,7 +7,7 @@ use rusqlite::params;
 bitflags! {
       pub struct BitCfg: u8 {
         /// 运行立即需要密码
-        const NEED_MAIN_PWD_ON_RUN = 0b0000_0001;
+        const VERIFY_ON_LAUNCH = 0b0000_0001;
         const _ = 0b0000_0010;
         // ... 预留其他
     }

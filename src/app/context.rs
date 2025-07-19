@@ -1,11 +1,10 @@
 use crate::app::cfg::Cfg;
 use crate::app::crypto::aes_gcm::EntryAes256GcmSecretEncrypter;
+use crate::app::crypto::{MainPwdVerifier, build_mpv};
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
 use std::ops::Deref;
 use std::path::Path;
-use anyhow::Context;
-use crate::app::crypto::{build_mpv, MainPwdVerifier};
 
 /// 安全上下文，包含主密码校验器和条目加密解密器
 pub struct SecurityContext {
@@ -41,7 +40,7 @@ impl PntContext {
             security_context: Some(security_context),
         }
     }
-    
+
     /// 构建还未进行主密码校验的上下文
     pub fn new_with_un_verified(cfg: Cfg, storage: Storage) -> Self {
         Self {
@@ -50,14 +49,14 @@ impl PntContext {
             security_context: None,
         }
     }
-    
+
     /// 返回布尔表示是否是在启动时就需要校验主密码
     pub fn is_need_mp_on_run(&self) -> bool {
-        self.cfg.inner_cfg.need_main_pwd_on_run
+        self.cfg.inner_cfg.verify_on_launch
     }
-    
+
     /// 生成主密码校验器
-    /// 
+    ///
     /// # Panics
     ///
     /// 当 data file 被人为修改导致主密码hash找不到或被篡改结构导致无法定位salt等时

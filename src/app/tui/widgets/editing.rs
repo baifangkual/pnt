@@ -1,5 +1,5 @@
 use crate::app::tui::colors::CL_WHITE;
-use crate::app::tui::screen::states::EditingState;
+use crate::app::tui::components::states::EditingState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::prelude::{Color, Stylize, Widget};

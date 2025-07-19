@@ -223,8 +223,7 @@ impl HomePageState {
         self.find_input.lines().last().unwrap()
     }
 
-    // 妈的生命周期传染
-    pub fn find_textarea(&mut self) -> &mut TextArea<'static> {
+    pub fn find_input(&mut self) -> &mut TextArea<'static> {
         &mut self.find_input
     }
 
@@ -310,30 +309,28 @@ impl HomePageState {
 #[derive(Debug)]
 pub struct VerifyMPHState {
     pub mp_input: String,
-    pub enter_screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
+    pub screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
     verifier: MainPwdVerifier,
 }
 impl VerifyMPHState {
-    pub fn new(enter_screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
+    pub fn new(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
         let r = Self {
-            mp_input: String::new(),
-            enter_screen_intent: Some(enter_screen_intent),
-            retry_count: 0,
             verifier: context.mpv()?,
+            mp_input: String::new(),
+            screen_intent: Some(screen_intent),
+            retry_count: 0,
         };
         Ok(r)
     }
 
     pub fn take_target_screen(&mut self) -> anyhow::Result<ScreenIntent> {
-        self.enter_screen_intent
-            .take()
-            .context("'NeedMainPwdState' not found target screen")
+        self.screen_intent.take().context("not found target screen")
     }
 
     /// 尝试构建 security_context，返回 Ok Some 表示当前输入密码通过校验，
     /// 若为 Ok None 表示当前输入未通过校验
-    /// 
+    ///
     /// 若为 Err 表示在校验主密码过程或构建security_context过程发生错误
     pub fn try_build_security_context(&self) -> anyhow::Result<Option<SecurityContext>> {
         let imp = &self.mp_input;
@@ -342,10 +339,6 @@ impl VerifyMPHState {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn mp_input(&self) -> &str {
-        &self.mp_input
     }
 
     pub fn retry_count(&self) -> u8 {

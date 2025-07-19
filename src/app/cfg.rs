@@ -17,24 +17,24 @@ pub struct Cfg {
 #[derive(Debug)]
 pub struct InnerCfg {
     /// 在运行的时候立即要求主密码
-    pub need_main_pwd_on_run: bool,
+    pub verify_on_launch: bool,
     pub auto_relock_idle_sec: Option<u32>,
     pub auto_close_idle_sec: Option<u32>,
 }
 
 impl InnerCfg {
     /// 配置名常量
-    pub const NEED_MAIN_PWD_ON_RUN: &'static str = "need_main_pwd_on_run";
+    pub const VERIFY_ON_LAUNCH: &'static str = "verify-on-launch";
     /// 配置名常量
-    pub const AUTO_RELOCK_IDLE_SEC: &'static str = "auto_relock_idle_sec";
+    pub const AUTO_RELOCK_IDLE_SEC: &'static str = "auto-relock-idle-sec";
     /// 配置名常量
-    pub const AUTO_CLOSE_IDLE_SEC: &'static str = "auto_close_idle_sec";
+    pub const AUTO_CLOSE_IDLE_SEC: &'static str = "auto-close-idle-sec";
 
     /// 将配置文件的 inner_cfg 覆盖
     pub fn overwrite_default(&mut self, storage: &Storage) -> anyhow::Result<()> {
         let bf_or = storage.query_cfg_bit_flags()?;
         if let Some(bf) = bf_or {
-            self.need_main_pwd_on_run = bf.contains(BitCfg::NEED_MAIN_PWD_ON_RUN);
+            self.verify_on_launch = bf.contains(BitCfg::VERIFY_ON_LAUNCH);
         }
         self.auto_relock_idle_sec = storage.query_cfg_auto_re_lock_idle_sec()?;
         self.auto_close_idle_sec = storage.query_cfg_auto_close_idle_sec()?;
@@ -46,8 +46,8 @@ impl InnerCfg {
         // bitflag
         let mut bf = BitCfg::empty();
         // need main on run
-        if self.need_main_pwd_on_run {
-            bf.insert(BitCfg::NEED_MAIN_PWD_ON_RUN);
+        if self.verify_on_launch {
+            bf.insert(BitCfg::VERIFY_ON_LAUNCH);
         }
         // store
         storage.store_cfg_bit_flags(bf);
@@ -58,7 +58,7 @@ impl InnerCfg {
 
 impl Display for InnerCfg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} = {}", Self::NEED_MAIN_PWD_ON_RUN, self.need_main_pwd_on_run)?;
+        writeln!(f, "{} = {}", Self::VERIFY_ON_LAUNCH, self.verify_on_launch)?;
         writeln!(
             f,
             "{} = {}",
@@ -79,7 +79,7 @@ impl Display for InnerCfg {
 impl Default for InnerCfg {
     fn default() -> Self {
         Self {
-            need_main_pwd_on_run: true,
+            verify_on_launch: true,
             auto_relock_idle_sec: None,
             auto_close_idle_sec: None,
         }

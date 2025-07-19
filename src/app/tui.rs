@@ -1,23 +1,20 @@
 mod colors;
 mod components;
-mod event;
+mod events;
 mod intents;
 mod layout;
 mod rt;
-mod screen;
 mod widgets;
 
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
 use crate::app::tui::colors::{CL_BLACK, CL_DD_WHITE, CL_DDD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE};
-use crate::app::tui::event::EventQueue;
+use crate::app::tui::events::EventQueue;
 use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::InputMainPwd;
-use crate::app::tui::screen::states::VerifyMPHState;
 use crate::app::tui::widgets::help;
 use crate::app::tui::widgets::home_page::HomePageV1Widget;
+use components::Screen;
 use ratatui::DefaultTerminal;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -150,7 +147,7 @@ pub struct TUIApp {
     /// context
     context: PntContext,
     /// Event handler.
-    events: EventQueue,
+    event_queue: EventQueue,
     /// 闲置tick计数，tick每秒一次
     idle_tick: IdleTick,
     /// 简单的 state info 信息，供页面渲染层显示，该字段面向渲染
@@ -245,6 +242,10 @@ impl HotMsg {
 
 impl TUIApp {
     /// TUI程序主循环
+    ///
+    /// 该方法内 loop，返回Ok载荷self表示tui正常结束返回，载荷self可使后续行为访问内部状态等...
+    ///
+    /// 返回Err表示发生错误，该方法在返回前就关闭了连接了
     pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<TUIApp> {
         while self.running {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
@@ -265,7 +266,7 @@ impl TUIApp {
 fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
     // tui 情况下 处理 要求立即密码的情况
     let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
-        let scr = InputMainPwd(VerifyMPHState::new(ToHomePageV1, &pnt_context)?);
+        let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
         let mut hm = HotMsg::new();
         hm.set_msg(
             &format!(
@@ -289,7 +290,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
 
     let app = TUIApp {
         running: true,
-        events: EventQueue::new(),
+        event_queue: EventQueue::new(),
         screen,
         back_screen: Vec::with_capacity(10),
         idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
@@ -338,7 +339,7 @@ impl IdleTick {
         self.idle_tick_count = self.idle_tick_count.saturating_add(1)
     }
     #[inline]
-    fn need_re_lock(&self) -> bool {
+    fn need_relock(&self) -> bool {
         self.idle_tick_count > self.auto_relock_idle_sec
     }
     #[inline]

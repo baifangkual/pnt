@@ -1,5 +1,3 @@
-pub mod key_ext;
-
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::ScreenIntent;
@@ -11,10 +9,6 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-
-/// The frequency at which tick events are emitted.
-/// 每秒一次
-const TICK_FPS: f64 = 1.0;
 
 /// Representation of all possible events.
 pub enum Event {
@@ -39,9 +33,9 @@ pub enum Action {
     /// 回退到上一个屏幕
     BackScreen,
     /// 重新锁定
-    RELOCK,
+    Relock,
     /// optionYn tui回调
-    OptionYNTuiCallback(crate::app::tui::screen::yn::FnCallYN),
+    OptionYNTuiCallback(crate::app::tui::components::yn::FnCallYN),
     /// 设定TUI hot msg, 该结构内包含信息，持续时间，位置
     SetTuiHotMsg(String, Option<u8>, Option<Alignment>),
     TurnOnFindMode,
@@ -122,12 +116,14 @@ impl EventThread {
     fn new(sender: mpsc::Sender<Event>) -> Self {
         Self { sender }
     }
-
+    /// The frequency at which tick events are emitted.
+    /// 每秒一次
+    const TICK_FPS: f64 = 1.0;
     /// Runs the event thread.
     ///
     /// This function emits tick events at a fixed rate and polls for crossterm events in between.
     fn run(self) -> Result<()> {
-        let tick_interval = Duration::from_secs_f64(1.0 / TICK_FPS);
+        let tick_interval = Duration::from_secs_f64(1.0 / Self::TICK_FPS);
         let mut last_tick = Instant::now();
         loop {
             // emit tick events at a fixed rate

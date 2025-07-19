@@ -2,22 +2,18 @@
 //!
 //! 处理 事件循环主要模块
 
-use super::event::key_ext::KeyEventExt;
-use super::event::{Action, Event};
+use super::events::{Action, Event};
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
-use crate::app::tui::components::EventHandler;
-use crate::app::tui::intents::ScreenIntent;
-use crate::app::tui::screen::Screen::{HomePageV1, InputMainPwd};
 use crate::app::tui::TUIApp;
-use anyhow::{anyhow, Result};
+use crate::app::tui::components::EventHandler;
+use crate::app::tui::components::Screen::{HomePageV1, InputMainPwd};
+use crate::app::tui::intents::ScreenIntent;
+use anyhow::{Result, anyhow};
 use crossterm::event::Event as CEvent;
+use ratatui::crossterm;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::prelude::Alignment;
-use ratatui::{
-    crossterm,
-    crossterm::event::KeyEvent,
-};
 
 impl TUIApp {
     /// 返回上一个屏幕，
@@ -28,12 +24,12 @@ impl TUIApp {
             self.screen = p;
             self.hot_msg.clear(); // 不同屏幕不同 hot_msg
         } else {
-            self.send_app_event(Action::Quit)
+            self.send_action(Action::Quit)
         }
     }
 
     /// 处理需进入屏幕的需求
-    fn handle_enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
+    fn enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
         if let InputMainPwd(_) = &self.screen {
             self.screen = new_screen; // NeedMainPasswd 屏幕直接切换，不入栈
@@ -46,36 +42,39 @@ impl TUIApp {
     }
 
     #[inline]
-    pub fn send_app_event(&self, event: Action) {
-        self.events.send(event);
+    pub fn send_action(&self, action: Action) {
+        self.event_queue.send(action);
     }
 }
 
 impl TUIApp {
     /// 事件处理入口
     pub fn invoke_handle_events(&mut self) -> Result<()> {
-        let event = self.events.next()?;
+        let event = self.event_queue.next()?;
         match event {
-            // tick 事件
-            Event::Tick => self.tick(),
             // 后端Crossterm事件
-            Event::Crossterm(event) => match event {
+            Event::Crossterm(c_event) => match c_event {
                 // 仅 按下, 这里或许过于严格了，或许放开仅 Press 情况
                 CEvent::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.handle_key_press_event(key_event)?
+                    if let Some(action) = self.handle_key_press_event(key_event)? {
+                        self.handle_action(action)
+                    } else {
+                        Ok(())
+                    }
                 }
-                _ => {}
+                _ => Ok(()),
             },
+            // tick 事件
+            Event::Tick => self.tick(),
             // 封装的app 事件
-            Event::App(action) => self.handle_action(action)?,
+            Event::App(action) => self.handle_action(action),
         }
-        Ok(())
     }
 
     /// action 处理
     fn handle_action(&mut self, action: Action) -> Result<()> {
         match action {
-            Action::ScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
+            Action::ScreenIntent(intent) => self.enter_screen_indent(intent)?,
             Action::EntryInsert(v_e) => self.insert_entry(&v_e),
             Action::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
             Action::EntryRemove(e_id) => self.remove_entry(e_id),
@@ -85,7 +84,7 @@ impl TUIApp {
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
             Action::Quit => self.quit_tui_app(),
             Action::BackScreen => self.back_screen(),
-            Action::RELOCK => self.re_lock(),
+            Action::Relock => self.relock(),
             Action::Actions(actions) => self.handle_actions(actions)?,
             Action::OptionYNTuiCallback(callback) => callback(self)?,
             Action::SetTuiHotMsg(msg, live_time, ali) => self.hot_msg.set_msg(&msg, live_time, ali),
@@ -101,80 +100,34 @@ impl TUIApp {
         Ok(())
     }
 
-    /// Handles the key events and updates the state of [`TUIApp`].
-    /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键
-    /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
-    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        // 每次操作将闲置tick计数清零
-        self.idle_tick.reset_idle_tick_count();
-
-        // 任何页面按 ctrl + c 都退出
-        if key_event.is_ctrl_char('c') {
-            self.send_app_event(Action::Quit);
-            return Ok(());
-        }
-        // 按下 esc 的事件，将当前屏幕返回上一个屏幕，若当前为最后一个屏幕，则发送quit事件
-        if key_event.is_esc() {
-            self.handle_key_esc_event()?;
-            return Ok(());
-        }
-
-        if let Some(action) = self.screen.handle_key_press_event(key_event)?{
-            self.handle_action(action)?;
-        }
-
-        Ok(())
-    }
-
-    /// 按下 esc 的 处理器
-    ///
-    /// * home_page find 模式下 退出 find 模式
-    /// * home_page find 输入框有值则清理值并重新查
-    /// * 其他情况回退屏幕，无屏幕则发送退出事件
-    pub fn handle_key_esc_event(&mut self) -> Result<()> {
-        if let HomePageV1(state) = &mut self.screen {
-            if state.find_mode() {
-                self.send_app_event(Action::TurnOffFindMode);
-            } else if !state.current_find_input().is_empty() {
-                state.clear_find_input();
-                self.send_app_event(Action::FlashVecItems(None))
-            } else {
-                self.back_screen();
-            }
-        } else {
-            self.back_screen();
-        }
-        Ok(())
-    }
-
     /// Handles the tick event of the terminal.
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self) -> Result<()> {
         self.idle_tick.idle_tick_increment();
 
-        if self.idle_tick.need_re_lock() {
-            self.re_lock();
+        if self.idle_tick.need_relock() {
+            self.relock();
         }
         if self.idle_tick.need_close() {
             self.quit_tui_app();
         }
-
-        self.hot_msg.tick()
+        self.hot_msg.tick();
+        Ok(())
     }
 
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘
     ///
     /// 若并非unlock状态，则什么也不做
-    fn re_lock(&mut self) {
+    fn relock(&mut self) {
         if self.context.is_verified() {
             self.context.security_context = None;
             // 屏幕回退
             while !self.screen.is_home_page() {
                 self.back_screen();
             }
-            if self.idle_tick.need_re_lock() {
+            if self.idle_tick.need_relock() {
                 self.hot_msg
                     .set_msg("󰌾 AUTO RELOCK (idle)", Some(5), Some(Alignment::Center));
             }
@@ -188,17 +141,17 @@ impl TUIApp {
     /// 向 db 删除一个 entry，并更新 store_entry_count - 1
     fn remove_entry(&mut self, e_id: u32) {
         self.context.storage.delete_entry(e_id);
-        self.send_app_event(Action::FlashVecItems(None));
+        self.send_action(Action::FlashVecItems(None));
     }
     /// 向 db 添加一个 entry，并更新 store_entry_count + 1
     fn insert_entry(&mut self, e: &ValidEntry) {
         self.context.storage.insert_entry(e);
-        self.send_app_event(Action::FlashVecItems(None));
+        self.send_action(Action::FlashVecItems(None));
     }
 
     fn update_entry(&mut self, e: &ValidEntry, e_id: u32) {
         self.context.storage.update_entry(e, e_id);
-        self.send_app_event(Action::FlashVecItems(None));
+        self.send_action(Action::FlashVecItems(None));
     }
 
     /// 当前页面为 home_page 时 刷新 home_page 的 vec 从库里重新拿
@@ -235,11 +188,11 @@ impl TUIApp {
             // 获取 find_input 值，刷新vec
             if !state.current_find_input().is_empty() {
                 let f = state.current_find_input().into();
-                self.send_app_event(Action::FlashVecItems(Some(f)));
+                self.send_action(Action::FlashVecItems(Some(f)));
             } else {
                 // 为空则全查
                 // state.entries =  self.pnt.storage.select_all_entry();
-                self.send_app_event(Action::FlashVecItems(None));
+                self.send_action(Action::FlashVecItems(None));
                 // 刷新光标位置
             }
             Ok(())
@@ -255,11 +208,10 @@ impl TUIApp {
         if let InputMainPwd(state) = &mut self.screen {
             self.context.security_context = Some(security_context);
             let intent = state.take_target_screen()?;
-            self.handle_enter_screen_indent(intent)?;
+            self.enter_screen_indent(intent)?;
             Ok(())
         } else {
             Err(anyhow!("not NeedMainPasswd screen, no target screen"))
         }
     }
-
 }

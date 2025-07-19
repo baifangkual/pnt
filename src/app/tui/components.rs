@@ -1,13 +1,76 @@
 //! 组件，构成tui元素，能够响应事件
 
-use crate::app::tui::event::key_ext::KeyEventExt;
-use crate::app::tui::event::Action;
+use crate::app::context::PntContext;
+use crate::app::entry::InputEntry;
+use crate::app::tui::TUIApp;
+use crate::app::tui::components::states::{Editing, EditingState, HomePageState, VerifyMPHState};
+use crate::app::tui::components::yn::YNState;
+use crate::app::tui::events::Action;
+use crate::app::tui::intents::ScreenIntent;
 use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
-use crate::app::tui::screen::states::Editing;
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Details, Edit, Help, HomePageV1, InputMainPwd, YNOption};
-use ratatui::crossterm::event::{KeyCode, KeyEvent};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
 use ratatui::layout::Alignment;
+use ratatui::widgets::ListState;
+
+pub(crate) mod states;
+pub(crate) mod yn;
+
+pub trait KeyEventExt {
+    /// 判定是否为某char按下
+    ///
+    /// 注意，该方法仅判定当前code是否为指定char，不判定 modifiers 是否有 shift 按下
+    fn is_char(&self, char: char) -> bool;
+    /// 判定是否为按下 ctrl 同时 按下某键
+    fn is_ctrl_char(&self, char: char) -> bool;
+    /// F1
+    fn is_f1(&self) -> bool;
+    /// tab
+    fn is_tab(&self) -> bool;
+    /// 上-键盘上
+    fn is_up(&self) -> bool;
+    /// 下-键盘下
+    fn is_down(&self) -> bool;
+    /// enter
+    fn is_enter(&self) -> bool;
+    /// ESC
+    fn is_esc(&self) -> bool;
+}
+
+impl KeyEventExt for KeyEvent {
+    #[inline]
+    fn is_char(&self, char: char) -> bool {
+        self.code == KeyCode::Char(char)
+    }
+    #[inline]
+    fn is_ctrl_char(&self, char: char) -> bool {
+        self.modifiers == KeyModifiers::CONTROL && self.code == KeyCode::Char(char)
+    }
+    #[inline]
+    fn is_f1(&self) -> bool {
+        self.code == KeyCode::F(1)
+    }
+    #[inline]
+    fn is_tab(&self) -> bool {
+        self.code == KeyCode::Tab
+    }
+    #[inline]
+    fn is_up(&self) -> bool {
+        self.code == KeyCode::Up
+    }
+    #[inline]
+    fn is_down(&self) -> bool {
+        self.code == KeyCode::Down
+    }
+    #[inline]
+    fn is_enter(&self) -> bool {
+        self.code == KeyCode::Enter
+    }
+    #[inline]
+    fn is_esc(&self) -> bool {
+        self.code == KeyCode::Esc
+    }
+}
 
 pub trait EventHandler {
     /// 响应 key 按下事件，要求self的可变引用，即对事件的响应可能改变自身状态，
@@ -24,13 +87,45 @@ fn ok_none() -> anyhow::Result<Option<Action>> {
     Ok(None)
 }
 
+impl EventHandler for TUIApp {
+    /// 按键事件处理，需注意，大写不一定表示按下shift，因为还有 caps Lock 键,
+    /// 进入该方法的 keyEvent.kind 一定为 按下 KeyEventKind::Press
+    fn handle_key_press_event(&mut self, key_event: KeyEvent) -> anyhow::Result<Option<Action>> {
+        // 每次操作将闲置tick计数清零
+        self.idle_tick.reset_idle_tick_count();
+
+        // 任何页面按 ctrl + c 都退出
+        if key_event.is_ctrl_char('c') {
+            return ok_action(Action::Quit);
+        }
+        // 按下 esc 的事件，将当前屏幕返回上一个屏幕，若当前为最后一个屏幕，则发送quit事件
+        // 若为在find模式的homepage，则退出find...
+        if key_event.is_esc() {
+            if let Screen::HomePageV1(state) = &mut self.screen {
+                if state.find_mode() {
+                    return ok_action(Action::TurnOffFindMode);
+                } else if !state.current_find_input().is_empty() {
+                    state.clear_find_input();
+                    return ok_action(Action::FlashVecItems(None));
+                } else {
+                    self.back_screen();
+                }
+            } else {
+                self.back_screen();
+            }
+            return ok_none();
+        }
+
+        // 委托至 screen 的 key event handler
+        self.screen.handle_key_press_event(key_event)
+    }
+}
+
 impl EventHandler for Screen {
-    
-    
     fn handle_key_press_event(&mut self, key_event: KeyEvent) -> anyhow::Result<Option<Action>> {
         match self {
             // help 页面
-            Help(list_cursor) => {
+            Screen::Help(list_cursor) => {
                 if key_event.is_char('q') {
                     return ok_action(Action::BackScreen);
                 }
@@ -54,10 +149,10 @@ impl EventHandler for Screen {
                     list_cursor.select_last();
                     return ok_none();
                 }
-                return ok_none();
+                ok_none()
             }
             // 仪表盘
-            HomePageV1(state) => {
+            Screen::HomePageV1(state) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
                     return ok_action(Action::ScreenIntent(ToHelp));
@@ -70,7 +165,7 @@ impl EventHandler for Screen {
                     }
                     // 响应 按下 l 丢弃 securityContext以重新锁定
                     if key_event.is_char('l') {
-                        return ok_action(Action::RELOCK);
+                        return ok_action(Action::Relock);
                     }
                     if key_event.is_char('q') {
                         return ok_action(Action::BackScreen);
@@ -124,14 +219,14 @@ impl EventHandler for Screen {
                         KeyCode::Enter => ok_action(Action::TurnOffFindMode),
                         _ => {
                             // 返回bool表示是否修改了，暂时用不到
-                            let _ = state.find_textarea().input(key_event);
+                            let _ = state.find_input().input(key_event);
                             ok_none()
                         }
                     }
                 }
             }
             // 详情页
-            Details(_, e_id) => {
+            Screen::Details(_, e_id) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
                     return ok_action(Action::ScreenIntent(ToHelp));
@@ -145,12 +240,12 @@ impl EventHandler for Screen {
                     return ok_action(Action::ScreenIntent(ToDeleteYNOption(de_id)));
                 }
                 if key_event.is_char('l') {
-                  return ok_action(Action::RELOCK);
+                    return ok_action(Action::Relock);
                 }
                 ok_none()
             }
             // 弹窗页面
-            YNOption(option_yn) => {
+            Screen::YNOption(option_yn) => {
                 if key_event.is_char('q') {
                     return ok_action(Action::BackScreen);
                 }
@@ -170,7 +265,7 @@ impl EventHandler for Screen {
                 }
                 ok_none()
             }
-            Edit(state) => {
+            Screen::Edit(state) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
                     return ok_action(Action::ScreenIntent(ToHelp));
@@ -204,8 +299,12 @@ impl EventHandler for Screen {
                         ok_action(Action::ScreenIntent(ToSaveYNOption(input_entry, e_id)))
                     } else {
                         // 验证 to do 未通过验证应给予提示
-                        ok_action(Action::SetTuiHotMsg(" Some field is required".into(), Some(3), Some(Alignment::Center)))
-                    }
+                        ok_action(Action::SetTuiHotMsg(
+                            " Some field is required".into(),
+                            Some(3),
+                            Some(Alignment::Center),
+                        ))
+                    };
                 }
                 // 编辑窗口变化
                 // 不为 desc 的 响应 enter 到下一行
@@ -220,14 +319,14 @@ impl EventHandler for Screen {
                 ok_none()
             }
             // 需要主密码
-            InputMainPwd(state) => {
+            Screen::InputMainPwd(state) => {
                 if key_event.is_enter() {
                     return if let Some(security_context) = state.try_build_security_context()? {
                         ok_action(Action::MainPwdVerifySuccess(security_context))
                     } else {
                         state.increment_retry_count()?;
                         ok_none()
-                    }
+                    };
                 }
                 // 密码编辑窗口变化
                 match key_event.code {
@@ -237,9 +336,62 @@ impl EventHandler for Screen {
                     KeyCode::Char(value) => state.mp_input.push(value),
                     _ => {}
                 }
-               ok_none()
+                ok_none()
             }
         }
     }
-    
+}
+
+/// 当前屏幕
+pub enum Screen {
+    /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
+    HomePageV1(HomePageState),
+    /// f1 help, list state 为行光标状态
+    Help(ListState),
+    /// 某详情, u32 为 id
+    Details(InputEntry, u32),
+    /// 编辑窗口
+    Edit(EditingState),
+    /// y/n 弹窗
+    YNOption(YNState),
+    /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
+    InputMainPwd(VerifyMPHState),
+}
+
+impl Screen {
+    /// 表达该屏幕是否为最上级的home_page
+    ///
+    /// > 该方法给多个可能实现的 home_page 做准备
+    pub fn is_home_page(&self) -> bool {
+        matches!(self, Screen::HomePageV1(..))
+    }
+
+    pub fn is_help(&self) -> bool {
+        matches!(self, Screen::Help(..))
+    }
+
+    /// 新建编辑页面
+    pub fn new_edit_updating(u_input: InputEntry, e_id: u32) -> Self {
+        Screen::Edit(EditingState::new_updating(u_input, e_id))
+    }
+    /// 新建新建页面
+    pub fn new_edit_creating() -> Self {
+        Screen::Edit(EditingState::new_creating())
+    }
+
+    /// 新建help页面
+    pub fn new_help() -> Self {
+        Screen::Help(ListState::default())
+    }
+
+    /// 新建主页
+    pub fn new_home_page1(context: &PntContext) -> Self {
+        let vec = context.storage.select_all_entry();
+        Screen::HomePageV1(HomePageState::new(vec))
+    }
+
+    /// 新建输入密码页面
+    pub fn new_input_main_pwd(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
+        VerifyMPHState::new(screen_intent, context).map(Screen::InputMainPwd)
+    }
 }

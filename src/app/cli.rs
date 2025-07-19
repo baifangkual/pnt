@@ -1,7 +1,7 @@
 use crate::app::cfg::{InnerCfg, load_cfg};
 use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, APP_NAME};
 use crate::app::context::{DataFileState, PntContext};
-use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier, build_mpv};
+use crate::app::crypto::{Encrypter, MainPwdEncrypter, MainPwdVerifier};
 use crate::app::errors::AppError;
 use crate::app::storage::Storage;
 use anyhow::anyhow;
@@ -29,7 +29,7 @@ pub struct CliArgs {
 
 impl CliArgs {
     const CLI_HELP_DATA: &'static str = "Use the specified data file,
-if this parameter is not provided,
+if this option is not provided,
 Use the default data file (default_data)";
     const CLI_HELP_FIND: &'static str = "Find for entries with similar 'about' values";
 }
@@ -46,11 +46,10 @@ enum SubCmd {
     long_about = Self::SUB_INIT_HELP)]
     Init,
     /// Modify the main password in an interactive context
-    #[command(name = "mmp", long_flag = "modify-main-pwd")]
+    #[command(name = "mmp")]
     ModifyMainPwd,
     /// 子命令 print 或 修改 cfg
     #[command(name = "cfg",
-    long_flag = "data-file-cfg",
     about = Self::SUB_CFG_HELP_HEAD,
     long_about = Self::SUB_CFG_HELP)]
     Cfg(SubCmdCfgArgs),
@@ -66,20 +65,26 @@ impl SubCmd {
 .4. Default path";
     const SUB_CFG_HELP_HEAD: &'static str = "Management of configuration related to specific data files";
     const SUB_CFG_HELP: &'static str = "Management of configuration related to specific data files.
-\nIf no configuration parameters are specified for setting,
+\nIf no configuration options are specified for setting,
 it will print the current state of all configurations.";
 }
 
 #[derive(Args, Debug)]
 struct SubCmdCfgArgs {
+    /// *configuration option*
+    ///
     /// Setting whether to require the main password immediately at runtime
-    #[arg(long = "modify--need-main-pwd-on-run", value_name = "BOOLEAN")]
-    modify_need_main_pwd_on_run: Option<bool>,
+    #[arg(long = InnerCfg::VERIFY_ON_LAUNCH, value_name = "BOOLEAN")]
+    modify_verify_on_launch: Option<bool>,
+    /// *configuration option*
+    ///
     /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable)
-    #[arg(long = "modify--auto-relock-idle-sec", value_name = "SECONDS")]
+    #[arg(long = InnerCfg::AUTO_RELOCK_IDLE_SEC, value_name = "SECONDS")]
     modify_auto_relock_idle_sec: Option<u32>,
+    /// *configuration option*
+    ///
     /// Setting how many seconds of inactivity before the TUI automatically closes (set to 0 to disable)
-    #[arg(long = "modify--auto-close-idle-sec", value_name = "SECONDS")]
+    #[arg(long = InnerCfg::AUTO_CLOSE_IDLE_SEC, value_name = "SECONDS")]
     modify_auto_close_idle_sec: Option<u32>,
 }
 
@@ -172,14 +177,14 @@ impl CliArgs {
             // ===========================================================
             // change inner cfg and store ================================
             // ===========================================================
-            if let Some(rs_need_mp_on_run) = &args.modify_need_main_pwd_on_run {
+            if let Some(rs_need_mp_on_run) = &args.modify_verify_on_launch {
                 no_any_args = false;
-                context.cfg.inner_cfg.need_main_pwd_on_run = *rs_need_mp_on_run;
+                context.cfg.inner_cfg.verify_on_launch = *rs_need_mp_on_run;
                 context.cfg.inner_cfg.save_to_data(&mut context.storage);
                 println!(
                     "{} '{}'",
                     "Successfully modified configuration".green(),
-                    InnerCfg::NEED_MAIN_PWD_ON_RUN
+                    InnerCfg::VERIFY_ON_LAUNCH
                 );
             }
             if let Some(rs_auto_re_lock_idle_sec) = &args.modify_auto_relock_idle_sec {

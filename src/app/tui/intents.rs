@@ -1,9 +1,9 @@
 use crate::app::entry::InputEntry;
 use crate::app::tui::TUIApp;
-use crate::app::tui::screen::Screen;
-use crate::app::tui::screen::Screen::{Details, Edit, InputMainPwd, YNOption};
-use crate::app::tui::screen::states::{EditingState, VerifyMPHState};
-use crate::app::tui::screen::yn::YNState;
+use crate::app::tui::components::Screen;
+use crate::app::tui::components::Screen::{Details, Edit, YNOption};
+use crate::app::tui::components::states::EditingState;
+use crate::app::tui::components::yn::YNState;
 use anyhow::Context;
 
 /// 进入屏幕的意图
@@ -34,7 +34,7 @@ impl ScreenIntent {
     pub fn handle_intent(&self, tui: &TUIApp) -> anyhow::Result<Screen> {
         if !tui.context.is_verified() && self.is_before_enter_need_main_pwd() {
             // 未有主密码则进入需要密码的页面
-            Ok(InputMainPwd(VerifyMPHState::new(self.clone(), &tui.context)?))
+            Screen::new_input_main_pwd(self.clone(), &tui.context)
         } else {
             // 已有securityContext，直接发送进入事件
             match &self {
