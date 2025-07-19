@@ -1,5 +1,6 @@
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
-use crate::app::crypto::Encrypter;
+use crate::app::context::{PntContext, SecurityContext};
+use crate::app::crypto::{Encrypter, MainPwdVerifier};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::InvalidPassword;
 use crate::app::tui::intents::ScreenIntent;
@@ -311,13 +312,15 @@ pub struct NeedMainPwdState {
     pub mp_input: String,
     pub enter_screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
     pub retry_count: u8,
+    verifier: MainPwdVerifier,
 }
 impl NeedMainPwdState {
-    pub fn new(enter_screen_intent: ScreenIntent) -> Self {
+    pub fn new(enter_screen_intent: ScreenIntent, context: &PntContext) -> Self {
         Self {
             mp_input: String::new(),
             enter_screen_intent: Some(enter_screen_intent),
             retry_count: 0,
+            verifier: context.mpv(),
         }
     }
 
@@ -325,6 +328,29 @@ impl NeedMainPwdState {
         self.enter_screen_intent
             .take()
             .context("'NeedMainPwdState' not found target screen")
+    }
+
+    // /// 校验当前输入，返回布尔值 true 通过，反之未通过
+    // ///
+    // /// # Panics
+    // ///
+    // /// 当数据文件中主密码hash被人为修改导致无法构建有效主密码hash时
+    // pub fn verify_current_input(&self) -> bool {
+    //     self.verifier.verify(&self.mp_input).unwrap()
+    // }
+
+    /// 尝试构建 security_context，返回Option Some表示当前输入密码通过校验，
+    /// 若为None表示当前输入未通过校验
+    /// 
+    /// # Panics
+    /// 
+    /// 当数据文件中主密码hash被人为修改导致无法构建有效主密码hash时
+    pub fn try_build_security_context(&self) -> Option<SecurityContext> {
+        if self.verifier.verify(&self.mp_input).unwrap() {
+            Some(self.verifier.load_security_context(&self.mp_input).unwrap())
+        } else {
+            None
+        }
     }
 
     pub fn mp_input(&self) -> &str {

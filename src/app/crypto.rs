@@ -72,6 +72,7 @@ impl Encrypter<String, String> for MainPwdEncrypter {
 }
 
 /// 主密码校验器
+#[derive(Debug)]
 pub struct MainPwdVerifier {
     salt: SaltString,
     mph: String,

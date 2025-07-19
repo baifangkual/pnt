@@ -74,7 +74,7 @@ impl TUIApp {
         Ok(())
     }
 
-    /// APP Event 处理
+    /// action 处理
     fn handle_action(&mut self, action: Action) -> Result<()> {
         match action {
             Action::ScreenIntent(intent) => self.handle_enter_screen_indent(intent)?,
@@ -87,6 +87,19 @@ impl TUIApp {
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
             Action::MainPwdVerifyFailed => self.mp_retry_increment_or_err()?,
             Action::Quit => self.quit_tui_app(),
+            Action::BackScreen => self.back_screen(),
+            Action::RELOCK => self.re_lock(),
+            Action::Actions(actions) => self.handle_actions(actions)?,
+            Action::OptionYNTuiCallback(callback) => callback(self)?,
+            Action::SetTuiHotMsg(msg, live_time, ali) => self.hot_msg.set_msg(&msg, live_time, ali),
+        }
+        Ok(())
+    }
+
+    /// 一组 action 处理
+    fn handle_actions(&mut self, actions: Vec<Action>) -> Result<()> {
+        for action in actions {
+            self.handle_action(action)?;
         }
         Ok(())
     }

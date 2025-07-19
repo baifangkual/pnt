@@ -34,7 +34,7 @@ impl ScreenIntent {
     pub fn handle_intent(&self, tui: &TUIApp) -> anyhow::Result<Screen> {
         if !tui.context.is_verified() && self.is_before_enter_need_main_pwd() {
             // 未有主密码则进入需要密码的页面
-            Ok(NeedMainPasswd(NeedMainPwdState::new(self.clone())))
+            Ok(NeedMainPasswd(NeedMainPwdState::new(self.clone(), &tui.context)))
         } else {
             // 已有securityContext，直接发送进入事件
             match &self {

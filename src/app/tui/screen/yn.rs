@@ -61,7 +61,7 @@ impl Theme {
 }
 
 /// 闭包，表示在Y/N情况下的行为
-type FnCallYN = Box<dyn FnOnce(&mut TUIApp) -> anyhow::Result<()> + Send>;
+pub type FnCallYN = Box<dyn FnOnce(&mut TUIApp) -> anyhow::Result<()> + Send>;
 
 /// 带 YN 选项的实体，可载荷 Item
 pub struct YNState {

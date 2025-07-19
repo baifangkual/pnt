@@ -10,6 +10,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use ratatui::prelude::Alignment;
 
 /// The frequency at which tick events are emitted.
 /// 每秒一次
@@ -31,15 +32,32 @@ pub enum Event {
 
 /// app 的 行为
 pub enum Action {
-    ScreenIntent(ScreenIntent), // 仅描述意图要进入的页面
+    /// 多个顺序的行为
+    Actions(Vec<Action>),
+    /// 仅描述意图要进入的页面
+    ScreenIntent(ScreenIntent),
+    /// 回退到上一个屏幕
+    BackScreen,
+    /// 重新锁定
+    RELOCK,
+    /// optionYn tui回调
+    OptionYNTuiCallback(crate::app::tui::screen::yn::FnCallYN),
+    /// 设定TUI hot msg, 该结构内包含信息，持续时间，位置
+    SetTuiHotMsg(String, Option<u8>, Option<Alignment>),
     TurnOnFindMode,
     TurnOffFindMode,
-    EntryInsert(ValidEntry),       // 插入必要全局刷新 vec，因为插入到库前还不知道id
-    EntryUpdate(ValidEntry, u32),  // u32 为 id
-    EntryRemove(u32),              // u32 为 id
-    FlashVecItems(Option<String>), // 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
+    /// 新的加密实体插入，插入必要全局刷新 vec，因为插入到库前还不知道id
+    EntryInsert(ValidEntry),
+    /// 更新加密实体，u32为id
+    EntryUpdate(ValidEntry, u32),
+    /// 删除加密实体，u32为id
+    EntryRemove(u32),
+    /// 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
+    FlashVecItems(Option<String>),
     MainPwdVerifyFailed,
-    MainPwdVerifySuccess(SecurityContext), // 主密码校验成功时会载荷 securityContext
+    /// 主密码校验成功时会载荷 securityContext
+    MainPwdVerifySuccess(SecurityContext),
+    /// tui程序退出
     Quit,
 }
 

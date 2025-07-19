@@ -5,6 +5,7 @@ mod layout;
 mod rt;
 mod screen;
 mod widgets;
+mod component;
 
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
@@ -261,7 +262,7 @@ impl TUIApp {
 fn new_runtime(pnt_context: PntContext) -> TUIApp {
     // tui 情况下 处理 要求立即密码的情况
     let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
-        let scr = NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1));
+        let scr = NeedMainPasswd(NeedMainPwdState::new(ToHomePageV1, &pnt_context));
         let mut hm = HotMsg::new();
         hm.set_msg(
             &format!(
