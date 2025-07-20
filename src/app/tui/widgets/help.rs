@@ -57,11 +57,11 @@ impl HelpPage<'static, 9> {
             key_maps: [
                 KeyMapInfo {
                     key_map: "<↓>",
-                    note: "select next input-area | cursor move down",
+                    note: "select next input-box | cursor move down",
                 },
                 KeyMapInfo {
                     key_map: "<↑>",
-                    note: "select prev input-area | cursor move up",
+                    note: "select prev input-box | cursor move up",
                 },
                 KeyMapInfo {
                     key_map: "<←>",
@@ -81,36 +81,44 @@ impl HelpPage<'static, 9> {
                 },
                 KeyMapInfo {
                     key_map: "<ENTER>",
-                    note: "select next input-area | new line",
+                    note: "select next input-box | new line (on editing notes)",
                 },
                 KeyMapInfo {
                     key_map: "<TAB>",
-                    note: "select next input-area",
+                    note: "select next input-box",
                 },
                 KeyMapInfo {
                     key_map: "<CTRL+S>",
-                    note: "save",
+                    note: "save (create) | overwrite (update)",
                 },
             ],
         }
     }
 }
 
-impl HelpPage<'static, 3> {
+impl HelpPage<'static, 5> {
     pub const fn detail() -> Self {
         Self {
             key_maps: [
                 KeyMapInfo {
                     key_map: "<ESC>|<Q>",
-                    note: "quit-detail",
+                    note: "back",
                 },
                 KeyMapInfo {
                     key_map: "<D>",
-                    note: "delete",
+                    note: "delete current entry",
                 },
                 KeyMapInfo {
                     key_map: "<L>",
-                    note: "quit-detail and re-lock",
+                    note: "back and relock",
+                },
+                KeyMapInfo {
+                    key_map: "<E>",
+                    note: "edit current entry",
+                },
+                KeyMapInfo {
+                    key_map: "<CTRL+C>",
+                    note: "quit app",
                 },
             ],
         }
@@ -151,27 +159,27 @@ impl HelpPage<'static, 13> {
                 },
                 KeyMapInfo {
                     key_map: "<ENTER>",
-                    note: "detail current | [find] find",
+                    note: "current entry detail | [find] find",
                 },
                 KeyMapInfo {
                     key_map: "<O>",
-                    note: "detail current",
+                    note: "current entry detail",
                 },
                 KeyMapInfo {
                     key_map: "<A>",
-                    note: "create new",
+                    note: "create new entry",
                 },
                 KeyMapInfo {
                     key_map: "<E>",
-                    note: "edit current",
+                    note: "edit current entry",
                 },
                 KeyMapInfo {
                     key_map: "<D>",
-                    note: "delete current",
+                    note: "delete current entry",
                 },
                 KeyMapInfo {
                     key_map: "<L>",
-                    note: "re-lock",
+                    note: "relock",
                 },
             ],
         }

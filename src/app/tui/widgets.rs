@@ -25,6 +25,21 @@ impl Widget for &YNState {
 
         block.render(area, buf);
 
+        // desc 部分
+        let box_desc = Block::new().bg(self.theme.cl_desc_bg).padding(Padding::proportional(1));
+
+        /*
+        https://docs.rs/ratatui/latest/ratatui/widgets/struct.Paragraph.html#method.line_count
+        line_count稳定后，可计算占用行数从而动态分配 desc占用 area height大小
+        let desc_paragraph = Paragraph::new(self.desc.as_str())
+            .block(box_desc)
+            .wrap(Wrap { trim: false })
+            .alignment(Alignment::Left)
+            .fg(self.theme.cl_desc_fg);
+        let desc_height = desc_paragraph.line_count(inner_area.width) as u16;
+        desc_paragraph.render(r_desc, buf);
+        */
+
         let [r_title, _, r_desc, _, r_bottom] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
@@ -34,6 +49,14 @@ impl Widget for &YNState {
         ])
         .areas(inner_area);
 
+        Paragraph::new(self.desc.as_str())
+            .block(box_desc)
+            .wrap(Wrap { trim: false })
+            .alignment(Alignment::Left)
+            .fg(self.theme.cl_desc_fg)
+            .scroll((self.scroll(), 0))
+            .render(r_desc, buf);
+
         Paragraph::new(
             Line::from(format!(" [] {} ", self.title.as_str()))
                 .fg(self.theme.cl_title_fg)
@@ -41,15 +64,6 @@ impl Widget for &YNState {
         )
         .alignment(Alignment::Center)
         .render(r_title, buf);
-
-        // desc 部分
-        let box_desc = Block::new().bg(self.theme.cl_desc_bg).padding(Padding::proportional(1));
-        Paragraph::new(self.desc.as_str())
-            .block(box_desc)
-            .wrap(Wrap { trim: false })
-            .alignment(Alignment::Left)
-            .fg(self.theme.cl_desc_fg)
-            .render(r_desc, buf);
 
         // 底部左右二分
         let rc_bottom_lr = layout::horizontal_split2(r_bottom);
@@ -129,6 +143,8 @@ impl Widget for &InputEntry {
         Paragraph::new(identity).block(b_ident).render(rc[1], buf);
         Paragraph::new(password).block(b_password).render(rc[2], buf);
         Paragraph::new(desc)
+            // 虽然 detail直接切换到 edit notes显示过长的行部分会跳变
+            // 但为了在detail时的信息完整性，允许跳变
             .wrap(Wrap { trim: false })
             .block(b_description)
             .render(rc[3], buf);

@@ -223,6 +223,10 @@ impl HomePageState {
         self.find_input.lines().last().unwrap()
     }
 
+    pub fn current_find_input_is_empty(&self) -> bool {
+        self.find_input.is_empty()
+    }
+
     pub fn find_input(&mut self) -> &mut TextArea<'static> {
         &mut self.find_input
     }

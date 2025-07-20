@@ -6,7 +6,8 @@ use crate::app::tui::events::Action;
 use ratatui::prelude::Color;
 
 /// 二分类枚举
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
 pub enum YN {
     Yes,
     No,
@@ -75,6 +76,8 @@ pub struct YNState {
     pub yn: Option<YN>,
     /// 显示颜色信息
     pub theme: Theme,
+    /// notes 部分的滚动显示，该字段面向渲染
+    scroll: u16,
 }
 
 impl YNState {
@@ -86,7 +89,18 @@ impl YNState {
             n_call: None,
             yn: None,
             theme,
+            scroll: 0,
         }
+    }
+
+    pub fn scroll(&self) -> u16 {
+        self.scroll
+    }
+    pub fn scroll_up(&mut self) {
+        self.scroll = self.scroll.saturating_sub(1);
+    }
+    pub fn scroll_down(&mut self) {
+        self.scroll = self.scroll.saturating_add(1);
     }
 
     pub fn theme_mut(&mut self) -> &mut Theme {
@@ -118,7 +132,7 @@ impl YNState {
         let tip_title = format!("DELETE '{}' ?", e_name);
         let tip_desc = format!(
             "[󰦨 about]: {}\n\
-             -󰦨 notes-\n{}",
+             -󰦨 notes-----\n{}",
             e_name, e_desc
         );
         let e_id = encrypted_entry.id;
@@ -147,7 +161,7 @@ impl YNState {
             "[󰦨 about]:    {}\n\
              [󰌿 username]: {}\n\
              [󰌿 password]: {}\n\
-             -󰦨 notes-\n{}",
+             -󰦨 notes-----\n{}",
             &ie.about, &ie.username, &ie.password, e_notes_dots
         );
         let mut yn = Self::new(tip_title, tip_desc, Theme::THEME_SAVE);

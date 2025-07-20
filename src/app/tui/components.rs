@@ -16,6 +16,56 @@ use ratatui::widgets::ListState;
 pub(crate) mod states;
 pub(crate) mod yn;
 
+/// 当前屏幕
+pub enum Screen {
+    /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
+    HomePageV1(HomePageState),
+    /// f1 help, list state 为行光标状态
+    Help(ListState),
+    /// 某详情, u32 为 id
+    Details(InputEntry, u32),
+    /// 编辑窗口
+    Edit(EditingState),
+    /// y/n 弹窗
+    YNOption(YNState),
+    /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
+    InputMainPwd(VerifyMPHState),
+}
+
+impl Screen {
+    /// 表达该屏幕是否为最上级的home_page
+    ///
+    /// > 该方法给多个可能实现的 home_page 做准备
+    pub fn is_home_page(&self) -> bool {
+        matches!(self, Screen::HomePageV1(..))
+    }
+
+    /// 新建编辑页面
+    pub fn new_edit_updating(u_input: InputEntry, e_id: u32) -> Self {
+        Screen::Edit(EditingState::new_updating(u_input, e_id))
+    }
+    /// 新建新建页面
+    pub fn new_edit_creating() -> Self {
+        Screen::Edit(EditingState::new_creating())
+    }
+
+    /// 新建help页面
+    pub fn new_help() -> Self {
+        Screen::Help(ListState::default())
+    }
+
+    /// 新建主页
+    pub fn new_home_page1(context: &PntContext) -> Self {
+        let vec = context.storage.select_all_entry();
+        Screen::HomePageV1(HomePageState::new(vec))
+    }
+
+    /// 新建输入密码页面
+    pub fn new_input_main_pwd(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
+        VerifyMPHState::new(screen_intent, context).map(Screen::InputMainPwd)
+    }
+}
+
 pub trait KeyEventExt {
     /// 判定是否为某char按下
     ///
@@ -104,7 +154,7 @@ impl EventHandler for TUIApp {
             if let Screen::HomePageV1(state) = &mut self.screen {
                 if state.find_mode() {
                     return ok_action(Action::TurnOffFindMode);
-                } else if !state.current_find_input().is_empty() {
+                } else if !state.current_find_input_is_empty() {
                     state.clear_find_input();
                     return ok_action(Action::FlashVecItems(None));
                 } else {
@@ -242,12 +292,27 @@ impl EventHandler for Screen {
                 if key_event.is_char('l') {
                     return ok_action(Action::Relock);
                 }
+                if key_event.is_char('e') {
+                    let back_and_enter_editing = // 按下e时退出当前屏幕并进入编辑屏幕
+                        Action::Actions(vec![Action::BackScreen, Action::ScreenIntent(ToEditing(Some(*e_id)))]);
+                    return ok_action(back_and_enter_editing);
+                }
                 ok_none()
             }
             // 弹窗页面
             Screen::YNOption(option_yn) => {
                 if key_event.is_char('q') {
                     return ok_action(Action::BackScreen);
+                }
+                // 上移
+                if key_event.is_char('k') || key_event.is_up() {
+                    option_yn.scroll_up();
+                    return ok_none();
+                }
+                // 下移
+                if key_event.is_down() || key_event.is_char('j') {
+                    option_yn.scroll_down();
+                    return ok_none();
                 }
                 if let KeyCode::Char('y' | 'Y') | KeyCode::Enter = key_event.code {
                     return if let Some(y_call) = option_yn.take_y_call() {
@@ -339,59 +404,5 @@ impl EventHandler for Screen {
                 ok_none()
             }
         }
-    }
-}
-
-/// 当前屏幕
-pub enum Screen {
-    /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
-    HomePageV1(HomePageState),
-    /// f1 help, list state 为行光标状态
-    Help(ListState),
-    /// 某详情, u32 为 id
-    Details(InputEntry, u32),
-    /// 编辑窗口
-    Edit(EditingState),
-    /// y/n 弹窗
-    YNOption(YNState),
-    /// 要求键入主密码的窗口，载荷主密码输入string和准备进入的页面
-    InputMainPwd(VerifyMPHState),
-}
-
-impl Screen {
-    /// 表达该屏幕是否为最上级的home_page
-    ///
-    /// > 该方法给多个可能实现的 home_page 做准备
-    pub fn is_home_page(&self) -> bool {
-        matches!(self, Screen::HomePageV1(..))
-    }
-
-    pub fn is_help(&self) -> bool {
-        matches!(self, Screen::Help(..))
-    }
-
-    /// 新建编辑页面
-    pub fn new_edit_updating(u_input: InputEntry, e_id: u32) -> Self {
-        Screen::Edit(EditingState::new_updating(u_input, e_id))
-    }
-    /// 新建新建页面
-    pub fn new_edit_creating() -> Self {
-        Screen::Edit(EditingState::new_creating())
-    }
-
-    /// 新建help页面
-    pub fn new_help() -> Self {
-        Screen::Help(ListState::default())
-    }
-
-    /// 新建主页
-    pub fn new_home_page1(context: &PntContext) -> Self {
-        let vec = context.storage.select_all_entry();
-        Screen::HomePageV1(HomePageState::new(vec))
-    }
-
-    /// 新建输入密码页面
-    pub fn new_input_main_pwd(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
-        VerifyMPHState::new(screen_intent, context).map(Screen::InputMainPwd)
     }
 }
