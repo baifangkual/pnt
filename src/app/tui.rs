@@ -20,8 +20,8 @@ use components::Screen;
 use ratatui::DefaultTerminal;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::{Alignment, Color, Line, Stylize, Widget};
-use ratatui::prelude::{Span, StatefulWidget, Text};
+use ratatui::prelude::StatefulWidget;
+use ratatui::prelude::{Alignment, Color, Stylize, Widget};
 use ratatui::widgets::{Block, Paragraph};
 
 /// tui 运行 模式
@@ -106,7 +106,8 @@ impl Widget for &mut TUIApp {
                 mode_show_len = 8; // 增加左右空一格
             }
             Screen::YNOption(option_yn) => {
-                self.hot_msg.set_always_if_none("󰌌 <ENTER>|<Y> Yes, <ESC>|<N> No, ↓↑jk scroll");
+                self.hot_msg
+                    .set_always_if_none("󰌌 <ENTER>|<Y> Yes, <ESC>|<N> No, ↓↑jk scroll");
                 let rect = layout::centered_percent(70, 50, middle);
                 option_yn.render(rect, buf);
             }
@@ -118,7 +119,6 @@ impl Widget for &mut TUIApp {
 
         // 页面右下角 当前/总共 entry 信息
         let bottom_right_state_info = self.state_info.as_str();
-
 
         // 对bottom 横条横向切分
         let [bl, bc, br1, br2_dyn] = Layout::horizontal([
