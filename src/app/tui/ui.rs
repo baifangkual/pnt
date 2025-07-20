@@ -1,12 +1,15 @@
 use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
 use crate::app::entry::InputEntry;
-use crate::app::tui::colors::{CL_RED, CL_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_BLUE, CL_D_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_YELLOW, CL_DD_WHITE};
+use crate::app::tui::components::Screen;
 use crate::app::tui::components::states::VerifyMPHState;
 use crate::app::tui::components::yn::YNState;
-use crate::app::tui::layout;
+use crate::app::tui::ui::home_page::HomePageV1Widget;
+use crate::app::tui::{TUIApp, layout};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Rect};
-use ratatui::prelude::{Layout, Line, Modifier, Style, Stylize, Widget};
+use ratatui::prelude::StatefulWidget;
+use ratatui::prelude::{Color, Layout, Line, Modifier, Style, Stylize, Widget};
 use ratatui::widgets::{Block, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use tui_textarea::TextArea;
@@ -14,6 +17,136 @@ use tui_textarea::TextArea;
 mod editing;
 pub mod help;
 pub mod home_page;
+
+impl Widget for &mut TUIApp {
+    /// 渲染函数入口
+    ///
+    /// ratatui的渲染逻辑是后渲染的覆盖先渲染的
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let [middle, bottom] = Layout::vertical([Constraint::Fill(0), Constraint::Length(1)]).areas(area);
+
+        // 主要内容背景
+        Block::new().bg(CL_BLACK).render(middle, buf);
+
+        // 底部右边的mode
+        let mut br_mode: Option<Paragraph> = None;
+        // 显示mode的长度
+        let mut mode_show_len = 0;
+
+        // 渲染当前屏幕
+        match &mut self.screen {
+            Screen::HomePageV1(state) => {
+                // find 框不为空，则右下提示当前生效
+                if state.find_mode() || !state.current_find_input_is_empty() {
+                    br_mode = Some(Paragraph::new("FIND").fg(CL_BLACK).bg(Color::Yellow));
+                    mode_show_len = 6; // 增加左右
+                }
+
+                let dash_widget = HomePageV1Widget;
+                dash_widget.render(middle, buf, state);
+                // fixed: ratatui的ListState在未定义select时其值为uxx::MAX，增1溢出导致dev时panic
+                // 遂应当在其stateful的渲染render完成后再读取其，便会有有效值了
+                // 遂该块代码应在 dash_widget.render(middle, buf, state) 之后即可
+                let cur = if let Some(i) = state.cursor_selected() {
+                    i + 1
+                } else {
+                    0
+                };
+                self.state_info.clear();
+                self.state_info.push_str(&format!(" {}/{}", cur, state.entry_count()));
+            }
+            Screen::Help(list_cursor) => {
+                self.hot_msg.set_always_if_none("󰌌 <ESC>|<Q> back, ↓↑jk scroll");
+                let rect = layout::centered_percent(90, 90, middle);
+                let help_who = self.back_screen.last().unwrap(); // 一定有，遂直接unwrap
+                match help_who {
+                    Screen::HomePageV1(..) => help::HelpPage::home_page().render(rect, buf, list_cursor),
+                    Screen::Details(..) => help::HelpPage::detail().render(rect, buf, list_cursor),
+                    Screen::Edit(..) => help::HelpPage::editing().render(rect, buf, list_cursor),
+                    _ => (),
+                }
+            }
+            Screen::Details(entry, _) => {
+                self.hot_msg
+                    .set_always_if_none("󰌌 <ESC>|<Q> back, <E> edit, <C> CP, <D> delete, <L> relock");
+                let rect = layout::centered_percent(90, 90, middle);
+                entry.render(rect, buf);
+            }
+            Screen::Edit(state) => {
+                self.hot_msg
+                    .set_always_if_none("󰌌 <TAB> next, ↓↑←→ move, <CTRL+S> save, <ESC> back");
+                let rect = layout::centered_percent(90, 90, middle);
+                state.render(rect, buf);
+                // 判定是新建还是编辑，右下提示
+                if state.current_e_id().is_some() {
+                    br_mode = Some(Paragraph::new("UPDATE").fg(CL_BLACK).bg(CL_YELLOW))
+                } else {
+                    br_mode = Some(Paragraph::new("CREATE").fg(CL_BLACK).bg(CL_BLUE));
+                }
+                mode_show_len = 8; // 增加左右空一格
+            }
+            Screen::YNOption(option_yn) => {
+                self.hot_msg
+                    .set_always_if_none("󰌌 <ENTER>|<Y> Yes, <ESC>|<N> No, ↓↑jk scroll");
+                let rect = layout::centered_percent(70, 50, middle);
+                option_yn.render(rect, buf);
+            }
+            Screen::InputMainPwd(state) => {
+                let rect = layout::centered_fixed(50, 5, middle);
+                state.render(rect, buf);
+            }
+        }
+
+        // 页面右下角 当前/总共 entry 信息
+        let bottom_right_state_info = self.state_info.as_str();
+
+        // 对bottom 横条横向切分
+        let [bl, bc, br1, br2_dyn] = Layout::horizontal([
+            Constraint::Length(10),
+            Constraint::Fill(0),
+            Constraint::Length(mode_show_len),
+            // dyn 特殊字符占多个字节，遂该值就是+2个字节，即能填充左右空格
+            Constraint::Length(bottom_right_state_info.len() as u16),
+        ])
+        .areas(bottom);
+
+        // 总体页面右下角区域，显示信息
+        Paragraph::new(bottom_right_state_info)
+            .fg(CL_BLACK)
+            .bg(CL_DD_WHITE)
+            .alignment(Alignment::Center)
+            .render(br2_dyn, buf);
+
+        // 有则渲染之
+        if let Some(mode_span) = br_mode {
+            mode_span.centered().render(br1, buf);
+        }
+        // bc 填充颜色
+        Block::new().bg(CL_L_BLACK).render(bc, buf);
+
+        // mp状态图标
+        if self.context.is_verified() {
+            Paragraph::new("󰌾 UNLOCK")
+                .fg(CL_WHITE)
+                .bg(CL_RED)
+                .alignment(Alignment::Center)
+                .render(bl, buf);
+        } else {
+            Paragraph::new("󰌾 LOCK")
+                .fg(CL_WHITE)
+                .bg(CL_LL_BLACK)
+                .alignment(Alignment::Center)
+                .render(bl, buf);
+        }
+
+        // fixed 在match后渲染hot_msg，防止match内修改hot_msg后当前帧不刷新，而是下一帧刷新的问题
+        // to do 后可作为当前screen 提示信息显示在此...
+        Paragraph::new(self.hot_msg.msg())
+            .alignment(self.hot_msg.alignment())
+            .fg(self.hot_msg.color())
+            .render(bc, buf);
+    }
+}
 
 /// 选项页面渲染
 impl Widget for &YNState {
@@ -58,7 +191,7 @@ impl Widget for &YNState {
             .render(r_desc, buf);
 
         Paragraph::new(
-            Line::from(format!(" [] {} ", self.title.as_str()))
+            Line::from(self.title.as_str())
                 .fg(self.theme.cl_title_fg)
                 .bg(self.theme.cl_title_bg),
         )

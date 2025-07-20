@@ -4,13 +4,14 @@ use crate::app::crypto::{Encrypter, MainPwdVerifier};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::InvalidPassword;
 use crate::app::tui::intents::ScreenIntent;
-use crate::app::tui::widgets::{TextAreaExt, new_input_textarea};
+use crate::app::tui::ui::{TextAreaExt, new_input_textarea};
 use anyhow::{Context, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;
-use ratatui::widgets::{ListState, ScrollbarState};
+use ratatui::widgets::{ScrollbarState, TableState};
 use tui_textarea::TextArea;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
 pub struct EditingState {
@@ -185,12 +186,16 @@ impl<T> std::ops::IndexMut<Editing> for [T; 4] {
 /// 主页/仪表盘 的状态信息
 #[derive(Debug, Clone)]
 pub struct HomePageV1State {
-    // 控制 find_input 的 标志位
+    /// 控制 find_input 的 标志位
     find_mode: bool,
     find_input: TextArea<'static>,
     entries: Vec<EncryptedEntry>,
-    cursor: ListState,               // 添加ListState来控制滚动
-    scrollbar_state: ScrollbarState, // 垂直滚动条样式
+    /// 添加ListState来控制滚动
+    cursor: TableState,
+    /// 垂直滚动条样式
+    scrollbar_state: ScrollbarState,
+    /// 存储的 entries 中 about 内容 最长的占用的字符个数（中文会占用多个字符宽度）
+    max_entry_about_width: u16,
 }
 
 impl HomePageV1State {
@@ -199,7 +204,9 @@ impl HomePageV1State {
     /// 该方法内会
     pub fn new(mut entries: Vec<EncryptedEntry>) -> Self {
         Self::sort_entries(&mut entries);
-        let mut cursor = ListState::default();
+        // 求在显示到终端的最大占用的字符宽度（中文为多个，遂不能通过len判定，而是要通过该）
+        let max = entries.iter().map(|e| e.about.width_cjk()).max().unwrap_or(0) as u16;
+        let mut cursor = TableState::default();
         cursor.select(if entries.is_empty() { None } else { Some(0) });
         let scrollbar_state = ScrollbarState::new(entries.len());
         Self {
@@ -208,6 +215,7 @@ impl HomePageV1State {
             entries,
             cursor,
             scrollbar_state,
+            max_entry_about_width: max,
         }
     }
 
@@ -253,11 +261,11 @@ impl HomePageV1State {
         self.entries.len()
     }
 
-    pub fn cursor_mut_ref(&mut self) -> &mut ListState {
+    pub fn cursor_mut_ref<'a, 'b: 'a>(&'b mut self) -> &'a mut TableState {
         &mut self.cursor
     }
 
-    pub fn entries(&self) -> &Vec<EncryptedEntry> {
+    pub fn entries<'a, 'b: 'a>(&'b self) -> &'a Vec<EncryptedEntry> {
         &self.entries
     }
 
@@ -297,6 +305,7 @@ impl HomePageV1State {
     /// 该方法内也会同步更新 cursor and scrollbar 状态
     pub fn reset_entries(&mut self, mut entries: Vec<EncryptedEntry>) {
         Self::sort_entries(&mut entries);
+        let max = entries.iter().map(|e| e.about.width_cjk()).max().unwrap_or(0) as u16;
         self.scrollbar_state = self.scrollbar_state.content_length(entries.len());
         self.entries = entries;
         if !self.entries().is_empty() {
@@ -306,6 +315,14 @@ impl HomePageV1State {
         } else {
             self.cursor.select(None);
         }
+        self.max_entry_about_width = max;
+    }
+    
+    /// 返回当中的一系列entry的about占用的 width 最大显示字符宽度
+    /// 
+    /// 中文为多个，遂使用该
+    pub fn max_about_width(&self) -> u16 {
+        self.max_entry_about_width
     }
 }
 

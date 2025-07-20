@@ -128,8 +128,8 @@ impl YNState {
     /// 删除页面用的
     pub fn new_delete_tip(encrypted_entry: EncryptedEntry) -> Self {
         let e_name = &encrypted_entry.about;
-        let e_desc = encrypted_entry.notes.as_ref().map_or("_", |v| v);
-        let tip_title = format!("DELETE '{}' ?", e_name);
+        let e_desc = encrypted_entry.notes.as_ref().map_or("", |v| v);
+        let tip_title = format!(" 󰗨 DELETE '{}' ? ", e_name);
         let tip_desc = format!(
             "[󰦨 about]: {}\n\
              -󰦨 notes-----\n{}",
@@ -151,11 +151,11 @@ impl YNState {
     }
     /// 保存页面用的
     pub fn new_save_tip(ie: InputEntry, e_id: Option<u32>) -> Self {
-        let e_notes_dots = if ie.notes.is_empty() { "_" } else { &ie.notes };
+        let e_notes_dots = if ie.notes.is_empty() { "" } else { &ie.notes };
         let tip_title = if e_id.is_none() {
-            format!("SAVE '{}' ?", ie.about)
+            format!("  SAVE '{}' ? ", ie.about)
         } else {
-            format!("SAVE CHANGE '{}' ?", ie.about)
+            format!("  SAVE CHANGE '{}' ? ", ie.about)
         };
         let tip_desc = format!(
             "[󰦨 about]:    {}\n\
