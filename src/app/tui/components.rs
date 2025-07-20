@@ -3,14 +3,16 @@
 use crate::app::context::PntContext;
 use crate::app::entry::InputEntry;
 use crate::app::tui::TUIApp;
-use crate::app::tui::components::states::{Editing, EditingState, HomePageState, VerifyMPHState};
+use crate::app::tui::components::states::{Editing, EditingState, HomePageV1State, VerifyMPHState};
 use crate::app::tui::components::yn::YNState;
 use crate::app::tui::events::Action;
 use crate::app::tui::intents::ScreenIntent;
 use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use crate::app::tui::colors::CL_D_YELLOW;
 use ratatui::layout::Alignment;
+use ratatui::prelude::Color;
 use ratatui::widgets::ListState;
 
 pub(crate) mod states;
@@ -19,7 +21,7 @@ pub(crate) mod yn;
 /// 当前屏幕
 pub enum Screen {
     /// 当前光标指向哪个，因为可能一个元素都没有，所以为 option, 所有元素在entries中
-    HomePageV1(HomePageState),
+    HomePageV1(HomePageV1State),
     /// f1 help, list state 为行光标状态
     Help(ListState),
     /// 某详情, u32 为 id
@@ -57,7 +59,7 @@ impl Screen {
     /// 新建主页
     pub fn new_home_page1(context: &PntContext) -> Self {
         let vec = context.storage.select_all_entry();
-        Screen::HomePageV1(HomePageState::new(vec))
+        Screen::HomePageV1(HomePageV1State::new(vec))
     }
 
     /// 新建输入密码页面
@@ -276,7 +278,7 @@ impl EventHandler for Screen {
                 }
             }
             // 详情页
-            Screen::Details(_, e_id) => {
+            Screen::Details(e, e_id) => {
                 // f1 按下 进入 帮助页面
                 if key_event.is_f1() {
                     return ok_action(Action::ScreenIntent(ToHelp));
@@ -293,9 +295,21 @@ impl EventHandler for Screen {
                     return ok_action(Action::Relock);
                 }
                 if key_event.is_char('e') {
-                    let back_and_enter_editing = // 按下e时退出当前屏幕并进入编辑屏幕
+                    let back_and_enter_editing_actions = // 按下e时退出当前屏幕并进入编辑屏幕
                         Action::Actions(vec![Action::BackScreen, Action::ScreenIntent(ToEditing(Some(*e_id)))]);
-                    return ok_action(back_and_enter_editing);
+                    return ok_action(back_and_enter_editing_actions);
+                }
+                if key_event.is_char('c') {
+                    let copy_pwd_and_hot_msg_actions = Action::Actions(vec![
+                        Action::CopyToSysClipboard(e.password.clone()),
+                        Action::SetTuiHotMsg(
+                            "󰅉 Password has been copied to the system clipboard".into(),
+                            Some(5),
+                            None,
+                            Some(Color::LightRed),
+                        ),
+                    ]);
+                    return ok_action(copy_pwd_and_hot_msg_actions);
                 }
                 ok_none()
             }
@@ -381,6 +395,7 @@ impl EventHandler for Screen {
                             " Some field is required".into(),
                             Some(3),
                             Some(Alignment::Center),
+                            Some(CL_D_YELLOW),
                         ))
                     };
                 }

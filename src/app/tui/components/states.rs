@@ -184,7 +184,7 @@ impl<T> std::ops::IndexMut<Editing> for [T; 4] {
 
 /// 主页/仪表盘 的状态信息
 #[derive(Debug, Clone)]
-pub struct HomePageState {
+pub struct HomePageV1State {
     // 控制 find_input 的 标志位
     find_mode: bool,
     find_input: TextArea<'static>,
@@ -193,7 +193,7 @@ pub struct HomePageState {
     scrollbar_state: ScrollbarState, // 垂直滚动条样式
 }
 
-impl HomePageState {
+impl HomePageV1State {
     /// 根据给定的 entries 创建
     ///
     /// 该方法内会

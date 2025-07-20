@@ -73,6 +73,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
             ),
             Some(255),
             Some(Alignment::Right),
+            None,
         ); // tui 启动时显示一次的提示
         (scr, hm)
     } else {
@@ -82,6 +83,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
             &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
             Some(5),
             Some(Alignment::Right),
+            None,
         ); // tui 启动时显示一次的提示
         (scr, hm)
     };
@@ -149,7 +151,7 @@ impl Widget for &mut TUIApp {
             }
             Screen::Details(entry, _) => {
                 self.hot_msg
-                    .set_always_if_none("󰌌 <ESC>|<Q> back, <E> edit, <D> delete, <L> relock");
+                    .set_always_if_none("󰌌 <ESC>|<Q> back, <E> edit, <C> CP, <D> delete, <L> relock");
                 let rect = layout::centered_percent(90, 90, middle);
                 entry.render(rect, buf);
             }
@@ -223,12 +225,10 @@ impl Widget for &mut TUIApp {
 
         // fixed 在match后渲染hot_msg，防止match内修改hot_msg后当前帧不刷新，而是下一帧刷新的问题
         // to do 后可作为当前screen 提示信息显示在此...
-        let hot_tip_msg = Paragraph::new(self.hot_msg.msg()).alignment(self.hot_msg.msg_alignment());
-        if self.hot_msg.is_temp_msg() {
-            hot_tip_msg.fg(CL_DDD_WHITE).render(bc, buf)
-        } else {
-            hot_tip_msg.fg(CL_DD_WHITE).render(bc, buf)
-        }
+        Paragraph::new(self.hot_msg.msg())
+            .alignment(self.hot_msg.alignment())
+            .fg(self.hot_msg.color())
+            .render(bc, buf);
     }
 }
 
@@ -254,67 +254,83 @@ pub struct TUIApp {
 
 struct HotMsg {
     temp_msg: Option<String>,
-    temp_msg_alignment: Alignment,
+    temp_msg_alignment: Option<Alignment>,
+    temp_msg_color: Option<Color>,
     /// temp_msg 存活时间 sec，响应tick，自减，为0则清除之
     temp_msg_live_countdown: u8,
     always_msg: String,
-    always_msg_alignment: Alignment,
+    always_msg_alignment: Option<Alignment>,
+    always_msg_color: Option<Color>,
 }
 impl HotMsg {
     fn new() -> Self {
         Self {
             temp_msg: None,
-            temp_msg_alignment: Alignment::Center,
+            temp_msg_alignment: None,
+            temp_msg_color: None,
             temp_msg_live_countdown: 0,
             always_msg: String::new(),
-            always_msg_alignment: Alignment::Center,
+            always_msg_alignment: None,
+            always_msg_color: None,
         }
     }
 
     /// 每次tick调用之，若temp存活时间到了，即将其清除
+    ///
+    /// 其 alignment及color也被清除（为不影响下一个temp_msg）
     fn tick(&mut self) {
         if self.temp_msg.is_some() {
             self.temp_msg_live_countdown = self.temp_msg_live_countdown.saturating_sub(1);
             if self.temp_msg_live_countdown == 0 {
-                self.temp_msg = None;
+                self.clear_temp_msg()
             }
         }
     }
     /// 设置消息，若给定 live_countdown 则为设置临时消息，
     /// 若无，则设置永久消息,
     /// 若align给定明确值，则将对应msg的alignment设定为对应值，否则msg的align为当前alignment
-    fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>, align: Option<Alignment>) {
+    fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>, align: Option<Alignment>, color: Option<Color>) {
         if let Some(l) = live_countdown {
-            self.set_temp_msg(msg, l, align.unwrap_or(self.temp_msg_alignment));
+            self.set_temp_msg(msg, l, align, color);
         } else {
-            self.set_always_msg(msg, align.unwrap_or(self.always_msg_alignment));
+            self.set_always_msg(msg, align, color);
         }
     }
     /// 若当前hot_msg没有always_msg，设置居中的always_msg
     #[inline]
     fn set_always_if_none(&mut self, center_always_msg: &str) {
         if self.always_msg.is_empty() {
-            self.set_always_msg(center_always_msg, Alignment::Center);
+            self.set_always_msg(center_always_msg, None, None);
         }
+    }
+
+    fn clear_temp_msg(&mut self) {
+        self.temp_msg = None;
+        self.temp_msg_alignment = None;
+        self.temp_msg_color = None;
     }
 
     /// 清理临时和永久消息
     fn clear(&mut self) {
-        self.temp_msg = None;
+        self.clear_temp_msg();
         self.clear_always_msg()
     }
     /// 设置临时消息，存活一定tick时间
-    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8, align: Alignment) {
+    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8, align: Option<Alignment>, color: Option<Color>) {
         self.temp_msg = Some(temp_msg.to_string());
         self.temp_msg_live_countdown = live_countdown;
         self.temp_msg_alignment = align;
+        self.temp_msg_color = color;
     }
-    fn set_always_msg(&mut self, always_msg: &str, align: Alignment) {
+    fn set_always_msg(&mut self, always_msg: &str, align: Option<Alignment>, color: Option<Color>) {
         self.always_msg = always_msg.to_string();
         self.always_msg_alignment = align;
+        self.always_msg_color = color;
     }
     fn clear_always_msg(&mut self) {
         self.always_msg.clear();
+        self.always_msg_alignment = None;
+        self.always_msg_color = None;
     }
     /// 返回当前 msg，temp msg 优先于 always msg，
     /// 若当前无temp msg，则返回的为always_msg的
@@ -322,21 +338,26 @@ impl HotMsg {
         self.temp_msg.as_ref().unwrap_or(&self.always_msg)
     }
     /// 返回当前的调用 msg 返回的 msg 的 alignment
-    fn msg_alignment(&self) -> Alignment {
-        if self.is_temp_msg() {
-            self.temp_msg_alignment
+    fn alignment(&self) -> Alignment {
+        if self.is_temp() {
+            self.temp_msg_alignment.unwrap_or(Alignment::Center)
         } else {
-            self.always_msg_alignment
+            self.always_msg_alignment.unwrap_or(Alignment::Center)
+        }
+    }
+    fn color(&self) -> Color {
+        if self.is_temp() {
+            self.temp_msg_color.unwrap_or(CL_DDD_WHITE)
+        } else {
+            self.always_msg_color.unwrap_or(CL_DD_WHITE)
         }
     }
     /// 返回当前调用 msg 方法时返回的 msg 类型，若temp_msg不为空，
     /// 则返回的 msg 为 temp_msg，即该方法返回 true，否则false
-    fn is_temp_msg(&self) -> bool {
+    fn is_temp(&self) -> bool {
         self.temp_msg.is_some()
     }
 }
-
-
 
 struct IdleTick {
     idle_tick_count: u32,

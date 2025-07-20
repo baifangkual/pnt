@@ -96,7 +96,7 @@ impl HelpPage<'static, 9> {
     }
 }
 
-impl HelpPage<'static, 5> {
+impl HelpPage<'static, 6> {
     pub const fn detail() -> Self {
         Self {
             key_maps: [
@@ -115,6 +115,10 @@ impl HelpPage<'static, 5> {
                 KeyMapInfo {
                     key_map: "<E>",
                     note: "edit current entry",
+                },
+                KeyMapInfo {
+                    key_map: "<C>",
+                    note: "copy password to system clipboard",
                 },
                 KeyMapInfo {
                     key_map: "<CTRL+C>",

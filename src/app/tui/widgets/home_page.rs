@@ -1,5 +1,5 @@
 use crate::app::tui::colors::{CL_BLACK, CL_D_WHITE, CL_DD_WHITE, CL_WHITE};
-use crate::app::tui::components::states::HomePageState;
+use crate::app::tui::components::states::HomePageV1State;
 use crate::app::tui::layout::RectExt;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Buffer, Color, Line, Margin, StatefulWidget, Style, Stylize, Widget};
@@ -14,10 +14,9 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 
     for grapheme in text.graphemes(true) {
         let char_width = UnicodeWidthStr::width(grapheme);
-        if width + char_width > max_width {
-            if max_width > 3 {
-                result.push_str("...");
-            }
+        if width + char_width + 3 > max_width {
+            result.push_str("...");
+            width += 3;
             break;
         }
         width += char_width;
@@ -36,7 +35,7 @@ fn truncate_text(text: &str, max_width: usize) -> String {
 pub struct HomePageV1Widget;
 
 impl StatefulWidget for HomePageV1Widget {
-    type State = HomePageState;
+    type State = HomePageV1State;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let [l_5, area90_center, _] = Layout::horizontal([
@@ -89,10 +88,12 @@ impl StatefulWidget for HomePageV1Widget {
             .fg(CL_DD_WHITE);
 
         // 计算每列的宽度比例（去除边框和padding后的可用宽度）
-        let available_width = area.width as usize - 5; // 减去左右边距
-        let index_width = (available_width * 5) / 100; // 5% 用于索引
+        let available_width = area90_center.width as usize; // 减去左右边距
+        let index_width = 4; // 4 fixed_len 用于索引
         let name_width = (available_width * 30) / 100; // 30% 用于名称
         let desc_width = available_width - index_width - name_width; // 剩余用于描述
+
+        // todo 换为 table，或者v2用list，不然占位变长的char中文导致对不齐
 
         // 创建列表项
         let items: Vec<ListItem> = state
@@ -102,8 +103,10 @@ impl StatefulWidget for HomePageV1Widget {
             .enumerate()
             .map(|(i, entry)| {
                 let index_str = format!("{:>width$}", i, width = index_width);
-                let name_str = truncate_text(&entry.about, name_width);
-                let desc_str = truncate_text(entry.notes.as_deref().unwrap_or(""), desc_width);
+                // 下 format前多三字符，遂减3
+                let name_str = truncate_text(&entry.about, name_width.saturating_sub(3));
+                // 下 format前多三字符，遂减3
+                let desc_str = truncate_text(entry.notes.as_deref().unwrap_or(""), desc_width.saturating_sub(3));
                 let line_content = format!("{} | {} │ {}", index_str, name_str, desc_str);
                 ListItem::new(Line::from(line_content))
             })

@@ -9,7 +9,8 @@ use crate::app::tui::TUIApp;
 use crate::app::tui::components::EventHandler;
 use crate::app::tui::components::Screen::{HomePageV1, InputMainPwd};
 use crate::app::tui::intents::ScreenIntent;
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
+use arboard::Clipboard;
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm;
 use ratatui::crossterm::event::KeyEventKind;
@@ -87,7 +88,8 @@ impl TUIApp {
             Action::Relock => self.relock(),
             Action::Actions(actions) => self.handle_actions(actions)?,
             Action::OptionYNTuiCallback(callback) => callback(self)?,
-            Action::SetTuiHotMsg(msg, live_time, ali) => self.hot_msg.set_msg(&msg, live_time, ali),
+            Action::CopyToSysClipboard(info) => self.copy_to_sys_clip(info)?,
+            Action::SetTuiHotMsg(msg, live_time, ali, color) => self.hot_msg.set_msg(&msg, live_time, ali, color),
         }
         Ok(())
     }
@@ -98,6 +100,15 @@ impl TUIApp {
             self.handle_action(action)?;
         }
         Ok(())
+    }
+
+    /// 将给定内容复制到系统剪贴板
+    ///
+    /// https://crates.io/crates/arboard
+    pub fn copy_to_sys_clip(&self, info: String) -> Result<()> {
+        Clipboard::new()?
+            .set_text(info)
+            .context("Failed to set clipboard contents")
     }
 
     /// Handles the tick event of the terminal.
@@ -129,7 +140,7 @@ impl TUIApp {
             }
             if self.idle_tick.need_relock() {
                 self.hot_msg
-                    .set_msg("󰌾 AUTO RELOCK (idle)", Some(5), Some(Alignment::Center));
+                    .set_msg("󰌾 AUTO RELOCK (idle)", Some(5), Some(Alignment::Center), None);
             }
         }
     }

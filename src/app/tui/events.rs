@@ -3,7 +3,7 @@ use crate::app::entry::ValidEntry;
 use crate::app::tui::intents::ScreenIntent;
 use anyhow::Result;
 use ratatui::crossterm::event::{self, Event as CEvent};
-use ratatui::prelude::Alignment;
+use ratatui::prelude::{Alignment, Color};
 use std::{
     sync::mpsc,
     thread,
@@ -37,7 +37,7 @@ pub enum Action {
     /// optionYn tui回调
     OptionYNTuiCallback(crate::app::tui::components::yn::FnCallYN),
     /// 设定TUI hot msg, 该结构内包含信息，持续时间，位置
-    SetTuiHotMsg(String, Option<u8>, Option<Alignment>),
+    SetTuiHotMsg(String, Option<u8>, Option<Alignment>, Option<Color>),
     TurnOnFindMode,
     TurnOffFindMode,
     /// 新的加密实体插入，插入必要全局刷新 vec，因为插入到库前还不知道id
@@ -50,6 +50,8 @@ pub enum Action {
     FlashVecItems(Option<String>),
     /// 主密码校验成功时会载荷 securityContext
     MainPwdVerifySuccess(SecurityContext),
+    /// 复制内容到系统剪贴板
+    CopyToSysClipboard(String),
     /// tui程序退出
     Quit,
 }
