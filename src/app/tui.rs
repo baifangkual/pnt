@@ -26,16 +26,77 @@ use ratatui::widgets::{Block, Paragraph};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
-    let running = new_runtime(pnt)?;
-    let terminal = ratatui::init();
-    let result = running.run_main_loop(terminal);
-    ratatui::restore();
-    let app_after_run = result?;
+    let tui = new_runtime(pnt)?;
+    let terminal = ratatui::init(); // 原始模式终端
+    let result = tui.run_main_loop(terminal);
+    ratatui::restore(); // 退出原始模式
+    let tui = result?;
     // 因tick到期退出的，stdout告知
-    if app_after_run.idle_tick.need_close() {
+    if tui.idle_tick.need_close() {
         println!("{} auto closed with idle seconds", APP_NAME)
     }
     Ok(())
+}
+
+impl TUIApp {
+    /// TUI程序主循环
+    ///
+    /// 该方法内 loop，返回Ok载荷self表示tui正常结束返回，载荷self可使后续行为访问内部状态等...
+    ///
+    /// 返回Err表示发生错误，该方法在返回前就关闭了连接了
+    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<TUIApp> {
+        while self.running {
+            terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
+            match self.invoke_handle_events() {
+                Ok(_) => (),
+                Err(e) => {
+                    self.quit_tui_app(); // 标记关闭状态, 下次main loop响应
+                    self.context.storage.close(); // 有错误关闭数据库连接并退出当前方法
+                    return Err(e);
+                }
+            }
+        }
+        Ok(self)
+    }
+}
+
+/// 新建 tui
+fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
+    // tui 情况下 处理 要求立即密码的情况
+    let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
+        let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
+        let mut hm = HotMsg::new();
+        hm.set_msg(
+            &format!(
+                "input main password to enter screen | {} {} ",
+                APP_NAME_AND_VERSION, "<F1> Help"
+            ),
+            Some(255),
+            Some(Alignment::Right),
+        ); // tui 启动时显示一次的提示
+        (scr, hm)
+    } else {
+        let scr = Screen::new_home_page1(&pnt_context);
+        let mut hm = HotMsg::new();
+        hm.set_msg(
+            &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
+            Some(5),
+            Some(Alignment::Right),
+        ); // tui 启动时显示一次的提示
+        (scr, hm)
+    };
+
+    let app = TUIApp {
+        running: true,
+        event_queue: EventQueue::new(),
+        screen,
+        back_screen: Vec::with_capacity(10),
+        idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
+        context: pnt_context,
+        state_info: String::new(),
+        hot_msg,
+    };
+    Ok(app)
 }
 
 impl Widget for &mut TUIApp {
@@ -275,66 +336,7 @@ impl HotMsg {
     }
 }
 
-impl TUIApp {
-    /// TUI程序主循环
-    ///
-    /// 该方法内 loop，返回Ok载荷self表示tui正常结束返回，载荷self可使后续行为访问内部状态等...
-    ///
-    /// 返回Err表示发生错误，该方法在返回前就关闭了连接了
-    pub fn run_main_loop(mut self, mut terminal: DefaultTerminal) -> anyhow::Result<TUIApp> {
-        while self.running {
-            terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
-            match self.invoke_handle_events() {
-                Ok(_) => (),
-                Err(e) => {
-                    self.quit_tui_app(); // 标记关闭状态, 下次main loop响应
-                    self.context.storage.close(); // 有错误关闭数据库连接并退出当前方法
-                    return Err(e);
-                }
-            }
-        }
-        Ok(self)
-    }
-}
 
-/// 新建 tui
-fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
-    // tui 情况下 处理 要求立即密码的情况
-    let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
-        let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
-        let mut hm = HotMsg::new();
-        hm.set_msg(
-            &format!(
-                "input main password to enter screen | {} {} ",
-                APP_NAME_AND_VERSION, "<F1> Help"
-            ),
-            Some(255),
-            Some(Alignment::Right),
-        ); // tui 启动时显示一次的提示
-        (scr, hm)
-    } else {
-        let scr = Screen::new_home_page1(&pnt_context);
-        let mut hm = HotMsg::new();
-        hm.set_msg(
-            &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
-            Some(5),
-            Some(Alignment::Right),
-        ); // tui 启动时显示一次的提示
-        (scr, hm)
-    };
-
-    let app = TUIApp {
-        running: true,
-        event_queue: EventQueue::new(),
-        screen,
-        back_screen: Vec::with_capacity(10),
-        idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
-        context: pnt_context,
-        state_info: String::new(),
-        hot_msg,
-    };
-    Ok(app)
-}
 
 struct IdleTick {
     idle_tick_count: u32,

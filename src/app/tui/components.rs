@@ -348,6 +348,19 @@ impl EventHandler for Screen {
                         state.cursor_down();
                         return ok_none();
                     }
+                    // 不为 notes 的 响应 enter 到下一行
+                    if let KeyCode::Enter = key_event.code {
+                        state.cursor_down();
+                        return ok_none();
+                    }
+                }
+                // 若当前为编辑notes，且notes内光标在第一行，且按了上键，则选中上方的输入框
+                if Editing::Notes == state.current_editing_type()
+                    && key_event.is_up()
+                    && state.current_editing_string_mut().cursor().0 == 0
+                {
+                    state.cursor_up();
+                    return ok_none();
                 }
 
                 // 下移，即使为notes，也应响应tab指令，不然就出不去当前输入框了...
@@ -372,14 +385,6 @@ impl EventHandler for Screen {
                     };
                 }
                 // 编辑窗口变化
-                // 不为 desc 的 响应 enter 到下一行
-                if Editing::Notes != state.current_editing_type() {
-                    if let KeyCode::Enter = key_event.code {
-                        state.cursor_down();
-                        return ok_none();
-                    }
-                }
-                // do editing...
                 let _ = state.current_editing_string_mut().input(key_event);
                 ok_none()
             }
