@@ -1,16 +1,17 @@
-use crate::app::consts::ALLOC_INVALID_MAIN_PASS_MAX;
+use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, KEY_ICON, KEY_LEFT_ICON, LOCK_ICON};
 use crate::app::entry::InputEntry;
-use crate::app::tui::colors::{CL_BLACK, CL_BLUE, CL_D_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_YELLOW, CL_DD_WHITE};
+use crate::app::tui::colors::{CL_BLACK, CL_BLUE, CL_D_RED, CL_D_WHITE, CL_DD_RED, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_YELLOW, CL_AK};
 use crate::app::tui::components::Screen;
 use crate::app::tui::components::states::VerifyMPHState;
 use crate::app::tui::components::yn::YNState;
+use crate::app::tui::layout::RectExt;
 use crate::app::tui::ui::home_page::HomePageV1Widget;
 use crate::app::tui::{TUIApp, layout};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Rect};
-use ratatui::prelude::StatefulWidget;
-use ratatui::prelude::{Color, Layout, Line, Modifier, Style, Stylize, Widget};
-use ratatui::widgets::{Block, Borders, Padding};
+use ratatui::layout::{Alignment, Constraint, Direction, Offset, Rect};
+use ratatui::prelude::{Color, Layout, Line, Margin, Modifier, Style, Stylize, Widget};
+use ratatui::prelude::{StatefulWidget, Text};
+use ratatui::widgets::{Block, BorderType, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
 use tui_textarea::TextArea;
 
@@ -92,7 +93,7 @@ impl Widget for &mut TUIApp {
                 option_yn.render(rect, buf);
             }
             Screen::InputMainPwd(state) => {
-                let rect = layout::centered_fixed(50, 5, middle);
+                let rect = layout::centered_fixed(40, 8, middle); // 8-height 40 temp test
                 state.render(rect, buf);
             }
         }
@@ -101,10 +102,10 @@ impl Widget for &mut TUIApp {
         let bottom_right_state_info = self.state_info.as_str();
 
         // 对bottom 横条横向切分
-        let [bl, bc, br1, br2_dyn] = Layout::horizontal([
+        let [bl, br1_dyn, bc, br2_dyn] = Layout::horizontal([
             Constraint::Length(10),
-            Constraint::Fill(0),
             Constraint::Length(mode_show_len),
+            Constraint::Fill(0),
             // dyn 特殊字符占多个字节，遂该值就是+2个字节，即能填充左右空格
             Constraint::Length(bottom_right_state_info.len() as u16),
         ])
@@ -112,14 +113,14 @@ impl Widget for &mut TUIApp {
 
         // 总体页面右下角区域，显示信息
         Paragraph::new(bottom_right_state_info)
-            .fg(CL_BLACK)
-            .bg(CL_DD_WHITE)
+            .fg(CL_DD_WHITE)
+            .bg(CL_LL_BLACK)
             .alignment(Alignment::Center)
             .render(br2_dyn, buf);
 
         // 有则渲染之
         if let Some(mode_span) = br_mode {
-            mode_span.centered().render(br1, buf);
+            mode_span.centered().render(br1_dyn, buf);
         }
         // bc 填充颜色
         Block::new().bg(CL_L_BLACK).render(bc, buf);
@@ -133,8 +134,8 @@ impl Widget for &mut TUIApp {
                 .render(bl, buf);
         } else {
             Paragraph::new("󰌾 LOCK")
-                .fg(CL_WHITE)
-                .bg(CL_LL_BLACK)
+                .fg(CL_BLACK)
+                .bg(CL_AK)
                 .alignment(Alignment::Center)
                 .render(bl, buf);
         }
@@ -289,43 +290,45 @@ impl Widget for &VerifyMPHState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
-        let block = Block::bordered()
-            .border_type(ratatui::widgets::BorderType::QuadrantOutside)
-            .fg(CL_RED)
-            .bg(CL_RED)
-            .padding(Padding::horizontal(3));
-
-        let block = if self.retry_count != 0 {
-            let line = Line::from(format!(
-                " INVALID PASSWORD: ({}/{})",
-                self.retry_count, ALLOC_INVALID_MAIN_PASS_MAX
-            ))
-            .fg(CL_WHITE);
-            block.title_bottom(line.centered())
-        } else {
-            block
-        };
-
+        let block = Block::new().bg(CL_RED).padding(Padding::proportional(1));
         let inner_area = block.inner(area);
-
         block.render(area, buf);
 
-        let rc_box_box = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Fill(0), Constraint::Length(3), Constraint::Fill(0)])
-            .split(inner_area);
+        let lr_layout = Layout::horizontal([Constraint::Length(10), Constraint::Length(30)]);
 
-        let box_name = Block::default()
-            .title("[󰌿] MAIN PASSWORD")
+        // key 图标
+        Text::raw(KEY_LEFT_ICON)
             .fg(CL_WHITE)
-            .borders(Borders::ALL);
+            .render(lr_layout.split(area)[0].offset(Offset { x: 2, y: 1 }), buf);
 
+        let [v_title, _, v_input_area, v_tip_text] = Layout::vertical([
+            Constraint::Length(1), // text title
+            Constraint::Length(1),
+            Constraint::Length(3), // input box
+            Constraint::Length(1), // inv count
+        ])
+        .areas(lr_layout.split(inner_area)[1].h_centered_fixed(inner_area.width - 4));
+
+        Text::raw("[󰌿] ENTER MAIN PASSWORD")
+            .bold()
+            .centered()
+            .fg(CL_WHITE)
+            .render(v_title, buf);
+
+        let box_name = Block::bordered().fg(CL_WHITE).border_type(BorderType::Thick);
         let i = self.mp_input.chars().count();
         let shard_v = "*".repeat(i);
-
         Paragraph::new(shard_v)
             .block(box_name)
             .alignment(Alignment::Center)
-            .render(rc_box_box[1], buf);
+            .render(v_input_area, buf);
+
+        Text::raw(format!(
+            "INVALID ({}/{})",
+            self.retry_count, ALLOC_INVALID_MAIN_PASS_MAX
+        ))
+        .right_aligned()
+        .fg(CL_WHITE)
+        .render(v_tip_text, buf);
     }
 }

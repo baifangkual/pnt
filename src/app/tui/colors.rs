@@ -36,3 +36,6 @@ pub const CL_YELLOW: Color = Color::from_u32(0xFFCC00);
 pub const CL_D_YELLOW: Color = Color::from_u32(0xCCA500);
 
 pub const CL_BLUE: Color = Color::from_u32(0x0099CC);
+
+// 安卡颜色
+pub const CL_AK: Color = Color::from_u32(0xD3F037);

@@ -34,3 +34,13 @@ pub const KEY_ICON: &str = indoc! {"
 █  █▀▀▀▀▀▀█▀
  ▀▀
 "};
+
+pub const KEY_LEFT_ICON: &str = indoc! {"
+█▀▀▀▀▀▀█
+█  ▀▀  █
+█▄▄▄▄▄▄█
+  █  █
+  █ ▀▄
+  █ ▀▄
+   ▀▀▀
+"};
