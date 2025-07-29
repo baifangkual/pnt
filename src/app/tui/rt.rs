@@ -3,13 +3,14 @@
 //! 处理 事件循环主要模块
 
 use super::events::{Action, Event};
+use crate::app::consts::APP_NAME_AND_VERSION;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
-use crate::app::tui::TUIApp;
 use crate::app::tui::components::EventHandler;
 use crate::app::tui::components::Screen::{HomePageV1, InputMainPwd};
 use crate::app::tui::intents::ScreenIntent;
-use anyhow::{Context, Result, anyhow};
+use crate::app::tui::TUIApp;
+use anyhow::{anyhow, Context, Result};
 use arboard::Clipboard;
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm;
@@ -29,16 +30,29 @@ impl TUIApp {
         }
     }
 
-    /// 处理需进入屏幕的需求
+    /// 处理需进入屏幕的需求,
+    /// 该方法将当前屏幕（非InputMainPwd的）入栈并将当前screen切换为指定的，
+    ///
+    /// > 注：回退屏幕应使用back_screen而非该
     fn enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
+        if new_screen.is_home_page() { // 若要进入的为 home_page，set 提示 version 和 help
+            self.hot_msg.set_msg(
+                &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
+                Some(5),
+                Some(Alignment::Right),
+                None,
+            ); // tui 启动时显示一次的提示
+        } else {
+            self.hot_msg.clear();
+        }
         if let InputMainPwd(_) = &self.screen {
             self.screen = new_screen; // NeedMainPasswd 屏幕直接切换，不入栈
         } else {
             let old_scr = std::mem::replace(&mut self.screen, new_screen);
             self.back_screen.push(old_scr);
         }
-        self.hot_msg.clear();
+
         Ok(())
     }
 
@@ -140,7 +154,7 @@ impl TUIApp {
             }
             if self.idle_tick.need_relock() {
                 self.hot_msg
-                    .set_msg("󰌾 AUTO RELOCK (idle)", Some(5), Some(Alignment::Center), None);
+                    .set_msg("[!] AUTO RELOCK (idle)", Some(5), Some(Alignment::Center), None);
             }
         }
     }

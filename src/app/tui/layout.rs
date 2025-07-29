@@ -65,34 +65,33 @@ pub fn bottom_rect(rect: Rect) -> Rect {
     Layout::vertical([Constraint::Fill(0), Constraint::Length(1)]).areas::<2>(rect)[1]
 }
 
-pub trait RectExt {
-    fn h_centered_percent(self, centered_percent: u16) -> Self;
+pub trait RectExt
+where
+    Self: Into<Rect>,
+{
+    fn h_centered_fixed(self, width: u16) -> Rect {
+        h_centered_fixed(width, self.into())
+    }
+    fn h_centered_percent(self, centered_percent: u16) -> Rect {
+        h_centered_percent(self.into(), centered_percent)
+    }
+    #[allow(unused)]
+    fn v_centered_percent(self, centered_percent: u16) -> Rect {
+        v_centered_percent(self.into(), centered_percent)
+    }
+    #[allow(unused)]
+    fn centered_percent(self, percent_width: u16, percent_height: u16) -> Rect {
+        centered_percent(percent_width, percent_height, self.into())
+    }
 
     #[allow(unused)]
-    fn v_centered_percent(self, centered_percent: u16) -> Self;
-    #[allow(unused)]
-    fn centered_percent(self, percent_width: u16, percent_height: u16) -> Self;
-
-    #[allow(unused)]
-    fn bottom_rect(self) -> Rect;
-
-    #[allow(unused)]
-    fn horizontal_split<const N: usize>(self) -> [Rect; N];
-}
-impl RectExt for Rect {
-    fn h_centered_percent(self, centered_percent: u16) -> Self {
-        h_centered_percent(self, centered_percent)
-    }
-    fn v_centered_percent(self, centered_percent: u16) -> Self {
-        v_centered_percent(self, centered_percent)
-    }
-    fn centered_percent(self, percent_width: u16, percent_height: u16) -> Self {
-        centered_percent(percent_width, percent_height, self)
-    }
     fn bottom_rect(self) -> Rect {
-        bottom_rect(self)
+        bottom_rect(self.into())
     }
+
+    #[allow(unused)]
     fn horizontal_split<const N: usize>(self) -> [Rect; N] {
-        horizontal_split(self)
+        horizontal_split(self.into())
     }
 }
+impl RectExt for Rect {}

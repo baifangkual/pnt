@@ -303,7 +303,7 @@ impl EventHandler for Screen {
                     let copy_pwd_and_hot_msg_actions = Action::Actions(vec![
                         Action::CopyToSysClipboard(e.password.clone()),
                         Action::SetTuiHotMsg(
-                            "󰅉 Password has been copied to the system clipboard".into(),
+                            "[󰅉] Password has been copied to the system clipboard".into(),
                             Some(5),
                             None,
                             Some(Color::LightRed),
@@ -392,7 +392,7 @@ impl EventHandler for Screen {
                     } else {
                         // 验证 to do 未通过验证应给予提示
                         ok_action(Action::SetTuiHotMsg(
-                            " Some field is required".into(),
+                            "[!] Some field is required".into(),
                             Some(3),
                             Some(Alignment::Center),
                             Some(CL_D_YELLOW),

@@ -59,17 +59,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
     // tui 情况下 处理 要求立即密码的情况
     let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
         let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
-        let mut hm = HotMsg::new();
-        hm.set_msg(
-            &format!(
-                "input main password to enter screen | {} {} ",
-                APP_NAME_AND_VERSION, "<F1> Help"
-            ),
-            Some(255),
-            Some(Alignment::Right),
-            None,
-        ); // tui 启动时显示一次的提示
-        (scr, hm)
+        (scr, HotMsg::new())
     } else {
         let scr = Screen::new_home_page1(&pnt_context);
         let mut hm = HotMsg::new();

@@ -1008,6 +1008,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "indoc",
  "ratatui",
  "rpassword",
  "rusqlite",

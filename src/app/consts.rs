@@ -1,3 +1,5 @@
+use indoc::indoc;
+
 /// 环境变量中指向的 配置文件路径 key （值优先级高于默认配置文件位置）
 pub const ENV_CONF_PATH_KEY: &str = "PNT_CONF_FILE";
 /// 环境变量中指向的 默认 data file 位置 key（值优先级高于配置文件中的）
@@ -14,3 +16,21 @@ pub const CONF_FILE_NAME: &str = "pnt.toml";
 
 /// 允许的最多输错主密码次数
 pub const ALLOC_INVALID_MAIN_PASS_MAX: u8 = 3;
+
+/// 锁图标
+#[allow(unused)]
+pub const LOCK_ICON: &str = indoc! {"
+   ▄▄▄
+  █   █
+█▀▀▀▀▀▀▀█
+█   ▄   █
+█   ▀   █
+▀▀▀▀▀▀▀▀▀
+"};
+
+/// 钥匙图标
+pub const KEY_ICON: &str = indoc! {"
+ ▄▄
+█  █▀▀▀▀▀▀█▀
+ ▀▀
+"};

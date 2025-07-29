@@ -39,5 +39,6 @@ unicode-segmentation = "1.12.0"
 tui-textarea = "0.7.0"
 bitflags = "2.9.1"
 arboard = "3.6.0"
+indoc = "2.0.6"
 
 
