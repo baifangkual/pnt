@@ -20,21 +20,14 @@ pub const ALLOC_INVALID_MAIN_PASS_MAX: u8 = 3;
 /// 锁图标
 #[allow(unused)]
 pub const LOCK_ICON: &str = indoc! {"
-   ▄▄▄
-  █   █
-█▀▀▀▀▀▀▀█
-█   ▄   █
-█   ▀   █
-▀▀▀▀▀▀▀▀▀
+ ▄▄▄▄▄
+ █   ▀
+█▀▀▀▀▀█
+█  █  █
+█▄▄▄▄▄█
 "};
 
 /// 钥匙图标
-pub const KEY_ICON: &str = indoc! {"
- ▄▄
-█  █▀▀▀▀▀▀█▀
- ▀▀
-"};
-
 pub const KEY_LEFT_ICON: &str = indoc! {"
 █▀▀▀▀▀▀█
 █  ▀▀  █

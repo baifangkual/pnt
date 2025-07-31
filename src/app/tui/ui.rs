@@ -1,6 +1,8 @@
-use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, KEY_ICON, KEY_LEFT_ICON, LOCK_ICON};
+use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, KEY_LEFT_ICON, LOCK_ICON};
 use crate::app::entry::InputEntry;
-use crate::app::tui::colors::{CL_BLACK, CL_BLUE, CL_D_RED, CL_D_WHITE, CL_DD_RED, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_YELLOW, CL_AK};
+use crate::app::tui::colors::{
+    CL_AK, CL_BLACK, CL_BLUE, CL_D_RED, CL_DD_WHITE, CL_L_BLACK, CL_LL_BLACK, CL_RED, CL_WHITE, CL_YELLOW,
+};
 use crate::app::tui::components::Screen;
 use crate::app::tui::components::states::VerifyMPHState;
 use crate::app::tui::components::yn::YNState;
@@ -8,8 +10,8 @@ use crate::app::tui::layout::RectExt;
 use crate::app::tui::ui::home_page::HomePageV1Widget;
 use crate::app::tui::{TUIApp, layout};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Offset, Rect};
-use ratatui::prelude::{Color, Layout, Line, Margin, Modifier, Style, Stylize, Widget};
+use ratatui::layout::{Alignment, Constraint, Offset, Rect};
+use ratatui::prelude::{Color, Layout, Line, Modifier, Style, Stylize, Widget};
 use ratatui::prelude::{StatefulWidget, Text};
 use ratatui::widgets::{Block, BorderType, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
@@ -253,7 +255,7 @@ pub fn new_input_textarea(place_holder_text: Option<&str>, activate_state: bool)
 /// inputEntry直接的 渲染逻辑
 impl Widget for &InputEntry {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let block = Block::bordered().border_type(ratatui::widgets::BorderType::Plain);
+        let block = Block::bordered().border_type(BorderType::Plain);
         block.render(area, buf);
         Clear.render(area, buf);
         let name = self.about.as_str();
@@ -290,37 +292,43 @@ impl Widget for &VerifyMPHState {
     fn render(self, area: Rect, buf: &mut Buffer) {
         Clear.render(area, buf);
 
+        let [h_v, c_v] = Layout::vertical([Constraint::Length(1), Constraint::Fill(0)]).areas(area);
+
+
+        Block::new().borders(Borders::BOTTOM)
+            .border_type(BorderType::QuadrantOutside)
+            .fg(CL_RED)
+            .render(h_v, buf);
         let block = Block::new().bg(CL_RED).padding(Padding::proportional(1));
-        let inner_area = block.inner(area);
-        block.render(area, buf);
+        let inner_area = block.inner(c_v);
+        block.render(c_v, buf);
 
         let lr_layout = Layout::horizontal([Constraint::Length(10), Constraint::Length(30)]);
 
         // key 图标
         Text::raw(KEY_LEFT_ICON)
             .fg(CL_WHITE)
-            .render(lr_layout.split(area)[0].offset(Offset { x: 2, y: 1 }), buf);
+            .render(lr_layout.split(c_v)[0].offset(Offset { x: 2, y: 0 }), buf);
 
-        let [v_title, _, v_input_area, v_tip_text] = Layout::vertical([
+        let [v_title, _, v_input_area, _, v_tip_text] = Layout::vertical([
             Constraint::Length(1), // text title
             Constraint::Length(1),
-            Constraint::Length(3), // input box
+            Constraint::Length(1), // input box
+            Constraint::Length(1),
             Constraint::Length(1), // inv count
         ])
-        .areas(lr_layout.split(inner_area)[1].h_centered_fixed(inner_area.width - 4));
+        .areas(lr_layout.split(inner_area)[1]);
 
         Text::raw("[󰌿] ENTER MAIN PASSWORD")
-            .bold()
-            .centered()
+            .right_aligned()
             .fg(CL_WHITE)
             .render(v_title, buf);
 
-        let box_name = Block::bordered().fg(CL_WHITE).border_type(BorderType::Thick);
         let i = self.mp_input.chars().count();
         let shard_v = "*".repeat(i);
-        Paragraph::new(shard_v)
-            .block(box_name)
-            .alignment(Alignment::Center)
+        Paragraph::new(format!("{} ", shard_v))
+            .bg(CL_D_RED)
+            .right_aligned()
             .render(v_input_area, buf);
 
         Text::raw(format!(

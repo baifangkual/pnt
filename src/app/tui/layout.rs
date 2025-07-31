@@ -72,6 +72,9 @@ where
     fn h_centered_fixed(self, width: u16) -> Rect {
         h_centered_fixed(width, self.into())
     }
+    fn v_centered_fixed(self, height: u16) -> Rect {
+        v_centered_fixed(height, self.into())
+    }
     fn h_centered_percent(self, centered_percent: u16) -> Rect {
         h_centered_percent(self.into(), centered_percent)
     }
