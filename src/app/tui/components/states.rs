@@ -317,9 +317,9 @@ impl HomePageV1State {
         }
         self.max_entry_about_width = max;
     }
-    
+
     /// 返回当中的一系列entry的about占用的 width 最大显示字符宽度
-    /// 
+    ///
     /// 中文为多个，遂使用该
     pub fn max_about_width(&self) -> u16 {
         self.max_entry_about_width

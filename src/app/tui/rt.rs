@@ -6,11 +6,11 @@ use super::events::{Action, Event};
 use crate::app::consts::APP_NAME_AND_VERSION;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
+use crate::app::tui::TUIApp;
 use crate::app::tui::components::EventHandler;
 use crate::app::tui::components::Screen::{HomePageV1, InputMainPwd};
 use crate::app::tui::intents::ScreenIntent;
-use crate::app::tui::TUIApp;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use arboard::Clipboard;
 use crossterm::event::Event as CEvent;
 use ratatui::crossterm;
@@ -36,7 +36,8 @@ impl TUIApp {
     /// > 注：回退屏幕应使用back_screen而非该
     fn enter_screen_indent(&mut self, new_screen_intent: ScreenIntent) -> Result<()> {
         let new_screen = new_screen_intent.handle_intent(self)?;
-        if new_screen.is_home_page() { // 若要进入的为 home_page，set 提示 version 和 help
+        if new_screen.is_home_page() {
+            // 若要进入的为 home_page，set 提示 version 和 help
             self.hot_msg.set_msg(
                 &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
                 Some(5),

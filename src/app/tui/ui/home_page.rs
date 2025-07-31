@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_DD_WHITE, CL_D_WHITE, CL_LL_BLACK, CL_WHITE};
+use crate::app::tui::colors::{CL_D_WHITE, CL_DD_WHITE, CL_LL_BLACK, CL_WHITE};
 use crate::app::tui::components::states::HomePageV1State;
 use crate::app::tui::layout::RectExt;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -101,8 +101,12 @@ impl StatefulWidget for HomePageV1Widget {
             .begin_symbol(Some(ratatui::symbols::DOT))
             .end_symbol(Some(ratatui::symbols::DOT));
 
-
         let [_, area_table_left] = layout_v.areas(left);
-        StatefulWidget::render(sb, area_table_left.inner(Margin::new(1, 0)), buf, state.scrollbar_state_mut());
+        StatefulWidget::render(
+            sb,
+            area_table_left.inner(Margin::new(1, 0)),
+            buf,
+            state.scrollbar_state_mut(),
+        );
     }
 }

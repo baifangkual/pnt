@@ -69,9 +69,11 @@ pub trait RectExt
 where
     Self: Into<Rect>,
 {
+    #[allow(unused)]
     fn h_centered_fixed(self, width: u16) -> Rect {
         h_centered_fixed(width, self.into())
     }
+    #[allow(unused)]
     fn v_centered_fixed(self, height: u16) -> Rect {
         v_centered_fixed(height, self.into())
     }

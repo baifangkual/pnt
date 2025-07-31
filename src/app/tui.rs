@@ -9,14 +9,12 @@ mod ui;
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
-use crate::app::tui::colors::{
-    CL_DDD_WHITE, CL_DD_WHITE,
-};
+use crate::app::tui::colors::{CL_DD_WHITE, CL_DDD_WHITE};
 use crate::app::tui::events::EventQueue;
 use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
 use components::Screen;
-use ratatui::prelude::{Alignment, Color};
 use ratatui::DefaultTerminal;
+use ratatui::prelude::{Alignment, Color};
 
 /// tui 运行 模式
 pub fn tui_run(pnt: PntContext) -> anyhow::Result<()> {
@@ -84,7 +82,6 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
     };
     Ok(app)
 }
-
 
 /// TUI Application.
 pub struct TUIApp {
