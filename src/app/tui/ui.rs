@@ -36,14 +36,18 @@ impl Widget for &mut TUIApp {
         // 渲染当前屏幕
         match &mut self.screen {
             Screen::HomePageV1(state) => {
-                // find 框不为空，则右下提示当前生效
-                if state.find_mode() || !state.current_find_input_is_empty() {
-                    br_mode = Some(Paragraph::new("FIND").fg(CL_BLACK).bg(CL_D_YELLOW));
-                    mode_show_len = 6; // 增加左右
-                }
-
                 let dash_widget = HomePageV1Widget;
                 dash_widget.render(middle, buf, state);
+                self.bottom_right_state.display.clear();
+                // find 框不为空，则右下提示当前生效
+                if state.find_mode() || !state.current_find_input_is_empty() {
+                    self.bottom_right_state.fg = CL_BLACK;
+                    self.bottom_right_state.bg = CL_D_YELLOW;
+                    self.bottom_right_state.display.push_str("FIND ");
+                } else {
+                    self.bottom_right_state.fg = CL_DD_WHITE;
+                    self.bottom_right_state.bg = CL_LL_BLACK;
+                }
                 // fixed: ratatui的ListState在未定义select时其值为uxx::MAX，增1溢出导致dev时panic
                 // 遂应当在其stateful的渲染render完成后再读取其，便会有有效值了
                 // 遂该块代码应在 dash_widget.render(middle, buf, state) 之后即可
@@ -52,8 +56,7 @@ impl Widget for &mut TUIApp {
                 } else {
                     0
                 };
-                self.state_info.clear();
-                self.state_info.push_str(&format!(" {}/{}", cur, state.display_entries().len()));
+                self.bottom_right_state.display.push_str(&format!(" {}/{}", cur, state.display_entries().len()));
             }
             Screen::Help(list_cursor) => {
                 self.hot_msg.set_always_if_none("󰌌 <ESC>|<Q> back, ↓↑jk scroll");
@@ -98,7 +101,7 @@ impl Widget for &mut TUIApp {
         }
 
         // 页面右下角 当前/总共 entry 信息
-        let bottom_right_state_info = self.state_info.as_str();
+        let bottom_right_display_str = self.bottom_right_state.display.as_str();
 
         // 对bottom 横条横向切分
         let [bl, br1_dyn, bc, br2_dyn] = Layout::horizontal([
@@ -106,16 +109,14 @@ impl Widget for &mut TUIApp {
             Constraint::Length(mode_show_len),
             Constraint::Fill(0),
             // dyn 特殊字符占多个字节，遂该值就是+2个字节，即能填充左右空格
-            Constraint::Length(bottom_right_state_info.len() as u16),
+            Constraint::Length(bottom_right_display_str.len() as u16),
         ])
         .areas(bottom);
 
-
-
         // 总体页面右下角区域，显示信息
-        Paragraph::new(bottom_right_state_info)
-            .fg(CL_DD_WHITE)
-            .bg(CL_LL_BLACK)
+        Paragraph::new(bottom_right_display_str)
+            .fg(self.bottom_right_state.fg)
+            .bg(self.bottom_right_state.bg)
             .alignment(Alignment::Center)
             .render(br2_dyn, buf);
 

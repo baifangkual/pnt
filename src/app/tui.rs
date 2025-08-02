@@ -11,7 +11,7 @@ use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
 use crate::app::entry::EncryptedEntry;
-use crate::app::tui::colors::{CL_DD_WHITE, CL_DDD_WHITE};
+use crate::app::tui::colors::{CL_DD_WHITE, CL_DDD_WHITE, CL_LL_BLACK};
 use crate::app::tui::events::EventQueue;
 use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
 use components::Screen;
@@ -93,7 +93,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
         back_screen: Vec::with_capacity(10),
         idle_tick: IdleTick::new(&pnt_context.cfg.inner_cfg),
         context: pnt_context,
-        state_info: String::new(),
+        bottom_right_state: BottomRightState::new(),
         hot_msg,
         enc_entries
     };
@@ -114,13 +114,29 @@ pub struct TUIApp {
     event_queue: EventQueue,
     /// 闲置tick计数，tick每秒一次
     idle_tick: IdleTick,
-    /// 简单的 state info 信息，供页面渲染层显示，该字段面向渲染
-    state_info: String,
+    /// 简单的 state info 信息，供页面渲染层显示，该字段面向渲染,
+    /// 表示 ‘当前光标位置 /总数’
+    bottom_right_state: BottomRightState,
     /// hot msg (tui界面底部bar显示临时信息，该字段面向渲染
     hot_msg: HotMsg,
     /// 运行时，反映db文件中的被编码实体，与db应对应，完全体现db中实体状态及个数,
     /// 该hashmap key为 entry的id
     enc_entries: HashMap<u32, EncryptedEntry>,
+}
+
+struct BottomRightState {
+    pub display: String,
+    pub fg: Color,
+    pub bg: Color,
+}
+impl BottomRightState {
+    fn new() -> Self {
+        Self {
+            display: String::new(),
+            fg: CL_DD_WHITE,
+            bg: CL_LL_BLACK
+        }
+    }
 }
 
 struct HotMsg {
