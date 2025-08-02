@@ -147,28 +147,30 @@ impl TUIApp {
 
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘
     ///
-    /// 若并非unlock状态，则什么也不做
+    /// 若当前已经为LOCK状态或配置了要求立即锁定，则立即锁定屏幕
     fn relock(&mut self) -> Result<()> {
-        if self.context.is_verified() {
-            self.context.security_context = None;
-            // 屏幕回退
-            while !self.screen.is_home_page() {
-                self.back_screen();
-            }
-            if self.idle_tick.need_relock() {
-                self.hot_msg.set_msg(
-                    "[!] AUTO RELOCK (idle)",
-                    Some(5),
-                    Some(Alignment::Center),
-                    None,
-                );
-            }
-        } else {
-            // 在非verified状态，即已锁定（但还在homePage页面的情况，响应再次按下l时，退到完全要求主密码的页面状态
+        // 在非verified状态，即已锁定（但还在homePage页面的情况，响应再次按下l时，退到完全要求主密码的页面状态
+        // 或者，配置了要求立即锁定屏幕
+        if !self.context.is_verified() || self.context.cfg.inner_cfg.immediate_lock_screen {
             let full_relock = Screen::new_full_relock(&self.context)?;
             // 替换当前屏幕，将老屏幕入back中
             let old_scr = std::mem::replace(&mut self.screen, full_relock);
             self.back_screen.push(old_scr);
+        } else {
+            // 屏幕回退
+            while !self.screen.is_home_page() {
+                self.back_screen();
+            }
+        }
+        // 丢弃security上下文
+        self.context.security_context = None;
+        if self.idle_tick.need_relock() {
+            self.hot_msg.set_msg(
+                "[!] AUTO RELOCK (idle)",
+                Some(5),
+                Some(Alignment::Center),
+                None,
+            );
         }
         Ok(())
     }
