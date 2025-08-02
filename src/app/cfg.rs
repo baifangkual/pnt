@@ -18,13 +18,29 @@ pub struct Cfg {
 pub struct InnerCfg {
     /// 在运行的时候立即要求主密码
     pub verify_on_launch: bool,
+    /// 第一次锁定要求时直接进入 锁定页面
+    pub immediate_lock_screen: bool,
     pub auto_relock_idle_sec: Option<u32>,
     pub auto_close_idle_sec: Option<u32>,
+}
+
+/// Inner 配置 的 默认配置，data file 中没有的，使用默认配置
+impl Default for InnerCfg {
+    fn default() -> Self {
+        Self {
+            verify_on_launch: true,
+            immediate_lock_screen: false,
+            auto_relock_idle_sec: None,
+            auto_close_idle_sec: None,
+        }
+    }
 }
 
 impl InnerCfg {
     /// 配置名常量
     pub const VERIFY_ON_LAUNCH: &'static str = "verify-on-launch";
+    /// 配置名常量
+    pub const IMMEDIATE_LOCK_SCREEN: &'static str = "immediate-lock-screen";
     /// 配置名常量
     pub const AUTO_RELOCK_IDLE_SEC: &'static str = "auto-relock-idle-sec";
     /// 配置名常量
@@ -35,6 +51,7 @@ impl InnerCfg {
         let bf_or = storage.query_cfg_bit_flags()?;
         if let Some(bf) = bf_or {
             self.verify_on_launch = bf.contains(BitCfg::VERIFY_ON_LAUNCH);
+            self.immediate_lock_screen = bf.contains(BitCfg::IMMEDIATE_LOCK_SCREEN);
         }
         self.auto_relock_idle_sec = storage.query_cfg_auto_re_lock_idle_sec()?;
         self.auto_close_idle_sec = storage.query_cfg_auto_close_idle_sec()?;
@@ -49,6 +66,9 @@ impl InnerCfg {
         if self.verify_on_launch {
             bf.insert(BitCfg::VERIFY_ON_LAUNCH);
         }
+        if self.immediate_lock_screen {
+            bf.insert(BitCfg::IMMEDIATE_LOCK_SCREEN);
+        }
         // store
         storage.store_cfg_bit_flags(bf);
         storage.store_cfg_auto_re_lock_idle_sec(self.auto_relock_idle_sec.unwrap_or(0));
@@ -59,6 +79,7 @@ impl InnerCfg {
 impl Display for InnerCfg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{} = {}", Self::VERIFY_ON_LAUNCH, self.verify_on_launch)?;
+        writeln!(f, "{} = {}", Self::IMMEDIATE_LOCK_SCREEN, self.immediate_lock_screen)?;
         writeln!(
             f,
             "{} = {}",
@@ -75,16 +96,6 @@ impl Display for InnerCfg {
     }
 }
 
-/// Inner 配置 的 默认配置，data file 中没有的，使用默认配置
-impl Default for InnerCfg {
-    fn default() -> Self {
-        Self {
-            verify_on_launch: true,
-            auto_relock_idle_sec: None,
-            auto_close_idle_sec: None,
-        }
-    }
-}
 
 /// 载入配置，返回的配置不存在的值将会由默认值补充,
 /// 若存在一个配置文件，但载入磁盘配置过程发生错误，则返回Err

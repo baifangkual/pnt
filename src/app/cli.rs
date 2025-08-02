@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 /// runtime cli args...
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, term_width = 90, subcommand_value_name = "SUBCOMMAND", subcommand_help_heading = "SubCommands")]
 pub struct CliArgs {
     /// 要求使用的数据文件
     #[arg( global = true ,short='d',long= "data", value_name = "DATA_FILE", help = Self::CLI_HELP_DATA
@@ -63,7 +63,8 @@ impl SubCmd {
 .2. The `default_data` value in the configuration file (default config file)
 .3. The value specified by the environment variable `PNT_DEFAULT_DATA_FILE`
 .4. Default path";
-    const SUB_CFG_HELP_HEAD: &'static str = "Management of configuration related to specific data files";
+    const SUB_CFG_HELP_HEAD: &'static str =
+        "Management of configuration related to specific data files";
     const SUB_CFG_HELP: &'static str = "Management of configuration related to specific data files.
 \nIf no configuration options are specified for setting,
 it will print the current state of all configurations.";
@@ -76,6 +77,12 @@ struct SubCmdCfgArgs {
     /// Setting whether to require the main password immediately at runtime
     #[arg(long = InnerCfg::VERIFY_ON_LAUNCH, value_name = "BOOLEAN")]
     modify_verify_on_launch: Option<bool>,
+    /// *configuration option*
+    ///
+    /// When 'true', pressing 'l' (default) will immediately show the lock screen (skipping the intermediate screen).
+    /// When 'false', pressing 'l' (default) first navigates to home page, then shows lock screen on second press.
+    #[arg(long = InnerCfg::IMMEDIATE_LOCK_SCREEN, value_name = "BOOLEAN")]
+    modify_immediate_lock_screen: Option<bool>,
     /// *configuration option*
     ///
     /// Setting how many seconds of inactivity before the TUI re-enters the Lock state (set to 0 to disable)
@@ -151,7 +158,8 @@ impl CliArgs {
 
             let new_b64_s_mph = MainPwdEncrypter::new_from_random_salt().encrypt(new_mp.clone())?;
             println!("\nNew main password hash:\n{new_b64_s_mph}\n");
-            let new_sec_ctx = MainPwdVerifier::from_b64_s_mph(&new_b64_s_mph)?.load_security_context(&new_mp)?;
+            let new_sec_ctx =
+                MainPwdVerifier::from_b64_s_mph(&new_b64_s_mph)?.load_security_context(&new_mp)?;
 
             // 当前线程卡在这，等待数据库文件内容更新返回 =====
             println!("{}", "...modify main password...\n".grey());
@@ -169,7 +177,8 @@ impl CliArgs {
             println!("Data file: '{}'", context.storage.path().unwrap());
             println!(
                 "{}",
-                "Verify the current data file main password to modify or print its configuration".yellow()
+                "Verify the current data file main password to modify or print its configuration"
+                    .yellow()
             );
             // 因为要修改配置，遂立即要求主密码
             let mut context = await_verifier_main_pwd(context)?;
@@ -185,6 +194,16 @@ impl CliArgs {
                     "{} '{}'",
                     "Successfully modified configuration".green(),
                     InnerCfg::VERIFY_ON_LAUNCH
+                );
+            }
+            if let Some(immediate_lock_screen) = &args.modify_immediate_lock_screen {
+                no_any_args = false;
+                context.cfg.inner_cfg.immediate_lock_screen = *immediate_lock_screen;
+                context.cfg.inner_cfg.save_to_data(&mut context.storage);
+                println!(
+                    "{} '{}'",
+                    "Successfully modified configuration".green(),
+                    InnerCfg::IMMEDIATE_LOCK_SCREEN
                 );
             }
             if let Some(rs_auto_re_lock_idle_sec) = &args.modify_auto_relock_idle_sec {
@@ -264,13 +283,19 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
 
     // dbg!(&data_target_path);
 
-    let msg = format!("\nwill create data file with: '{}'", data_target_path.display());
+    let msg = format!(
+        "\nwill create data file with: '{}'",
+        data_target_path.display()
+    );
     println!("{}", msg.bold().cyan());
-    println!("\npress Enter to init main password with interactive context or press Ctrl-C to exit");
+    println!(
+        "\npress Enter to init main password with interactive context or press Ctrl-C to exit"
+    );
     let mut buf = String::new();
     std::io::stdin().read_line(&mut buf)?;
     // 初始化主密码
-    let mph = MainPwdEncrypter::new_from_random_salt().encrypt(setting_main_pwd_by_stdin("Init main password")?)?;
+    let mph = MainPwdEncrypter::new_from_random_salt()
+        .encrypt(setting_main_pwd_by_stdin("Init main password")?)?;
     println!("{}", "successfully init main password".green());
 
     // 检查 data local path 位置是否存在文件，若存在，则提示其是否覆盖
@@ -299,7 +324,11 @@ fn handle_pnt_data_init(init_arg_target: Option<PathBuf>) -> anyhow::Result<()> 
     println!("{}", msg.bold().cyan());
 
     if target_on_cli_arg {
-        println!("`{} --data {}` to use data file.", APP_NAME, data_target_path.display())
+        println!(
+            "`{} --data {}` to use data file.",
+            APP_NAME,
+            data_target_path.display()
+        )
     } else {
         println!("`{}` to use default data file.", APP_NAME)
     }
@@ -329,7 +358,10 @@ fn loop_read_stdin_ascii_passwd(check_too_short: Option<u8>) -> anyhow::Result<S
                 // 当输入形如utf8字符时 rpassword 的该异常 "stream did not contain valid UTF-8"
                 // 转为告知用户无效字符，其他底层系统异常向上返回
                 ErrorKind::InvalidData => {
-                    println!("{}", "> Password contains invalid characters, please re-enter".red())
+                    println!(
+                        "{}",
+                        "> Password contains invalid characters, please re-enter".red()
+                    )
                 }
                 _ => Err(io_e)?,
             },
@@ -360,7 +392,10 @@ fn setting_main_pwd_by_stdin(prefix: &str) -> anyhow::Result<String> {
                 // 两次相等，返回
                 break vec.pop().unwrap();
             } else {
-                println!("{}", "> Passwords entered twice do not match, please re-enter".red());
+                println!(
+                    "{}",
+                    "> Passwords entered twice do not match, please re-enter".red()
+                );
                 vec.clear();
             }
         }
@@ -397,7 +432,12 @@ fn await_verifier_main_pwd(mut context: PntContext) -> anyhow::Result<PntContext
             return Ok(context);
         } else {
             // 校验失败，提示
-            let tip = format!("{} ({}/{})", "Invalid Password", n + 1, ALLOC_INVALID_MAIN_PASS_MAX);
+            let tip = format!(
+                "{} ({}/{})",
+                "Invalid Password",
+                n + 1,
+                ALLOC_INVALID_MAIN_PASS_MAX
+            );
             println!("{}", tip.on_dark_red().white())
         }
     }

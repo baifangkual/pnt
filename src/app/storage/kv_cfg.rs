@@ -8,7 +8,8 @@ bitflags! {
       pub struct BitCfg: u8 {
         /// 运行立即需要密码
         const VERIFY_ON_LAUNCH = 0b0000_0001;
-        const _ = 0b0000_0010;
+        const IMMEDIATE_LOCK_SCREEN = 0b0000_0010;
+        const _ = 0b1000_0000;
         // ... 预留其他
     }
 }

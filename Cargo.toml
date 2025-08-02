@@ -20,7 +20,7 @@ strip = true # https://doc.rust-lang.org/rustc/codegen-options/index.html#strip
 
 [dependencies]
 anyhow = "1.0.98"
-clap = { version = "4.5.40", features = ["cargo", "derive"] }
+clap = { version = "4.5.40", features = ["cargo", "derive", "wrap_help"] }
 # https://docs.rs/ratatui/latest/ratatui/widgets/struct.Paragraph.html#method.line_count
 # weight 尚不知道行数 line_count，该特性未稳定，且非必须，遂不使用 features = ["unstable-rendered-line-info"]
 ratatui = { version = "0.29.0" }
