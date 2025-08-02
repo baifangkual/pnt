@@ -332,7 +332,7 @@ impl Widget for &VerifyMPHState {
 
         Text::raw(format!(
             "INVALID ({}/{})",
-            self.retry_count, ALLOC_INVALID_MAIN_PASS_MAX
+            self.retry_count(), ALLOC_INVALID_MAIN_PASS_MAX
         ))
         .right_aligned()
         .fg(CL_WHITE)

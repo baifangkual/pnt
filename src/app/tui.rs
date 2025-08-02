@@ -61,7 +61,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
     let mut hot_msg = HotMsg::new();
     // tui 情况下 处理 要求立即密码的情况
     let screen = if pnt_context.is_need_mp_on_run() {
-        let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
+        let scr = Screen::new_screen_intent_verify(ToHomePageV1, &pnt_context)?;
         hot_msg.set_msg(
             &format!("| {} ", APP_NAME_AND_VERSION),
             Some(5),
@@ -79,7 +79,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
         ); // tui 启动时显示一次的提示
         scr
     };
-    
+
     // 收集到hashmap
     let enc_entries: HashMap<_, _> = vec_all_entry
         .into_iter()

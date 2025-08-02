@@ -7,7 +7,9 @@ use crate::app::tui::components::states::{Editing, EditingState, HomePageV1State
 use crate::app::tui::components::yn::YNState;
 use crate::app::tui::events::Action;
 use crate::app::tui::intents::ScreenIntent;
-use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
+use crate::app::tui::intents::ScreenIntent::{
+    ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption,
+};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::tui::colors::{CL_AK, CL_D_YELLOW};
@@ -61,8 +63,30 @@ impl Screen {
     }
 
     /// 新建输入密码页面
-    pub fn new_input_main_pwd(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
-        VerifyMPHState::new(screen_intent, context).map(Screen::InputMainPwd)
+    ///
+    /// 解决需求进入某页面，而该页面要求已验证主密码
+    ///
+    /// 成功为屏幕切换意图,
+    /// 取消为back screen
+    pub fn new_screen_intent_verify(
+        screen_intent: ScreenIntent, context: &PntContext,
+    ) -> anyhow::Result<Self> {
+        VerifyMPHState::new(
+            context,
+            Box::new(|| Action::ScreenIntent(screen_intent)),
+            || Action::BackScreen,
+        )
+        .map(Screen::InputMainPwd)
+    }
+    /// 新建输入密码页面
+    ///
+    /// 解决 relock 页面覆盖其他页面
+    ///
+    /// 成功为back screen
+    /// 取消为退出程序
+    pub fn new_full_relock(context: &PntContext) -> anyhow::Result<Self> {
+        VerifyMPHState::new(context, Box::new(|| Action::BackScreen), || Action::Quit)
+            .map(Screen::InputMainPwd)
     }
 }
 
@@ -151,7 +175,9 @@ impl EventHandler for TUIApp {
         // 按下 esc 的事件，将当前屏幕返回上一个屏幕，若当前为最后一个屏幕，则发送quit事件
         // 若为在find模式的homepage，则退出find...
         if key_event.is_esc() {
-            if let Screen::HomePageV1(state) = &mut self.screen {
+            
+            let current_screen_mut_ref = &mut self.screen;
+            if let Screen::HomePageV1(state) = current_screen_mut_ref {
                 if state.find_mode() {
                     state.set_find_mode(false);
                     return ok_none();
@@ -161,6 +187,8 @@ impl EventHandler for TUIApp {
                 } else {
                     self.back_screen();
                 }
+            } else if let Screen::InputMainPwd(vs) = current_screen_mut_ref {
+                return ok_action(vs.call_cancel());
             } else {
                 self.back_screen();
             }
@@ -238,7 +266,9 @@ impl EventHandler for Screen {
                         // 任何删除都应确保删除页面上一级为home_page
                         // 即非home_page接收到删除事件时应确保关闭当前并打开删除
                         if key_event.is_char('d') {
-                            return ok_action(Action::ScreenIntent(ToDeleteYNOption(curr_ptr_e_id)));
+                            return ok_action(Action::ScreenIntent(ToDeleteYNOption(
+                                curr_ptr_e_id,
+                            )));
                         }
                         // 上移
                         if key_event.is_char('k') || key_event.is_up() {
@@ -271,7 +301,7 @@ impl EventHandler for Screen {
                         KeyCode::Enter => {
                             state.set_find_mode(false);
                             ok_none()
-                        },
+                        }
                         _ => {
                             // 返回bool表示是否修改了，暂时用不到
                             let _ = state.find_input().input(key_event);

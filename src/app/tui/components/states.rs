@@ -3,6 +3,8 @@ use crate::app::context::{PntContext, SecurityContext};
 use crate::app::crypto::{Encrypter, MainPwdVerifier};
 use crate::app::entry::{EncryptedEntry, InputEntry, ValidEntry};
 use crate::app::errors::AppError::InvalidPassword;
+use crate::app::tui::TUIApp;
+use crate::app::tui::events::Action;
 use crate::app::tui::intents::ScreenIntent;
 use crate::app::tui::ui::{TextAreaExt, new_input_textarea};
 use anyhow::{Context, anyhow};
@@ -293,7 +295,7 @@ impl HomePageV1State {
 
     /// 根据给定entries重设homePage显示的entry，
     /// 该方法内会进行 find过滤、entries 的 sort，滚动条及光标行位置等的重设
-    pub fn reset_display_entries<'a>(&mut self, entries: impl Iterator<Item=&'a EncryptedEntry>) {
+    pub fn reset_display_entries<'a>(&mut self, entries: impl Iterator<Item = &'a EncryptedEntry>) {
         // 因为Iter终止不定，遂对其sort不可行，这里要创建vec，排序其，遂有一定开销，
         // 后续或应优化其使其不创建中间vec
         // 还有引用的clone到创建一个EncEntry是否能优化？
@@ -338,26 +340,46 @@ impl HomePageV1State {
 }
 
 /// 主密码输入界面状态
-#[derive(Debug)]
 pub struct VerifyMPHState {
     pub mp_input: String,
-    pub screen_intent: Option<ScreenIntent>, // 一定有，应去掉该Option包装，但是 hold_mp_verifier_and_enter_target_screen 会无法通过编译
-    pub retry_count: u8,
+    retry_count: u8,
     verifier: MainPwdVerifier,
+    /// 验证成功的回调函数
+    verified_callback: Option<Box<dyn FnOnce() -> Action>>,
+    /// 取消（按下esc等）的回调
+    cancel_callback: fn() -> Action,
 }
 impl VerifyMPHState {
-    pub fn new(screen_intent: ScreenIntent, context: &PntContext) -> anyhow::Result<Self> {
+    pub fn new(
+        context: &PntContext, verified_callback: Box<dyn FnOnce() -> Action>,
+        cancel_callback: fn() -> Action,
+    ) -> anyhow::Result<Self> {
         let r = Self {
             verifier: context.mpv()?,
             mp_input: String::new(),
-            screen_intent: Some(screen_intent),
             retry_count: 0,
+            cancel_callback,
+            verified_callback: Some(verified_callback),
         };
         Ok(r)
     }
 
-    pub fn take_target_screen(&mut self) -> anyhow::Result<ScreenIntent> {
-        self.screen_intent.take().context("not found target screen")
+    /// 调用 verified_callback
+    ///
+    /// # Panics
+    /// 当前状态不是校验成功状态或闭包fnOnce已被消费
+    pub fn call_verified(&mut self) -> Action {
+        let imp = &self.mp_input;
+        if self.verifier.verify(imp).unwrap() {
+            self.verified_callback.take().unwrap()()
+        } else {
+            // verify 不应当返回false，因为该方法应当在try_build_security_context之后调用
+            // 即一定验证了主密码
+            panic!("not verified main password");
+        }
+    }
+    pub fn call_cancel(&self) -> Action {
+        (self.cancel_callback)()
     }
 
     /// 尝试构建 security_context，返回 Ok Some 表示当前输入密码通过校验，

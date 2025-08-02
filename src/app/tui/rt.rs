@@ -7,8 +7,8 @@ use crate::app::consts::APP_NAME_AND_VERSION;
 use crate::app::context::SecurityContext;
 use crate::app::entry::ValidEntry;
 use crate::app::tui::TUIApp;
-use crate::app::tui::components::EventHandler;
 use crate::app::tui::components::Screen::{HomePageV1, InputMainPwd};
+use crate::app::tui::components::{EventHandler, Screen};
 use crate::app::tui::intents::ScreenIntent;
 use anyhow::{Context, Result, anyhow};
 use arboard::Clipboard;
@@ -100,7 +100,7 @@ impl TUIApp {
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
             Action::Quit => self.quit_tui_app(),
             Action::BackScreen => self.back_screen(),
-            Action::Relock => self.relock(),
+            Action::Relock => self.relock()?,
             Action::Actions(actions) => self.handle_actions(actions)?,
             Action::OptionYNTuiCallback(callback) => callback(self)?,
             Action::CopyToSysClipboard(info) => self.copy_to_sys_clip(info)?,
@@ -136,7 +136,7 @@ impl TUIApp {
         self.idle_tick.idle_tick_increment();
 
         if self.idle_tick.need_relock() {
-            self.relock();
+            self.relock()?;
         }
         if self.idle_tick.need_close() {
             self.quit_tui_app();
@@ -148,7 +148,7 @@ impl TUIApp {
     /// 调用该方法，丢弃securityContext（重新锁定)，并回退屏幕到主页仪表盘
     ///
     /// 若并非unlock状态，则什么也不做
-    fn relock(&mut self) {
+    fn relock(&mut self) -> Result<()> {
         if self.context.is_verified() {
             self.context.security_context = None;
             // 屏幕回退
@@ -163,7 +163,14 @@ impl TUIApp {
                     None,
                 );
             }
+        } else {
+            // 在非verified状态，即已锁定（但还在homePage页面的情况，响应再次按下l时，退到完全要求主密码的页面状态
+            let full_relock = Screen::new_full_relock(&self.context)?;
+            // 替换当前屏幕，将老屏幕入back中
+            let old_scr = std::mem::replace(&mut self.screen, full_relock);
+            self.back_screen.push(old_scr);
         }
+        Ok(())
     }
 
     pub fn quit_tui_app(&mut self) {
@@ -207,21 +214,21 @@ impl TUIApp {
             state.reset_display_entries(self.enc_entries.values());
             Ok(())
         } else {
-            Err(anyhow!("not home_page screen, no find mode"))
+            unreachable!("flash_home_page_vec")
         }
     }
 
     /// 这是验证通过的事件处理终端方法
+    ///
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,
     /// 并将当前屏幕切换为目标屏幕
     fn hold_security_context(&mut self, security_context: SecurityContext) -> Result<()> {
         if let InputMainPwd(state) = &mut self.screen {
             self.context.security_context = Some(security_context);
-            let intent = state.take_target_screen()?;
-            self.enter_screen_indent(intent)?;
-            Ok(())
+            let intent = state.call_verified();
+            self.handle_action(intent)
         } else {
-            Err(anyhow!("not NeedMainPasswd screen, no target screen"))
+            unreachable!("hold_security_context")
         }
     }
 }
