@@ -1,7 +1,7 @@
 use crate::app::tui::colors::{CL_D_WHITE, CL_L_BLACK, CL_WHITE, CL_YELLOW};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
-use ratatui::prelude::{Color, Constraint, Modifier, StatefulWidget, Style, Stylize, Widget};
+use ratatui::prelude::{Constraint, Modifier, StatefulWidget, Style, Stylize, Widget};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Padding};
 
 /// 帮助页面实体

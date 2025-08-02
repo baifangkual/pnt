@@ -1,8 +1,8 @@
-use crate::app::tui::colors::{CL_D_WHITE, CL_DD_WHITE, CL_LL_BLACK, CL_WHITE, CL_D_YELLOW, CL_YELLOW};
+use crate::app::tui::colors::{CL_D_WHITE, CL_DD_WHITE, CL_LL_BLACK, CL_WHITE, CL_D_YELLOW};
 use crate::app::tui::components::states::HomePageV1State;
 use crate::app::tui::layout::RectExt;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::{Buffer, Color, Margin, Modifier, StatefulWidget, Style, Stylize, Text, Widget};
+use ratatui::prelude::{Buffer, Margin, Modifier, StatefulWidget, Style, Stylize, Text, Widget};
 use ratatui::widgets::{
     Block, BorderType, Borders, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation, Table,
 };

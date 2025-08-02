@@ -12,7 +12,6 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::tui::colors::{CL_AK, CL_D_YELLOW};
 use ratatui::layout::Alignment;
-use ratatui::prelude::Color;
 use ratatui::widgets::ListState;
 
 pub(crate) mod states;

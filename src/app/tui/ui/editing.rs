@@ -2,7 +2,7 @@ use crate::app::tui::colors::{CL_WHITE, CL_YELLOW};
 use crate::app::tui::components::states::EditingState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
-use ratatui::prelude::{Color, Stylize, Widget};
+use ratatui::prelude::{Stylize, Widget};
 use ratatui::widgets::{Block, Clear};
 
 impl Widget for &EditingState {
