@@ -289,11 +289,9 @@ impl IdleTick {
         // 遂idle不会大于auto给定值，即关闭auto行为
         self.idle_tick_count = self.idle_tick_count.saturating_add(1)
     }
-    #[inline]
     fn need_relock(&self) -> bool {
         self.idle_tick_count > self.auto_relock_idle_sec
     }
-    #[inline]
     fn need_close(&self) -> bool {
         self.idle_tick_count > self.auto_close_idle_sec
     }

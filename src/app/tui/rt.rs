@@ -151,26 +151,39 @@ impl TUIApp {
     fn relock(&mut self) -> Result<()> {
         // 在非verified状态，即已锁定（但还在homePage页面的情况，响应再次按下l时，退到完全要求主密码的页面状态
         // 或者，配置了要求立即锁定屏幕
+        let mut is_do_relock = false;
         if !self.context.is_verified() || self.context.cfg.inner_cfg.immediate_lock_screen {
-            let full_relock = Screen::new_full_relock(&self.context)?;
-            // 替换当前屏幕，将老屏幕入back中
-            let old_scr = std::mem::replace(&mut self.screen, full_relock);
-            self.back_screen.push(old_scr);
+            if let InputMainPwd(_) = self.screen {
+                /*
+                fixed: idle relock 后，未检查当前screen是否为InputMainPwd页面，
+                       导致 每个tick的relock都新建一个wait主密码的screen并将老的screen（也是wait主密码的）入back_screen...
+                       遂该 if let 判定，若已经为 InputMainPwd页面，则什么也不做...
+                 */
+            } else {
+                let full_relock = Screen::new_full_relock(&self.context)?;
+                // 替换当前屏幕，将老屏幕入back中
+                let old_scr = std::mem::replace(&mut self.screen, full_relock);
+                self.back_screen.push(old_scr);
+                is_do_relock = true;
+            }
         } else {
             // 屏幕回退
             while !self.screen.is_home_page() {
                 self.back_screen();
             }
+            is_do_relock = true;
         }
-        // 丢弃security上下文
-        self.context.security_context = None;
-        if self.idle_tick.need_relock() {
-            self.hot_msg.set_msg(
-                "[!] AUTO RELOCK (idle)",
-                Some(5),
-                Some(Alignment::Center),
-                None,
-            );
+        if is_do_relock {
+            // 丢弃security上下文
+            self.context.security_context = None;
+            if self.idle_tick.need_relock() {
+                self.hot_msg.set_msg(
+                    "[!] AUTO RELOCK (idle)",
+                    Some(5),
+                    Some(Alignment::Center),
+                    None,
+                );
+            }
         }
         Ok(())
     }
