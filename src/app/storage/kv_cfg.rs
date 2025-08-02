@@ -44,7 +44,7 @@ impl Storage {
     /// auto re-lock idle sec
     const AUTO_RE_LOCK_IDLE_SEC: &'static str = "ars";
     /// 若人为修改db文件导致 FromStr parse失败，则Err报告数据已损坏
-    pub fn query_cfg_auto_re_lock_idle_sec(&self) -> anyhow::Result<Option<u32>> {
+    pub fn query_cfg_auto_relock_idle_sec(&self) -> anyhow::Result<Option<u32>> {
         self.select_cfg_v_by_key(Self::AUTO_RE_LOCK_IDLE_SEC)
             .map(|s| s.parse::<u32>())
             .transpose()

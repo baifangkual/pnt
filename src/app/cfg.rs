@@ -27,11 +27,12 @@ pub struct InnerCfg {
 /// Inner 配置 的 默认配置，data file 中没有的，使用默认配置
 impl Default for InnerCfg {
     fn default() -> Self {
+        // 默认值
         Self {
             verify_on_launch: true,
             immediate_lock_screen: false,
-            auto_relock_idle_sec: None,
-            auto_close_idle_sec: None,
+            auto_relock_idle_sec: Some(60), // 1 min
+            auto_close_idle_sec: Some(90), // 1.5 min
         }
     }
 }
@@ -53,7 +54,7 @@ impl InnerCfg {
             self.verify_on_launch = bf.contains(BitCfg::VERIFY_ON_LAUNCH);
             self.immediate_lock_screen = bf.contains(BitCfg::IMMEDIATE_LOCK_SCREEN);
         }
-        self.auto_relock_idle_sec = storage.query_cfg_auto_re_lock_idle_sec()?;
+        self.auto_relock_idle_sec = storage.query_cfg_auto_relock_idle_sec()?;
         self.auto_close_idle_sec = storage.query_cfg_auto_close_idle_sec()?;
         Ok(())
     }
