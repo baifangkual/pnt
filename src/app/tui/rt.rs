@@ -97,8 +97,6 @@ impl TUIApp {
             Action::EntryRemove(e_id) => self.remove_entry(e_id),
             Action::FlashTUIAppEncEntries => self.flash_tui_vec()?,
             Action::FlashHomePageDisplayEncEntries => self.flash_home_page_vec()?,
-            Action::TurnOnFindMode => self.turn_on_find_mode()?,
-            Action::TurnOffFindMode => self.turn_off_find_mode()?,
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
             Action::Quit => self.quit_tui_app(),
             Action::BackScreen => self.back_screen(),
@@ -212,29 +210,6 @@ impl TUIApp {
             Err(anyhow!("not home_page screen, no find mode"))
         }
     }
-
-    /// 开启 find mode
-    fn turn_on_find_mode(&mut self) -> Result<()> {
-        if let HomePageV1(state) = &mut self.screen {
-            state.set_find_mode(true);
-            Ok(())
-        } else {
-            Err(anyhow!("not home_page screen, no find mode"))
-        }
-    }
-
-    /// 关闭 find mode
-    fn turn_off_find_mode(&mut self) -> Result<()> {
-        if let HomePageV1(state) = &mut self.screen {
-            state.set_find_mode(false);
-            self.send_action(Action::FlashHomePageDisplayEncEntries);
-            Ok(())
-        } else {
-            Err(anyhow!("not home_page screen, no find mode"))
-        }
-    }
-
-
 
     /// 这是验证通过的事件处理终端方法
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,

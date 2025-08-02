@@ -38,8 +38,6 @@ pub enum Action {
     OptionYNTuiCallback(crate::app::tui::components::yn::FnCallYN),
     /// 设定TUI hot msg, 该结构内包含信息，持续时间，位置
     SetTuiHotMsg(String, Option<u8>, Option<Alignment>, Option<Color>),
-    TurnOnFindMode,
-    TurnOffFindMode,
     /// 新的加密实体插入，插入必要全局刷新 vec，因为插入到库前还不知道id
     EntryInsert(ValidEntry),
     /// 更新加密实体，u32为id

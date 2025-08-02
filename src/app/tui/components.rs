@@ -153,7 +153,8 @@ impl EventHandler for TUIApp {
         if key_event.is_esc() {
             if let Screen::HomePageV1(state) = &mut self.screen {
                 if state.find_mode() {
-                    return ok_action(Action::TurnOffFindMode);
+                    state.set_find_mode(false);
+                    return ok_none();
                 } else if !state.current_find_input_is_empty() {
                     state.clear_find_input();
                     return ok_action(Action::FlashHomePageDisplayEncEntries);
@@ -211,7 +212,8 @@ impl EventHandler for Screen {
                 // home_page find
                 if !state.find_mode() {
                     if key_event.is_char('f') {
-                        return ok_action(Action::TurnOnFindMode);
+                        state.set_find_mode(true);
+                        return ok_none();
                     }
                     // 响应 按下 l 丢弃 securityContext以重新锁定
                     if key_event.is_char('l') {
@@ -266,7 +268,10 @@ impl EventHandler for Screen {
                     ok_none()
                 } else {
                     match key_event.code {
-                        KeyCode::Enter => ok_action(Action::TurnOffFindMode),
+                        KeyCode::Enter => {
+                            state.set_find_mode(false);
+                            ok_none()
+                        },
                         _ => {
                             // 返回bool表示是否修改了，暂时用不到
                             let _ = state.find_input().input(key_event);
