@@ -111,7 +111,6 @@ impl Storage {
     /// 模板-插入内部配置 sql
     const SAVE_INNER_CFG_SQL: &'static str = r#"INSERT OR REPLACE INTO "cfg" ("k", "v") VALUES (?, ?)"#;
 
-    #[allow(unused)]
     /// 模板-删除内部配置 sql
     const DELETE_INNER_CFG_SQL: &'static str = r#"DELETE FROM "cfg" WHERE "k"=?"#;
 

@@ -10,7 +10,6 @@ pub const CL_D_WHITE: Color = Color::from_u32(0xC6C6C6);
 
 pub const CL_DD_WHITE: Color = Color::from_u32(0xAAAAAA);
 
-#[allow(unused)]
 pub const CL_DDD_WHITE: Color = Color::from_u32(0x6E6E6E);
 
 pub const CL_BLACK: Color = Color::from_u32(0x202020);
@@ -19,7 +18,7 @@ pub const CL_L_BLACK: Color = Color::from_u32(0x303030);
 
 pub const CL_LL_BLACK: Color = Color::from_u32(0x404040);
 
-#[allow(unused)]
+#[cfg(test)]
 pub const CL_LLL_BLACK: Color = Color::from_u32(0x555555);
 
 pub const CL_RED: Color = Color::Red;
@@ -32,7 +31,6 @@ pub const CL_DDD_RED: Color = Color::from_u32(0x110000);
 // 极霸微软黄
 pub const CL_YELLOW: Color = Color::from_u32(0xFFCC00);
 
-#[allow(unused)]
 pub const CL_D_YELLOW: Color = Color::from_u32(0xCCA500);
 
 pub const CL_BLUE: Color = Color::from_u32(0x0099CC);

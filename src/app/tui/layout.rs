@@ -69,32 +69,33 @@ pub trait RectExt
 where
     Self: Into<Rect>,
 {
-    #[allow(unused)]
+    #[cfg(test)]
     fn h_centered_fixed(self, width: u16) -> Rect {
         h_centered_fixed(width, self.into())
     }
-    #[allow(unused)]
+    #[cfg(test)]
     fn v_centered_fixed(self, height: u16) -> Rect {
         v_centered_fixed(height, self.into())
     }
+    
     fn h_centered_percent(self, centered_percent: u16) -> Rect {
         h_centered_percent(self.into(), centered_percent)
     }
-    #[allow(unused)]
+    #[cfg(test)]
     fn v_centered_percent(self, centered_percent: u16) -> Rect {
         v_centered_percent(self.into(), centered_percent)
     }
-    #[allow(unused)]
+    #[cfg(test)]
     fn centered_percent(self, percent_width: u16, percent_height: u16) -> Rect {
         centered_percent(percent_width, percent_height, self.into())
     }
 
-    #[allow(unused)]
+    #[cfg(test)]
     fn bottom_rect(self) -> Rect {
         bottom_rect(self.into())
     }
 
-    #[allow(unused)]
+    #[cfg(test)]
     fn horizontal_split<const N: usize>(self) -> [Rect; N] {
         horizontal_split(self.into())
     }

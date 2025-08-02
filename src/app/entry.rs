@@ -49,8 +49,8 @@ pub struct EncryptedEntry {
 }
 /// 实现排序，按照修改时间排序
 impl EncryptedEntry {
-    pub fn sort_by_update_time(left: &EncryptedEntry, right: &EncryptedEntry) -> std::cmp::Ordering {
-        right.created_time.cmp(&left.created_time)
+    pub fn sort_by_update_time_desc(left: &EncryptedEntry, right: &EncryptedEntry) -> std::cmp::Ordering {
+        right.updated_time.cmp(&left.updated_time)
     }
     /// 解密 Entry 为 UserInputEntry
     pub fn decrypt<'a, 'b: 'a, Dec>(&'b self, decrypt: &Dec) -> anyhow::Result<InputEntry>

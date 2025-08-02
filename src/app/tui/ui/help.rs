@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_D_WHITE, CL_L_BLACK, CL_WHITE};
+use crate::app::tui::colors::{CL_D_WHITE, CL_L_BLACK, CL_WHITE, CL_YELLOW};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::prelude::{Color, Constraint, Modifier, StatefulWidget, Style, Stylize, Widget};
@@ -35,7 +35,7 @@ impl<'a, const N: usize> StatefulWidget for &HelpPage<'a, N> {
         let mut left_k = Vec::with_capacity(tips_len);
         let mut right_v = Vec::with_capacity(tips_len);
         for KeyMapInfo { key_map, note } in self.key_maps.iter() {
-            let k = ListItem::new(*key_map).fg(Color::Yellow).bold();
+            let k = ListItem::new(*key_map).fg(CL_YELLOW).bold();
             let v = ListItem::new(*note).fg(CL_D_WHITE);
             left_k.push(k);
             right_v.push(v);

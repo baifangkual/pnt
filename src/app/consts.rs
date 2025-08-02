@@ -18,7 +18,7 @@ pub const CONF_FILE_NAME: &str = "pnt.toml";
 pub const ALLOC_INVALID_MAIN_PASS_MAX: u8 = 3;
 
 /// 锁图标
-#[allow(unused)]
+#[cfg(test)]
 pub const LOCK_ICON: &str = indoc! {"
  ▄▄▄▄▄
  █   ▀

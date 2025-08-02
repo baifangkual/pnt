@@ -1,4 +1,4 @@
-use crate::app::tui::colors::CL_WHITE;
+use crate::app::tui::colors::{CL_WHITE, CL_YELLOW};
 use crate::app::tui::components::states::EditingState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
@@ -42,7 +42,12 @@ impl Widget for &EditingState {
         let b_password = Block::bordered().title(title_password).fg(CL_WHITE);
         let b_notes = Block::bordered().title(" 󰦨 notes ").fg(CL_WHITE);
 
-        let mut blocks = [Some(b_about), Some(b_username), Some(b_password), Some(b_notes)];
+        let mut blocks = [
+            Some(b_about),
+            Some(b_username),
+            Some(b_password),
+            Some(b_notes),
+        ];
 
         for idx in 0..4_usize {
             let blc = blocks[idx].take().unwrap();
@@ -50,7 +55,7 @@ impl Widget for &EditingState {
             let n_blc = if idx == curr_editing as usize {
                 // is_active
                 // 正在编辑的，fg yellow，光标显示
-                blc.fg(Color::Yellow)
+                blc.fg(CL_YELLOW)
             } else {
                 // 非正在编辑的...
                 // fixed 修复因 notes太多时，因焦点切换，
