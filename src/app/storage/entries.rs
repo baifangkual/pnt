@@ -77,9 +77,9 @@ impl Storage {
         sql_result_map_to_option(r)
     }
     /// 通过about模糊查询
-    pub fn select_entry_by_about_like(&self, name_like: &str) -> Vec<EncryptedEntry> {
-        let nl = format!("%{}%", name_like); // 左右
-        let mut stmt = self.conn.prepare("SELECT * FROM entry WHERE about LIKE ?").unwrap();
+    pub fn select_entry_by_about_like(&self, like: &str) -> Vec<EncryptedEntry> {
+        let nl = format!("%{}%", like.to_ascii_lowercase()); // 左右
+        let mut stmt = self.conn.prepare("SELECT * FROM entry WHERE LOWER(about) LIKE ?").unwrap();
         let rows = stmt.query_map([nl], row_map_entry).expect("Failed to select entry");
         rows.filter_map(sql_result_map_to_option).collect()
     }

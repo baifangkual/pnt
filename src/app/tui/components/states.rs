@@ -86,7 +86,11 @@ impl EditingState {
         match editing {
             Editing::Notes => self.input_textarea[editing].lines().join("\n"),
             // textarea的lines.last().unwrap一定不会panic，因为其即使空字符串一定有值""...
-            _ => self.input_textarea[editing].lines().last().unwrap().to_owned(),
+            _ => self.input_textarea[editing]
+                .lines()
+                .last()
+                .unwrap()
+                .to_owned(),
         }
     }
 
@@ -189,7 +193,8 @@ pub struct HomePageV1State {
     /// 控制 find_input 的 标志位
     find_mode: bool,
     find_input: TextArea<'static>,
-    entries: Vec<EncryptedEntry>,
+    /// 显示的 entry，该中应是已排序且被find过滤的
+    display_entries: Vec<EncryptedEntry>,
     /// 添加ListState来控制滚动
     cursor: TableState,
     /// 垂直滚动条样式
@@ -202,21 +207,17 @@ impl HomePageV1State {
     /// 根据给定的 entries 创建
     ///
     /// 该方法内会
-    pub fn new(mut entries: Vec<EncryptedEntry>) -> Self {
-        Self::sort_entries(&mut entries);
-        // 求在显示到终端的最大占用的字符宽度（中文为多个，遂不能通过len判定，而是要通过该）
-        let max = entries.iter().map(|e| e.about.width_cjk()).max().unwrap_or(0) as u16;
-        let mut cursor = TableState::default();
-        cursor.select(if entries.is_empty() { None } else { Some(0) });
-        let scrollbar_state = ScrollbarState::new(entries.len());
-        Self {
+    pub fn new(entries: Vec<EncryptedEntry>) -> Self {
+        let mut state = Self {
             find_mode: false,
             find_input: new_input_textarea(Some("find"), false),
-            entries,
-            cursor,
-            scrollbar_state,
-            max_entry_about_width: max,
-        }
+            display_entries: Vec::with_capacity(0),
+            cursor: TableState::default(),
+            scrollbar_state: ScrollbarState::default(),
+            max_entry_about_width: 0,
+        };
+        state.reset_display_entries(entries.iter());
+        state
     }
 
     pub fn set_find_mode(&mut self, mode: bool) {
@@ -247,31 +248,22 @@ impl HomePageV1State {
         self.find_input = new_input_textarea(Some("find"), false);
     }
 
-    /// 对 entries 进行排序
-    fn sort_entries(entries: &mut [EncryptedEntry]) {
-        entries.sort_unstable_by(EncryptedEntry::sort_by_update_time);
-    }
-
     /// 光标指向的 元素 在 vec 的 index
     pub fn cursor_selected(&self) -> Option<usize> {
         self.cursor.selected()
-    }
-
-    pub fn entry_count(&self) -> usize {
-        self.entries.len()
     }
 
     pub fn cursor_mut_ref<'a, 'b: 'a>(&'b mut self) -> &'a mut TableState {
         &mut self.cursor
     }
 
-    pub fn entries<'a, 'b: 'a>(&'b self) -> &'a Vec<EncryptedEntry> {
-        &self.entries
+    pub fn display_entries<'a, 'b: 'a>(&'b self) -> &'a Vec<EncryptedEntry> {
+        &self.display_entries
     }
 
     pub fn cursor_down(&mut self) {
         if let Some(p) = self.cursor_selected() {
-            if p >= self.entry_count() - 1 {
+            if p >= self.display_entries.len() - 1 {
                 self.cursor.select(Some(0))
             } else {
                 self.cursor.select_next();
@@ -282,7 +274,7 @@ impl HomePageV1State {
     pub fn cursor_up(&mut self) {
         if let Some(p) = self.cursor_selected() {
             if p == 0 {
-                self.cursor.select(Some(self.entry_count() - 1))
+                self.cursor.select(Some(self.display_entries.len() - 1))
             } else {
                 self.cursor.select_previous();
             }
@@ -299,23 +291,42 @@ impl HomePageV1State {
         &mut self.scrollbar_state
     }
 
-    /// 重置载荷的 entries，
-    /// 该方法内会进行 entries 的 sort
-    ///
-    /// 该方法内也会同步更新 cursor and scrollbar 状态
-    pub fn reset_entries(&mut self, mut entries: Vec<EncryptedEntry>) {
-        Self::sort_entries(&mut entries);
-        let max = entries.iter().map(|e| e.about.width_cjk()).max().unwrap_or(0) as u16;
-        self.scrollbar_state = self.scrollbar_state.content_length(entries.len());
-        self.entries = entries;
-        if !self.entries().is_empty() {
+    /// 根据给定entries重设homePage显示的entry，
+    /// 该方法内会进行 find过滤、entries 的 sort，滚动条及光标行位置等的重设
+    pub fn reset_display_entries<'a>(&mut self, entries: impl Iterator<Item=&'a EncryptedEntry>) {
+        // 因为Iter终止不定，遂对其sort不可行，这里要创建vec，排序其，遂有一定开销，
+        // 后续或应优化其使其不创建中间vec
+        // 还有引用的clone到创建一个EncEntry是否能优化？
+
+        // 判定是否find filter
+        let mut enc_entries: Vec<_> = if self.find_input.is_empty() {
+            entries.cloned().collect()
+        } else {
+            let lower_find_input = self.current_find_input().to_ascii_lowercase();
+            let it = entries
+                .into_iter()
+                .filter(move |&e| e.about.to_ascii_lowercase().contains(&lower_find_input));
+            it.cloned().collect()
+        };
+        // 根据update time 排序之
+        enc_entries.sort_unstable_by(EncryptedEntry::sort_by_update_time_desc);
+        // about 最长的
+        self.max_entry_about_width = enc_entries
+            .iter()
+            .map(|e| e.about.width_cjk())
+            .max()
+            .unwrap_or(0) as u16;
+        // 滚动条
+        self.scrollbar_state = self.scrollbar_state.content_length(enc_entries.len());
+        self.display_entries = enc_entries;
+        // table光标
+        if !self.display_entries().is_empty() {
             if self.cursor_selected().is_none() {
                 self.cursor.select(Some(0))
             }
         } else {
             self.cursor.select(None);
         }
-        self.max_entry_about_width = max;
     }
 
     /// 返回当中的一系列entry的about占用的 width 最大显示字符宽度

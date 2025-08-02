@@ -16,6 +16,7 @@ use crossterm::event::Event as CEvent;
 use ratatui::crossterm;
 use ratatui::crossterm::event::KeyEventKind;
 use ratatui::prelude::Alignment;
+use std::collections::HashMap;
 
 impl TUIApp {
     /// 返回上一个屏幕，
@@ -94,7 +95,8 @@ impl TUIApp {
             Action::EntryInsert(v_e) => self.insert_entry(&v_e),
             Action::EntryUpdate(v_e, e_id) => self.update_entry(&v_e, e_id),
             Action::EntryRemove(e_id) => self.remove_entry(e_id),
-            Action::FlashVecItems(f) => self.flash_vec(f)?,
+            Action::FlashTUIAppEncEntries => self.flash_tui_vec()?,
+            Action::FlashHomePageDisplayEncEntries => self.flash_home_page_vec()?,
             Action::TurnOnFindMode => self.turn_on_find_mode()?,
             Action::TurnOffFindMode => self.turn_off_find_mode()?,
             Action::MainPwdVerifySuccess(sec_context) => self.hold_security_context(sec_context)?,
@@ -104,7 +106,9 @@ impl TUIApp {
             Action::Actions(actions) => self.handle_actions(actions)?,
             Action::OptionYNTuiCallback(callback) => callback(self)?,
             Action::CopyToSysClipboard(info) => self.copy_to_sys_clip(info)?,
-            Action::SetTuiHotMsg(msg, live_time, ali, color) => self.hot_msg.set_msg(&msg, live_time, ali, color),
+            Action::SetTuiHotMsg(msg, live_time, ali, color) => {
+                self.hot_msg.set_msg(&msg, live_time, ali, color)
+            }
         }
         Ok(())
     }
@@ -154,8 +158,12 @@ impl TUIApp {
                 self.back_screen();
             }
             if self.idle_tick.need_relock() {
-                self.hot_msg
-                    .set_msg("[!] AUTO RELOCK (idle)", Some(5), Some(Alignment::Center), None);
+                self.hot_msg.set_msg(
+                    "[!] AUTO RELOCK (idle)",
+                    Some(5),
+                    Some(Alignment::Center),
+                    None,
+                );
             }
         }
     }
@@ -167,33 +175,41 @@ impl TUIApp {
     /// 向 db 删除一个 entry，并更新 store_entry_count - 1
     fn remove_entry(&mut self, e_id: u32) {
         self.context.storage.delete_entry(e_id);
-        self.send_action(Action::FlashVecItems(None));
+        self.send_action(Action::FlashTUIAppEncEntries);
+        self.send_action(Action::FlashHomePageDisplayEncEntries);
     }
     /// 向 db 添加一个 entry，并更新 store_entry_count + 1
     fn insert_entry(&mut self, e: &ValidEntry) {
         self.context.storage.insert_entry(e);
-        self.send_action(Action::FlashVecItems(None));
+        self.send_action(Action::FlashTUIAppEncEntries);
+        self.send_action(Action::FlashHomePageDisplayEncEntries);
     }
 
     fn update_entry(&mut self, e: &ValidEntry, e_id: u32) {
         self.context.storage.update_entry(e, e_id);
-        self.send_action(Action::FlashVecItems(None));
+        self.send_action(Action::FlashTUIAppEncEntries);
+        self.send_action(Action::FlashHomePageDisplayEncEntries);
     }
 
-    /// 当前页面为 home_page 时 刷新 home_page 的 vec 从库里重新拿
-    /// 当不为 home_page时 Err
-    /// 该方法会更新高亮行位置
-    fn flash_vec(&mut self, find: Option<String>) -> Result<()> {
+    /// 通过从db文件中重新查询以更新 tui-app hashmap中载荷的加密实体
+    fn flash_tui_vec(&mut self) -> Result<()> {
+        let enc_entries: HashMap<_, _> = self
+            .context
+            .storage
+            .select_all_entry()
+            .into_iter()
+            .map(|e| (e.id, e))
+            .collect();
+        self.enc_entries = enc_entries;
+        Ok(())
+    }
+
+    fn flash_home_page_vec(&mut self) -> Result<()> {
         if let HomePageV1(state) = &mut self.screen {
-            let v_new = if let Some(f) = find {
-                self.context.storage.select_entry_by_about_like(&f)
-            } else {
-                self.context.storage.select_all_entry()
-            };
-            state.reset_entries(v_new);
+            state.reset_display_entries(self.enc_entries.values());
             Ok(())
         } else {
-            Err(anyhow!("current screen is not home_page screen, cannot flash"))
+            Err(anyhow!("not home_page screen, no find mode"))
         }
     }
 
@@ -211,21 +227,14 @@ impl TUIApp {
     fn turn_off_find_mode(&mut self) -> Result<()> {
         if let HomePageV1(state) = &mut self.screen {
             state.set_find_mode(false);
-            // 获取 find_input 值，刷新vec
-            if !state.current_find_input().is_empty() {
-                let f = state.current_find_input().into();
-                self.send_action(Action::FlashVecItems(Some(f)));
-            } else {
-                // 为空则全查
-                // state.entries =  self.pnt.storage.select_all_entry();
-                self.send_action(Action::FlashVecItems(None));
-                // 刷新光标位置
-            }
+            self.send_action(Action::FlashHomePageDisplayEncEntries);
             Ok(())
         } else {
             Err(anyhow!("not home_page screen, no find mode"))
         }
     }
+
+
 
     /// 这是验证通过的事件处理终端方法
     /// 该方法内将使当前pnt上下文持有给定的SecurityContext,

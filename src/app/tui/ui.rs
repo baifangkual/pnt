@@ -1,8 +1,6 @@
 use crate::app::consts::{ALLOC_INVALID_MAIN_PASS_MAX, KEY_LEFT_ICON};
 use crate::app::entry::InputEntry;
-use crate::app::tui::colors::{
-    CL_AK, CL_BLACK, CL_BLUE, CL_DD_WHITE, CL_D_RED, CL_LL_BLACK, CL_L_BLACK, CL_RED, CL_WHITE, CL_YELLOW,
-};
+use crate::app::tui::colors::{CL_AK, CL_BLACK, CL_BLUE, CL_DD_WHITE, CL_D_RED, CL_D_YELLOW, CL_LL_BLACK, CL_L_BLACK, CL_RED, CL_WHITE, CL_YELLOW};
 use crate::app::tui::components::states::VerifyMPHState;
 use crate::app::tui::components::yn::YNState;
 use crate::app::tui::components::Screen;
@@ -10,7 +8,7 @@ use crate::app::tui::ui::home_page::HomePageV1Widget;
 use crate::app::tui::{layout, TUIApp};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Offset, Rect};
-use ratatui::prelude::{Color, Layout, Line, Modifier, Style, Stylize, Widget};
+use ratatui::prelude::{Layout, Line, Modifier, Style, Stylize, Widget};
 use ratatui::prelude::{StatefulWidget, Text};
 use ratatui::widgets::{Block, BorderType, Borders, Padding};
 use ratatui::widgets::{Clear, Paragraph, Wrap};
@@ -40,7 +38,7 @@ impl Widget for &mut TUIApp {
             Screen::HomePageV1(state) => {
                 // find 框不为空，则右下提示当前生效
                 if state.find_mode() || !state.current_find_input_is_empty() {
-                    br_mode = Some(Paragraph::new("FIND").fg(CL_BLACK).bg(Color::Yellow));
+                    br_mode = Some(Paragraph::new("FIND").fg(CL_BLACK).bg(CL_D_YELLOW));
                     mode_show_len = 6; // 增加左右
                 }
 
@@ -55,7 +53,7 @@ impl Widget for &mut TUIApp {
                     0
                 };
                 self.state_info.clear();
-                self.state_info.push_str(&format!(" {}/{}", cur, state.entry_count()));
+                self.state_info.push_str(&format!(" {}/{}", cur, state.display_entries().len()));
             }
             Screen::Help(list_cursor) => {
                 self.hot_msg.set_always_if_none("󰌌 <ESC>|<Q> back, ↓↑jk scroll");
@@ -111,6 +109,8 @@ impl Widget for &mut TUIApp {
             Constraint::Length(bottom_right_state_info.len() as u16),
         ])
         .areas(bottom);
+
+
 
         // 总体页面右下角区域，显示信息
         Paragraph::new(bottom_right_state_info)

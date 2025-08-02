@@ -67,7 +67,10 @@ impl ScreenIntent {
                     Ok(YNOption(YNState::new_delete_tip(encrypted_entry)))
                 }
                 ScreenIntent::ToSaveYNOption(ve, e_id) => Ok(YNOption(YNState::new_save_tip(ve.clone(), *e_id))),
-                ScreenIntent::ToHomePageV1 => Ok(Screen::new_home_page1(&tui.context)),
+                ScreenIntent::ToHomePageV1 => {
+                    let all_enc: Vec<_> = tui.enc_entries.values().cloned().collect();
+                    Ok(Screen::new_home_page1(all_enc))
+                },
                 ScreenIntent::ToHelp => Ok(Screen::new_help()),
             }
         }

@@ -6,9 +6,11 @@ mod layout;
 mod rt;
 mod ui;
 
+use std::collections::HashMap;
 use crate::app::cfg::InnerCfg;
 use crate::app::consts::{APP_NAME, APP_NAME_AND_VERSION};
 use crate::app::context::PntContext;
+use crate::app::entry::EncryptedEntry;
 use crate::app::tui::colors::{CL_DD_WHITE, CL_DDD_WHITE};
 use crate::app::tui::events::EventQueue;
 use crate::app::tui::intents::ScreenIntent::ToHomePageV1;
@@ -54,21 +56,35 @@ impl TUIApp {
 
 /// 新建 tui
 fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
+    // 先载入
+    let vec_all_entry = pnt_context.storage.select_all_entry();
+    let mut hot_msg = HotMsg::new();
     // tui 情况下 处理 要求立即密码的情况
-    let (screen, hot_msg) = if pnt_context.is_need_mp_on_run() {
+    let screen = if pnt_context.is_need_mp_on_run() {
         let scr = Screen::new_input_main_pwd(ToHomePageV1, &pnt_context)?;
-        (scr, HotMsg::new())
+        hot_msg.set_msg(
+            &format!("| {} ", APP_NAME_AND_VERSION),
+            Some(5),
+            Some(Alignment::Right),
+            None,
+        ); // tui 启动时显示一次的提示
+        scr
     } else {
-        let scr = Screen::new_home_page1(&pnt_context);
-        let mut hm = HotMsg::new();
-        hm.set_msg(
+        let scr = Screen::new_home_page1(vec_all_entry.clone());
+        hot_msg.set_msg(
             &format!("| {} {} ", APP_NAME_AND_VERSION, "<F1> Help"),
             Some(5),
             Some(Alignment::Right),
             None,
         ); // tui 启动时显示一次的提示
-        (scr, hm)
+        scr
     };
+    
+    // 收集到hashmap
+    let enc_entries: HashMap<_, _> = vec_all_entry
+        .into_iter()
+        .map(|e| (e.id, e))
+        .collect();
 
     let app = TUIApp {
         running: true,
@@ -79,6 +95,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
         context: pnt_context,
         state_info: String::new(),
         hot_msg,
+        enc_entries
     };
     Ok(app)
 }
@@ -101,6 +118,9 @@ pub struct TUIApp {
     state_info: String,
     /// hot msg (tui界面底部bar显示临时信息，该字段面向渲染
     hot_msg: HotMsg,
+    /// 运行时，反映db文件中的被编码实体，与db应对应，完全体现db中实体状态及个数,
+    /// 该hashmap key为 entry的id
+    enc_entries: HashMap<u32, EncryptedEntry>,
 }
 
 struct HotMsg {
@@ -140,7 +160,10 @@ impl HotMsg {
     /// 设置消息，若给定 live_countdown 则为设置临时消息，
     /// 若无，则设置永久消息,
     /// 若align给定明确值，则将对应msg的alignment设定为对应值，否则msg的align为当前alignment
-    fn set_msg(&mut self, msg: &str, live_countdown: Option<u8>, align: Option<Alignment>, color: Option<Color>) {
+    fn set_msg(
+        &mut self, msg: &str, live_countdown: Option<u8>, align: Option<Alignment>,
+        color: Option<Color>,
+    ) {
         if let Some(l) = live_countdown {
             self.set_temp_msg(msg, l, align, color);
         } else {
@@ -167,7 +190,10 @@ impl HotMsg {
         self.clear_always_msg()
     }
     /// 设置临时消息，存活一定tick时间
-    fn set_temp_msg(&mut self, temp_msg: &str, live_countdown: u8, align: Option<Alignment>, color: Option<Color>) {
+    fn set_temp_msg(
+        &mut self, temp_msg: &str, live_countdown: u8, align: Option<Alignment>,
+        color: Option<Color>,
+    ) {
         self.temp_msg = Some(temp_msg.to_string());
         self.temp_msg_live_countdown = live_countdown;
         self.temp_msg_alignment = align;

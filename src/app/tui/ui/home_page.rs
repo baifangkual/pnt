@@ -1,4 +1,4 @@
-use crate::app::tui::colors::{CL_D_WHITE, CL_DD_WHITE, CL_LL_BLACK, CL_WHITE};
+use crate::app::tui::colors::{CL_D_WHITE, CL_DD_WHITE, CL_LL_BLACK, CL_WHITE, CL_D_YELLOW, CL_YELLOW};
 use crate::app::tui::components::states::HomePageV1State;
 use crate::app::tui::layout::RectExt;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -39,12 +39,9 @@ impl StatefulWidget for HomePageV1Widget {
 
         Paragraph::new("  ").fg(CL_D_WHITE).render(icon, buf);
 
-        // 当前已输入的查找要求值
-        let current_find_input = state.current_find_input();
-
         // find 时 框框 高亮
         if state.find_mode() {
-            find_input_block = find_input_block.fg(Color::Yellow);
+            find_input_block = find_input_block.fg(CL_D_YELLOW);
             find_input_block.render(rect_query, buf);
             state.render_text_area(query_line_rect, buf);
         } else {
@@ -55,9 +52,8 @@ impl StatefulWidget for HomePageV1Widget {
         }
 
         let rows = state
-            .entries()
+            .display_entries()
             .iter()
-            .filter(|&e| current_find_input.is_empty() || e.about.contains(current_find_input))
             .enumerate()
             .map(|(_, enc_entry)| {
                 // fix 这里得用 clone，否则引用一直持续到调用 render，但是那里又需要可变引用，遂不行

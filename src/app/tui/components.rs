@@ -1,7 +1,7 @@
 //! 组件，构成tui元素，能够响应事件
 
 use crate::app::context::PntContext;
-use crate::app::entry::InputEntry;
+use crate::app::entry::{EncryptedEntry, InputEntry};
 use crate::app::tui::TUIApp;
 use crate::app::tui::components::states::{Editing, EditingState, HomePageV1State, VerifyMPHState};
 use crate::app::tui::components::yn::YNState;
@@ -10,7 +10,7 @@ use crate::app::tui::intents::ScreenIntent;
 use crate::app::tui::intents::ScreenIntent::{ToDeleteYNOption, ToDetail, ToEditing, ToHelp, ToSaveYNOption};
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::tui::colors::CL_D_YELLOW;
+use crate::app::tui::colors::{CL_AK, CL_D_YELLOW};
 use ratatui::layout::Alignment;
 use ratatui::prelude::Color;
 use ratatui::widgets::ListState;
@@ -57,9 +57,8 @@ impl Screen {
     }
 
     /// 新建主页
-    pub fn new_home_page1(context: &PntContext) -> Self {
-        let vec = context.storage.select_all_entry();
-        Screen::HomePageV1(HomePageV1State::new(vec))
+    pub fn new_home_page1(enc_entries: Vec<EncryptedEntry>) -> Self {
+        Screen::HomePageV1(HomePageV1State::new(enc_entries))
     }
 
     /// 新建输入密码页面
@@ -158,7 +157,7 @@ impl EventHandler for TUIApp {
                     return ok_action(Action::TurnOffFindMode);
                 } else if !state.current_find_input_is_empty() {
                     state.clear_find_input();
-                    return ok_action(Action::FlashVecItems(None));
+                    return ok_action(Action::FlashHomePageDisplayEncEntries);
                 } else {
                     self.back_screen();
                 }
@@ -225,7 +224,7 @@ impl EventHandler for Screen {
                     // 可进入 查看，编辑，删除tip，新建 页面
                     // 若当前光标无所指，则只能 创建
                     if let Some(c_ptr) = state.cursor_selected() {
-                        let curr_ptr_e_id = state.entries()[c_ptr].id;
+                        let curr_ptr_e_id = state.display_entries()[c_ptr].id;
                         // open
                         if key_event.is_char('o') || key_event.is_enter() {
                             return ok_action(Action::ScreenIntent(ToDetail(curr_ptr_e_id)));
@@ -272,7 +271,7 @@ impl EventHandler for Screen {
                         _ => {
                             // 返回bool表示是否修改了，暂时用不到
                             let _ = state.find_input().input(key_event);
-                            ok_none()
+                            ok_action(Action::FlashHomePageDisplayEncEntries)
                         }
                     }
                 }
@@ -306,7 +305,7 @@ impl EventHandler for Screen {
                             "[󰅉] Password has been copied to the system clipboard".into(),
                             Some(5),
                             None,
-                            Some(Color::LightRed),
+                            Some(CL_AK),
                         ),
                     ]);
                     return ok_action(copy_pwd_and_hot_msg_actions);

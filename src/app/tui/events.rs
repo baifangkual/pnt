@@ -46,8 +46,10 @@ pub enum Action {
     EntryUpdate(ValidEntry, u32),
     /// 删除加密实体，u32为id
     EntryRemove(u32),
-    /// 在home_page 刷新 载荷 entries 的 vec，若该携带Some，则使用其中str做查询
-    FlashVecItems(Option<String>),
+    /// 刷寻 tui-app 载荷的 enc_entries
+    FlashTUIAppEncEntries,
+    /// 刷新 home-page 显示的 entries
+    FlashHomePageDisplayEncEntries,
     /// 主密码校验成功时会载荷 securityContext
     MainPwdVerifySuccess(SecurityContext),
     /// 复制内容到系统剪贴板
