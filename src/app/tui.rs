@@ -64,7 +64,7 @@ fn new_runtime(pnt_context: PntContext) -> anyhow::Result<TUIApp> {
         let scr = Screen::new_screen_intent_verify(ToHomePageV1, &pnt_context)?;
         hot_msg.set_msg(
             &format!("| {} ", APP_NAME_AND_VERSION),
-            Some(5),
+            Some(255),
             Some(Alignment::Right),
             None,
         ); // tui 启动时显示一次的提示

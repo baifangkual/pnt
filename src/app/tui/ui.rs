@@ -32,6 +32,7 @@ impl Widget for &mut TUIApp {
         let mut br_mode: Option<Paragraph> = None;
         // 显示mode的长度
         let mut mode_show_len = 0;
+        let mut current_screen_is_need_main_pwd = false;
 
         // 渲染当前屏幕
         match &mut self.screen {
@@ -97,11 +98,16 @@ impl Widget for &mut TUIApp {
             Screen::InputMainPwd(state) => {
                 let rect = layout::centered_fixed(40, 8, middle); // 8-height 40 temp test
                 state.render(rect, buf);
+                current_screen_is_need_main_pwd = true;
             }
         }
 
         // 页面右下角 当前/总共 entry 信息
-        let bottom_right_display_str = self.bottom_right_state.display.as_str();
+        let bottom_right_display_str = if current_screen_is_need_main_pwd {
+            " -/-"
+        } else {
+            self.bottom_right_state.display.as_str()
+        };
 
         // 对bottom 横条横向切分
         let [bl, br1_dyn, bc, br2_dyn] = Layout::horizontal([
@@ -271,8 +277,8 @@ impl Widget for &InputEntry {
         .split(area);
 
         let b_name = Block::bordered().title(" 󰦨 about ").fg(CL_WHITE);
-        let b_ident = Block::bordered().title(" 󰌿 username ").fg(CL_RED);
-        let b_password = Block::bordered().title(" 󰌿 password ").fg(CL_RED);
+        let b_ident = Block::bordered().title(" 󰌿 username ").fg(CL_AK);
+        let b_password = Block::bordered().title(" 󰌿 password ").fg(CL_AK);
         let b_description = Block::bordered().title(" 󰦨 notes ").fg(CL_WHITE);
 
         Paragraph::new(name).block(b_name).render(rc[0], buf);
